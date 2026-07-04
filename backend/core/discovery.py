@@ -126,14 +126,26 @@ def classify_host(ip, services):
     elif any(r["id"] == "blockchain_node" for r in roles):
         primary_role = "Blockchain Node Host"
 
-    return {
+    profile_stub = {
+        "hostname": resolve_hostname(ip),
+        "assetType": None,
+        "os": "Unknown",
+        "agent": "Not installed"
+    }
+
+    result = {
         "ip": ip,
         "primaryRole": primary_role,
         "openPorts": open_ports,
         "roles": roles,
         "fingerprints": fingerprint_host(ip, services),
         "serviceCount": len(services),
+        "profile": profile_stub
     }
+
+    result["profile"]["assetType"] = infer_asset_type(result)
+
+    return result
 
 
 def summarize_results(found):
@@ -162,6 +174,25 @@ def summarize_results(found):
 
     return summary
 
+
+
+def resolve_hostname(ip):
+    try:
+        return socket.gethostbyaddr(ip)[0]
+    except Exception:
+        return None
+
+
+def infer_asset_type(system):
+    role = system.get("primaryRole", "")
+
+    if "Full Mining Stack" in role:
+        return "Infrastructure Host"
+    if "Blockchain" in role:
+        return "Blockchain Node"
+    if "Mining Backend" in role:
+        return "Mining Backend"
+    return "Unknown Asset"
 
 def scan_targets(ips):
     targets = []

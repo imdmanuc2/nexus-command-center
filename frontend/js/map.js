@@ -32,7 +32,10 @@ function openDrawer(system) {
     <h2>${system.asset?.name || system.ip}</h2>
     <p class="drawer-subtitle">${system.primaryRole}</p>
 
+    <div class="drawer-section"><label>Asset Type</label><strong>${system.profile?.assetType || 'Unknown'}</strong></div>
+    <div class="drawer-section"><label>Hostname</label><strong>${system.profile?.hostname || 'Not resolved'}</strong></div>
     <div class="drawer-section"><label>IP Address</label><strong>${system.ip}</strong></div>
+    <div class="drawer-section"><label>Nexus Agent</label><strong>${system.profile?.agent || 'Not installed'}</strong></div>
     <div class="drawer-section"><label>Mining Group</label><strong>${system.asset?.poolGroup || 'Unassigned'}</strong></div>
     <div class="drawer-section"><label>Purpose</label><strong>${system.asset?.purpose || 'Unknown'}</strong></div>
     <div class="drawer-section"><label>Detected Roles</label><div class="role-pills">${roles}</div></div>
