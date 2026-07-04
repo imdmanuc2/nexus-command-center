@@ -12,11 +12,39 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 h1 { font-size: 46px; margin: 0; }
 p { color: #93c5fd; }
+
+h2 {
+  margin-top: 34px;
+  color: #dbeafe;
+}
+
+.nav {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.nav a {
+  color: #93c5fd;
+  text-decoration: none;
+  border: 1px solid #31527f;
+  background: #081225;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: bold;
+}
+
+.nav a.active {
+  color: #39ff88;
+  border-color: #14532d;
+  background: #052e1a;
+}
 
 .status {
   padding: 10px 14px;
@@ -28,20 +56,20 @@ p { color: #93c5fd; }
 
 .status.healthy { color: #39ff88; border-color: #14532d; }
 
-.grid {
+.hero-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: 2fr 1fr 1fr;
   gap: 16px;
 }
 
-.card {
+.hero-card, .card, .list-card {
   background: rgba(8,18,37,.94);
   border: 1px solid #31527f;
   border-radius: 22px;
   padding: 22px;
 }
 
-.card span {
+.hero-card span, .card span {
   display: block;
   color: #93c5fd;
   text-transform: uppercase;
@@ -50,6 +78,63 @@ p { color: #93c5fd; }
   margin-bottom: 12px;
 }
 
+.hero-card strong {
+  display: block;
+  font-size: 46px;
+  color: #39ff88;
+}
+
+.hero-card small {
+  color: #93c5fd;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
 .card strong {
   font-size: 38px;
+}
+
+.system-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid #1e3a5f;
+}
+
+.system-row:last-child { border-bottom: none; }
+
+.system-row strong {
+  font-size: 20px;
+}
+
+.system-row small {
+  display: block;
+  color: #93c5fd;
+  margin-top: 6px;
+}
+
+.system-row ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #bfdbfe;
+}
+
+.system-row li {
+  margin-bottom: 5px;
+}
+
+@media (max-width: 900px) {
+  .hero-grid, .grid, .system-row {
+    grid-template-columns: 1fr;
+  }
+
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

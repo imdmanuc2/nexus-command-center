@@ -15,14 +15,47 @@
       <div id="status" class="status">Loading...</div>
     </header>
 
+    <nav class="nav">
+      <a class="active" href="/">Command Center</a>
+      <a href="#">Discovery</a>
+      <a href="#">Mining</a>
+      <a href="#">Nodes</a>
+      <a href="#">ASICs</a>
+      <a href="#">Settings</a>
+    </nav>
+
+    <section class="hero-grid">
+      <div class="hero-card">
+        <span>Overall Health</span>
+        <strong id="overall">—</strong>
+        <small>Current infrastructure status</small>
+      </div>
+
+      <div class="hero-card">
+        <span>Mining Systems</span>
+        <strong id="systems">—</strong>
+        <small>Systems discovered on your network</small>
+      </div>
+
+      <div class="hero-card danger-check">
+        <span>Alerts</span>
+        <strong id="alerts">—</strong>
+        <small>Issues needing attention</small>
+      </div>
+    </section>
+
+    <h2>Mining Infrastructure</h2>
+
     <section class="grid">
-      <div class="card"><span>Systems</span><strong id="systems">—</strong></div>
       <div class="card"><span>Blockchain Nodes</span><strong id="nodes">—</strong></div>
-      <div class="card"><span>Mining Backends</span><strong id="backends">—</strong></div>
-      <div class="card"><span>Dashboards</span><strong id="dashboards">—</strong></div>
-      <div class="card"><span>Stratum</span><strong id="stratum">—</strong></div>
+      <div class="card"><span>Mining Services</span><strong id="backends">—</strong></div>
+      <div class="card"><span>Stratum Servers</span><strong id="stratum">—</strong></div>
       <div class="card"><span>RPC Endpoints</span><strong id="rpc">—</strong></div>
-      <div class="card"><span>Alerts</span><strong id="alerts">—</strong></div>
+    </section>
+
+    <h2>Detected Systems</h2>
+    <section id="systemsList" class="list-card">
+      Loading discovered systems...
     </section>
   </main>
 
