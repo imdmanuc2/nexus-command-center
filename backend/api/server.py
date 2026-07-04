@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-from datetime import datetime, timezone
 
-from backend.core.connectors import ConnectorManager
+from backend.modules import system
+from backend.modules import connectors
+from backend.modules import discovery
 
 APP_NAME = "Nexus Command Center"
-VERSION = "0.1.0-alpha"
-BIRTH_DATE = "2026-07-04"
-
-connector_manager = ConnectorManager()
 
 
 def json_response(payload, status=200):
@@ -25,39 +22,23 @@ class NexusHandler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_GET(self):
+        routes = {
+            "/api/system/status": system.status,
+            "/api/connectors/status": connectors.status,
+            "/api/discovery/scan": discovery.scan,
+        }
+
         if self.path == "/api":
             status, payload = json_response({
                 "message": "Nexus API online",
-                "endpoints": [
-                    "/api/system/status",
-                    "/api/connectors/status"
-                ]
+                "endpoints": sorted(routes.keys())
             })
             return self._send_json(payload, status)
 
-        if self.path == "/api/system/status":
-            status, payload = json_response({
-                "platform": "Nexus",
-                "app": APP_NAME,
-                "version": VERSION,
-                "birthDate": BIRTH_DATE,
-                "status": "online",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "services": {
-                    "commandCenter": "online",
-                    "setupWizard": "planned",
-                    "connectorManager": "online",
-                    "discoveryEngine": "planned",
-                    "signals": "planned"
-                }
-            })
-            return self._send_json(payload, status)
+        handler = routes.get(self.path)
 
-        if self.path == "/api/connectors/status":
-            status, payload = json_response({
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "connectors": connector_manager.status()
-            })
+        if handler:
+            status, payload = json_response(handler())
             return self._send_json(payload, status)
 
         status, payload = json_response({"error": "Not found"}, 404)
