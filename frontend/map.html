@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Nexus Infrastructure Map</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div>
+        <h1>Nexus Infrastructure Map</h1>
+        <p>Visual map of your mining operation.</p>
+      </div>
+    </header>
+
+    <nav class="nav">
+      <a href="/">Command Center</a>
+      <a class="active" href="/map.html">Infrastructure Map</a>
+      <a href="#">Mining</a>
+      <a href="#">Nodes</a>
+      <a href="#">ASICs</a>
+      <a href="#">Settings</a>
+    </nav>
+
+    <section class="map-card">
+      <div class="map-layer internet">🌐 Internet / LAN</div>
+      <div class="map-line"></div>
+      <div id="mapGroups" class="map-groups">Loading infrastructure...</div>
+    </section>
+  </main>
+
+  <aside id="drawer" class="drawer">
+    <button id="drawerClose" class="drawer-close">×</button>
+    <div id="drawerContent"></div>
+  </aside>
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+
+  <script src="/js/map.js"></script>
+</body>
+</html>

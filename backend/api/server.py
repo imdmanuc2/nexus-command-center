@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-import os
 
 from backend.modules import system
 from backend.modules import connectors
@@ -39,6 +38,8 @@ class NexusHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path == "/index.html":
             return self._send_file("frontend/index.html", "text/html")
+        if self.path == "/map.html":
+            return self._send_file("frontend/map.html", "text/html")
         if self.path.startswith("/css/"):
             return self._send_file("frontend" + self.path, "text/css")
         if self.path.startswith("/js/"):
@@ -66,8 +67,6 @@ class NexusHandler(BaseHTTPRequestHandler):
 
         status, payload = json_response({"error": "Not found"}, 404)
         return self._send_json(payload, status)
-
-
 
     def do_POST(self):
         if self.path == "/api/assets/update":

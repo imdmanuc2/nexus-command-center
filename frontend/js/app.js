@@ -7,7 +7,7 @@ function byId(id) {
 
 async function assignPool(system) {
   const current = system.asset?.poolGroup || "";
-  const poolGroup = prompt("Enter pool/group name:", current);
+  const poolGroup = prompt("Enter mining group name:", current);
 
   if (poolGroup === null) return;
 
@@ -72,14 +72,14 @@ function openDrawer(system) {
 
     <div class="drawer-section"><label>IP Address</label><strong>${system.ip}</strong></div>
     <div class="drawer-section"><label>Purpose</label><strong>${system.asset?.purpose || 'Unknown'}</strong></div>
-    <div class="drawer-section"><label>Pool / Group</label><strong>${system.asset?.poolGroup || 'Not assigned'}</strong></div>
+    <div class="drawer-section"><label>Mining Group</label><strong>${system.asset?.poolGroup || 'Not assigned'}</strong></div>
     <div class="drawer-section"><label>Detected Roles</label><div class="role-pills">${roles}</div></div>
     <div class="drawer-section"><label>Confirmed Services</label><div class="fingerprints">${fingerprints || 'No confirmed services yet.'}</div></div>
     <div class="drawer-section"><label>Open Services</label><ul>${serviceRows}</ul></div>
 
     <div class="drawer-actions">
       <button onclick="renameAsset(latestSystems.find(s => s.ip === '${system.ip}'))">Rename</button>
-      <button onclick="assignPool(latestSystems.find(s => s.ip === '${system.ip}'))">Assign Pool</button>
+      <button onclick="assignPool(latestSystems.find(s => s.ip === '${system.ip}'))">Assign Mining Group</button>
       <button>View Logs</button>
     </div>
   `;
@@ -87,6 +87,40 @@ function openDrawer(system) {
   byId('drawer')?.classList.add('open');
   byId('drawerBackdrop')?.classList.add('open');
 }
+
+
+function renderTopology() {
+  const groups = {};
+
+  latestSystems.forEach(system => {
+    const group = system.asset?.poolGroup || "Unassigned";
+    if (!groups[group]) groups[group] = [];
+    groups[group].push(system);
+  });
+
+  const html = Object.entries(groups).map(([group, systems]) => {
+    const nodes = systems.map(system => `
+      <div class="topology-node" onclick="openDrawer(latestSystems.find(s => s.ip === '${system.ip}'))">
+        <div class="node-status"></div>
+        <strong>${system.asset?.name || system.ip}</strong>
+        <span>${system.primaryRole}</span>
+        <small>${system.ip}</small>
+      </div>
+    `).join('');
+
+    return `
+      <div class="topology-group">
+        <div class="topology-title">⛏ ${group}</div>
+        <div class="topology-line"></div>
+        <div class="topology-nodes">${nodes}</div>
+      </div>
+    `;
+  }).join('');
+
+  const el = byId('topologyView');
+  if (el) el.innerHTML = html || 'No topology available.';
+}
+
 
 async function loadSummary() {
   const summaryRes = await fetch('/api/dashboard/summary');
@@ -131,7 +165,7 @@ async function loadSummary() {
           <div class="system-ip">${system.ip}</div>
           <div class="primary-role">${system.primaryRole}</div>
           <small>${system.serviceCount} services detected</small>
-          <div class="asset-meta">${system.asset?.poolGroup ? 'Pool: ' + system.asset.poolGroup : 'No pool assigned'}</div>
+          <div class="asset-meta">${system.asset?.poolGroup ? 'Mining Group: ' + system.asset.poolGroup : 'No mining group assigned'}</div>
           <div class="role-pills">${rolePills}</div>
           <div class="fingerprints">${fingerprints}</div>
         </div>
