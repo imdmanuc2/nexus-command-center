@@ -2,9 +2,6 @@ async function loadSummary() {
   const summaryRes = await fetch('/api/dashboard/summary');
   const data = await summaryRes.json();
 
-  document.getElementById('status').textContent = data.status.toUpperCase();
-  document.getElementById('status').className = 'status ' + data.status;
-
   document.getElementById('overall').textContent = data.status.toUpperCase();
   document.getElementById('systems').textContent = data.systems;
   document.getElementById('nodes').textContent = data.blockchainNodes;
