@@ -11,7 +11,7 @@ def summary():
         alerts += 1
     if s.get("blockchainNodes", 0) == 0:
         alerts += 1
-    if s.get("miningCoreApis", 0) == 0:
+    if s.get("miningBackends", 0) == 0:
         alerts += 1
 
     return {
@@ -19,7 +19,7 @@ def summary():
         "status": "healthy" if alerts == 0 else "warning",
         "systems": s.get("miningSystems", 0),
         "blockchainNodes": s.get("blockchainNodes", 0),
-        "miningBackends": s.get("miningCoreApis", 0),
+        "miningBackends": s.get("miningBackends", 0),
         "dashboards": s.get("dashboards", 0),
         "stratumServers": s.get("stratumServers", 0),
         "rpcEndpoints": s.get("rpcEndpoints", 0),

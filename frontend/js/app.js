@@ -13,19 +13,30 @@ async function loadSummary() {
   const discoveryRes = await fetch('/api/discovery/scan');
   const discovery = await discoveryRes.json();
 
-  const grouped = {};
-  discovery.discovery.found.forEach(item => {
-    if (!grouped[item.ip]) grouped[item.ip] = [];
-    grouped[item.ip].push(item);
-  });
+  const systems = discovery.discovery.systems || [];
+  const found = discovery.discovery.found || [];
 
-  const html = Object.entries(grouped).map(([ip, services]) => {
-    const rows = services.map(s => `<li>${s.service} <b>:${s.port}</b></li>`).join('');
+  const html = systems.map(system => {
+    const services = found.filter(item => item.ip === system.ip);
+
+    const rolePills = system.roles.map(role => `
+      <span class="role-pill">${role.label} ${role.confidence}%</span>
+    `).join('');
+
+    const rows = services.map(s => `
+      <li>
+        <span>${s.service}</span>
+        <b>:${s.port}</b>
+      </li>
+    `).join('');
+
     return `
       <div class="system-row">
         <div>
-          <strong>${ip}</strong>
-          <small>${services.length} services detected</small>
+          <strong>${system.ip}</strong>
+          <div class="primary-role">${system.primaryRole}</div>
+          <small>${system.serviceCount} services detected</small>
+          <div class="role-pills">${rolePills}</div>
         </div>
         <ul>${rows}</ul>
       </div>
