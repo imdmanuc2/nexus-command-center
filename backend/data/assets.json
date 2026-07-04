@@ -1,0 +1,18 @@
+{
+  "192.168.1.154": {
+    "name": "Mining System 1",
+    "purpose": "Mining",
+    "favorite": false,
+    "notes": "",
+    "tags": [],
+    "createdAutomatically": true
+  },
+  "192.168.1.156": {
+    "name": "Mining System 2",
+    "purpose": "Mining",
+    "favorite": false,
+    "notes": "",
+    "tags": [],
+    "createdAutomatically": true
+  }
+}

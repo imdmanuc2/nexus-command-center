@@ -2,6 +2,7 @@ import socket
 import json
 from urllib.request import urlopen, Request
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from backend.core.assets import discover_asset
 
 
 COMMON_PORTS = {
@@ -185,10 +186,14 @@ def scan_targets(ips):
     for item in found:
         grouped.setdefault(item["ip"], []).append(item)
 
-    systems = [
-        classify_host(ip, services)
-        for ip, services in sorted(grouped.items())
-    ]
+        systems = []
+
+    for ip, services in sorted(grouped.items()):
+
+        s = classify_host(ip, services)
+        s["asset"] = discover_asset(s)
+
+        systems.append(s)
 
     return {
         "targets": ips,
