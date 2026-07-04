@@ -5,6 +5,7 @@ import json
 from backend.modules import system
 from backend.modules import connectors
 from backend.modules import discovery
+from backend.modules import dashboard
 
 APP_NAME = "Nexus Command Center"
 
@@ -26,6 +27,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/system/status": system.status,
             "/api/connectors/status": connectors.status,
             "/api/discovery/scan": discovery.scan,
+            "/api/dashboard/summary": dashboard.summary,
         }
 
         if self.path == "/api":
