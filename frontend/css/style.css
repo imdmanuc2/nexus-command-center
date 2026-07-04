@@ -213,3 +213,33 @@ h2 {
   display: flex;
   gap: 6px;
 }
+
+.fingerprints {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.fingerprint {
+  border: 1px solid #31527f;
+  background: rgba(2, 6, 23, .55);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.fingerprint.confirmed {
+  border-color: #14532d;
+  background: rgba(5, 46, 26, .7);
+}
+
+.fingerprint.detected {
+  border-color: #31527f;
+}
+
+.fingerprint b {
+  color: #39ff88;
+}

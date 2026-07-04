@@ -1,4 +1,6 @@
 import socket
+import json
+from urllib.request import urlopen, Request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
@@ -51,6 +53,55 @@ def check_port(ip, port, timeout=0.5):
         return None
 
 
+
+def probe_http_json(url, timeout=1.5):
+    try:
+        req = Request(url, headers={"User-Agent": "Nexus-Discovery/0.1"})
+        with urlopen(req, timeout=timeout) as r:
+            body = r.read(750000).decode("utf-8", errors="ignore")
+            return json.loads(body)
+    except Exception:
+        return None
+
+
+def fingerprint_host(ip, services):
+    fingerprints = []
+
+    open_ports = [item["port"] for item in services]
+
+    if 4000 in open_ports:
+        data = probe_http_json(f"http://{ip}:4000/api/pools/bch")
+        if data:
+            fingerprints.append({
+                "type": "miningcore",
+                "label": "MiningCore API",
+                "status": "confirmed",
+                "endpoint": f"http://{ip}:4000/api/pools/bch",
+                "confidence": 100
+            })
+
+    if 8560 in open_ports:
+        data = probe_http_json(f"http://{ip}:8560/api/pools/bch")
+        if data:
+            fingerprints.append({
+                "type": "miningcore",
+                "label": "MiningCore API",
+                "status": "confirmed",
+                "endpoint": f"http://{ip}:8560/api/pools/bch",
+                "confidence": 100
+            })
+
+    if 5007 in open_ports:
+        fingerprints.append({
+            "type": "bch-node-app",
+            "label": "Bitcoin Cash Node App Proxy",
+            "status": "detected",
+            "endpoint": f"http://{ip}:5007",
+            "confidence": 80
+        })
+
+    return fingerprints
+
 def classify_host(ip, services):
     open_ports = sorted([item["port"] for item in services])
     roles = []
@@ -79,6 +130,7 @@ def classify_host(ip, services):
         "primaryRole": primary_role,
         "openPorts": open_ports,
         "roles": roles,
+        "fingerprints": fingerprint_host(ip, services),
         "serviceCount": len(services),
     }
 

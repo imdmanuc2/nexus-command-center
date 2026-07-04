@@ -23,6 +23,13 @@ async function loadSummary() {
       <span class="role-pill">${role.label} ${role.confidence}%</span>
     `).join('');
 
+    const fingerprints = (system.fingerprints || []).map(fp => `
+      <div class="fingerprint ${fp.status}">
+        <span>${fp.label}</span>
+        <b>${fp.status.toUpperCase()}</b>
+      </div>
+    `).join('');
+
     const rows = services.map(s => `
       <li>
         <span>${s.service}</span>
@@ -37,6 +44,7 @@ async function loadSummary() {
           <div class="primary-role">${system.primaryRole}</div>
           <small>${system.serviceCount} services detected</small>
           <div class="role-pills">${rolePills}</div>
+          <div class="fingerprints">${fingerprints}</div>
         </div>
         <ul>${rows}</ul>
       </div>
