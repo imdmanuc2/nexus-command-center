@@ -52,6 +52,7 @@ def scan_targets(ips):
 
     return {
         "targets": ips,
+        "summary": summarize_results(found),
         "found": found,
         "count": len(found)
     }
@@ -59,3 +60,30 @@ def scan_targets(ips):
 
 def scan_network():
     return scan_targets(["192.168.1.154", "192.168.1.156"])
+
+
+def summarize_results(found):
+    summary = {
+        "miningSystems": len(set(item["ip"] for item in found)),
+        "blockchainNodes": 0,
+        "miningCoreApis": 0,
+        "dashboards": 0,
+        "stratumServers": 0,
+        "rpcEndpoints": 0
+    }
+
+    for item in found:
+        port = item["port"]
+
+        if port in [8334]:
+            summary["blockchainNodes"] += 1
+        elif port in [4000, 7002, 8560]:
+            summary["miningCoreApis"] += 1
+        elif port in [8559]:
+            summary["dashboards"] += 1
+        elif port in [6001]:
+            summary["stratumServers"] += 1
+        elif port in [8332, 9002]:
+            summary["rpcEndpoints"] += 1
+
+    return summary
