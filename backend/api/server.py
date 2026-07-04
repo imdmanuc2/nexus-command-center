@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import os
 
 from backend.modules import system
 from backend.modules import connectors
@@ -22,7 +23,26 @@ class NexusHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _send_file(self, file_path, content_type):
+        try:
+            with open(file_path, "rb") as f:
+                data = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.end_headers()
+            self.wfile.write(data)
+        except FileNotFoundError:
+            status, payload = json_response({"error": "File not found"}, 404)
+            self._send_json(payload, status)
+
     def do_GET(self):
+        if self.path == "/" or self.path == "/index.html":
+            return self._send_file("frontend/index.html", "text/html")
+        if self.path.startswith("/css/"):
+            return self._send_file("frontend" + self.path, "text/css")
+        if self.path.startswith("/js/"):
+            return self._send_file("frontend" + self.path, "application/javascript")
+
         routes = {
             "/api/system/status": system.status,
             "/api/connectors/status": connectors.status,
