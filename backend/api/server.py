@@ -7,6 +7,7 @@ from backend.modules import system
 from backend.modules import connectors
 from backend.modules import discovery
 from backend.modules import dashboard
+from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
 
@@ -62,6 +63,33 @@ class NexusHandler(BaseHTTPRequestHandler):
         if handler:
             status, payload = json_response(handler())
             return self._send_json(payload, status)
+
+        status, payload = json_response({"error": "Not found"}, 404)
+        return self._send_json(payload, status)
+
+
+
+    def do_POST(self):
+        if self.path == "/api/assets/update":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length).decode("utf-8")
+                data = json.loads(body)
+
+                ip = data.get("ip")
+                updates = data.get("updates", {})
+
+                if not ip:
+                    status, payload = json_response({"error": "Missing ip"}, 400)
+                    return self._send_json(payload, status)
+
+                asset = update_asset(ip, updates)
+                status, payload = json_response({"success": True, "asset": asset})
+                return self._send_json(payload, status)
+
+            except Exception as e:
+                status, payload = json_response({"error": str(e)}, 500)
+                return self._send_json(payload, status)
 
         status, payload = json_response({"error": "Not found"}, 404)
         return self._send_json(payload, status)

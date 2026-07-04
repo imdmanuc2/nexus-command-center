@@ -367,3 +367,9 @@ html, body {
 .drawer.open {
   transform: translateX(0);
 }
+
+.asset-meta {
+  color: #93c5fd;
+  font-size: 12px;
+  margin-top: 6px;
+}

@@ -51,3 +51,26 @@ def discover_asset(system):
         save_assets(db)
 
     return db[ip]
+
+
+def update_asset(ip, updates):
+    db = load_assets()
+
+    if ip not in db:
+        db[ip] = {
+            "name": ip,
+            "purpose": "Unknown",
+            "favorite": False,
+            "notes": "",
+            "tags": [],
+            "createdAutomatically": False
+        }
+
+    allowed = ["name", "purpose", "favorite", "notes", "tags", "poolGroup", "location"]
+
+    for key, value in updates.items():
+        if key in allowed:
+            db[ip][key] = value
+
+    save_assets(db)
+    return db[ip]

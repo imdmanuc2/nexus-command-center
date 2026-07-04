@@ -5,6 +5,44 @@ function byId(id) {
   return document.getElementById(id);
 }
 
+async function assignPool(system) {
+  const current = system.asset?.poolGroup || "";
+  const poolGroup = prompt("Enter pool/group name:", current);
+
+  if (poolGroup === null) return;
+
+  await fetch("/api/assets/update", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      ip: system.ip,
+      updates: {poolGroup: poolGroup.trim()}
+    })
+  });
+
+  closeDrawer();
+  await loadSummary();
+}
+
+async function renameAsset(system) {
+  const current = system.asset?.name || system.ip;
+  const name = prompt("Enter friendly name:", current);
+
+  if (!name || name.trim() === "") return;
+
+  await fetch("/api/assets/update", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      ip: system.ip,
+      updates: {name: name.trim()}
+    })
+  });
+
+  closeDrawer();
+  await loadSummary();
+}
+
 function closeDrawer() {
   byId('drawer')?.classList.remove('open');
   byId('drawerBackdrop')?.classList.remove('open');
@@ -34,13 +72,14 @@ function openDrawer(system) {
 
     <div class="drawer-section"><label>IP Address</label><strong>${system.ip}</strong></div>
     <div class="drawer-section"><label>Purpose</label><strong>${system.asset?.purpose || 'Unknown'}</strong></div>
+    <div class="drawer-section"><label>Pool / Group</label><strong>${system.asset?.poolGroup || 'Not assigned'}</strong></div>
     <div class="drawer-section"><label>Detected Roles</label><div class="role-pills">${roles}</div></div>
     <div class="drawer-section"><label>Confirmed Services</label><div class="fingerprints">${fingerprints || 'No confirmed services yet.'}</div></div>
     <div class="drawer-section"><label>Open Services</label><ul>${serviceRows}</ul></div>
 
     <div class="drawer-actions">
-      <button>Rename</button>
-      <button>Assign Pool</button>
+      <button onclick="renameAsset(latestSystems.find(s => s.ip === '${system.ip}'))">Rename</button>
+      <button onclick="assignPool(latestSystems.find(s => s.ip === '${system.ip}'))">Assign Pool</button>
       <button>View Logs</button>
     </div>
   `;
@@ -92,6 +131,7 @@ async function loadSummary() {
           <div class="system-ip">${system.ip}</div>
           <div class="primary-role">${system.primaryRole}</div>
           <small>${system.serviceCount} services detected</small>
+          <div class="asset-meta">${system.asset?.poolGroup ? 'Pool: ' + system.asset.poolGroup : 'No pool assigned'}</div>
           <div class="role-pills">${rolePills}</div>
           <div class="fingerprints">${fingerprints}</div>
         </div>
