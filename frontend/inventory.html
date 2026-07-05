@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Nexus Inventory</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div>
+        <h1>Nexus Inventory</h1>
+        <p>Permanent catalog of infrastructure assets.</p>
+      </div>
+    </header>
+
+    <nav class="nav">
+      <a href="/">Command Center</a>
+      <a href="/map.html">Infrastructure Map</a>
+      <a class="active" href="/inventory.html">Inventory</a>
+      <a href="#">Mining</a>
+      <a href="#">Nodes</a>
+      <a href="#">ASICs</a>
+      <a href="#">Settings</a>
+    </nav>
+
+    <section id="inventoryList" class="inventory-grid">
+      Loading inventory...
+    </section>
+  </main>
+
+  <aside id="drawer" class="drawer">
+    <button id="drawerClose" class="drawer-close">×</button>
+    <div id="drawerContent"></div>
+  </aside>
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+
+  <script src="/js/inventory.js"></script>
+</body>
+</html>

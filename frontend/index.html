@@ -6,66 +6,39 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <main class="wrap">
+  <main class="wrap command-wrap">
     <header>
       <div>
         <h1>Nexus Command Center</h1>
-        <p>The operating console for mining.</p>
+        <p>The operating console for your mining company.</p>
       </div>
     </header>
 
     <nav class="nav">
       <a class="active" href="/">Command Center</a>
-      <a href="/map.html">Infrastructure Map</a>
+      <a href="/map.html">Infrastructure</a>
+      <a href="/inventory.html">Inventory</a>
       <a href="#">Mining</a>
-      <a href="#">Nodes</a>
-      <a href="#">ASICs</a>
+      <a href="#">Discovery</a>
       <a href="#">Settings</a>
     </nav>
 
-    <section class="hero-grid">
-      <div class="hero-card">
-        <span>Overall Health <button class="info" data-tip="Overall condition of your detected mining infrastructure.">i</button></span>
-        <strong id="overall">—</strong>
-        <small>Current infrastructure status</small>
+    <section class="nexus-wow-shell">
+      <div class="nexus-wow-top">
+        <div>
+          <span class="section-label">Live Mining Command Center</span>
+          <strong>BCH Solo Mining Dashboard</strong>
+          <small>Powered by your live MiningCore stack at 192.168.1.154</small>
+        </div>
+        <a class="primary-link" href="http://192.168.1.154:8559/" target="_blank">Open Full Dashboard →</a>
       </div>
 
-      <div class="hero-card">
-        <span>Mining Systems <button class="info" data-tip="Number of mining-related systems Nexus found on your network.">i</button></span>
-        <strong id="systems">—</strong>
-        <small>Systems discovered on your network</small>
-      </div>
-
-      <div class="hero-card danger-check">
-        <span>Alerts <button class="info" data-tip="Issues Nexus thinks need your attention.">i</button></span>
-        <strong id="alerts">—</strong>
-        <small>Issues needing attention</small>
-      </div>
-    </section>
-
-    <h2>Mining Infrastructure</h2>
-
-    <section class="grid">
-      <div class="card"><span>Blockchain Nodes <button class="info" data-tip="Detected blockchain node services such as BCH node P2P/RPC.">i</button></span><strong id="nodes">—</strong></div>
-      <div class="card"><span>Infrastructure Services <button class="info" data-tip="Detected mining backend services such as MiningCore APIs.">i</button></span><strong id="backends">—</strong></div>
-      <div class="card"><span>Stratum Servers <button class="info" data-tip="Stratum ports miners connect to for mining work.">i</button></span><strong id="stratum">—</strong></div>
-      <div class="card"><span>RPC Endpoints <button class="info" data-tip="Remote procedure call endpoints used by nodes and services.">i</button></span><strong id="rpc">—</strong></div>
-    </section>
-
-    <h2>Infrastructure Assets</h2>
-    <section id="systemsList" class="list-card">
-      Loading discovered systems...
+      <iframe
+        class="nexus-dashboard-frame"
+        src="http://192.168.1.154:8559/"
+        title="BCH Solo Mining Dashboard">
+      </iframe>
     </section>
   </main>
-
-  <script src="/js/app.js"></script>
 </body>
 </html>
-
-<aside id="drawer" class="drawer">
-  <button id="drawerClose" class="drawer-close">×</button>
-  <div id="drawerContent"></div>
-</aside>
-<div id="drawerBackdrop" class="drawer-backdrop"></div>
-
-

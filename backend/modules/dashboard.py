@@ -5,14 +5,34 @@ from backend.core.discovery import scan_network
 def summary():
     scan = scan_network()
     s = scan.get("summary", {})
+    systems = scan.get("systems", [])
 
-    alerts = 0
-    if s.get("miningSystems", 0) == 0:
-        alerts += 1
-    if s.get("blockchainNodes", 0) == 0:
-        alerts += 1
-    if s.get("miningBackends", 0) == 0:
-        alerts += 1
+    health_counts = {
+        "healthy": 0,
+        "warning": 0,
+        "critical": 0
+    }
+
+    worst_assets = []
+
+    for system in systems:
+        health = system.get("health", {})
+        level = health.get("level", "critical")
+        health_counts[level] = health_counts.get(level, 0) + 1
+
+        worst_assets.append({
+            "ip": system.get("ip"),
+            "name": system.get("asset", {}).get("name", system.get("ip")),
+            "primaryRole": system.get("primaryRole"),
+            "score": health.get("score", 0),
+            "level": level,
+            "label": health.get("label", "Unknown"),
+            "miningGroup": system.get("asset", {}).get("poolGroup", "Unassigned")
+        })
+
+    worst_assets.sort(key=lambda x: x["score"])
+
+    alerts = health_counts.get("warning", 0) + health_counts.get("critical", 0)
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -23,5 +43,7 @@ def summary():
         "dashboards": s.get("dashboards", 0),
         "stratumServers": s.get("stratumServers", 0),
         "rpcEndpoints": s.get("rpcEndpoints", 0),
-        "alerts": alerts
+        "alerts": alerts,
+        "health": health_counts,
+        "worstAssets": worst_assets[:5]
     }

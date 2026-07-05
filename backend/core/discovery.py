@@ -144,6 +144,7 @@ def classify_host(ip, services):
     }
 
     result["profile"]["assetType"] = infer_asset_type(result)
+    result["health"] = calculate_health(result)
 
     return result
 
@@ -193,6 +194,49 @@ def infer_asset_type(system):
     if "Mining Backend" in role:
         return "Mining Backend"
     return "Unknown Asset"
+
+
+def calculate_health(system):
+    score = 100
+    checks = []
+
+    open_ports = system.get("openPorts", [])
+    fingerprints = system.get("fingerprints", [])
+
+    def add_check(name, ok, penalty):
+        nonlocal score
+        checks.append({
+            "name": name,
+            "status": "healthy" if ok else "critical",
+            "penalty": 0 if ok else penalty
+        })
+        if not ok:
+            score -= penalty
+
+    add_check("Host reachable", len(open_ports) > 0, 40)
+    add_check("Mining backend detected", any(r["id"] == "mining_backend" for r in system.get("roles", [])), 20)
+    add_check("Blockchain node detected", any(r["id"] == "blockchain_node" for r in system.get("roles", [])), 15)
+    add_check("Confirmed MiningCore API", any(fp["type"] == "miningcore" and fp["status"] == "confirmed" for fp in fingerprints), 15)
+    add_check("Management dashboard reachable", any(p in open_ports for p in [80, 8559]), 10)
+
+    score = max(0, min(100, score))
+
+    if score >= 90:
+        level = "healthy"
+        label = "Healthy"
+    elif score >= 75:
+        level = "warning"
+        label = "Warning"
+    else:
+        level = "critical"
+        label = "Critical"
+
+    return {
+        "score": score,
+        "level": level,
+        "label": label,
+        "checks": checks
+    }
 
 def scan_targets(ips):
     targets = []

@@ -40,6 +40,8 @@ class NexusHandler(BaseHTTPRequestHandler):
             return self._send_file("frontend/index.html", "text/html")
         if self.path == "/map.html":
             return self._send_file("frontend/map.html", "text/html")
+        if self.path == "/inventory.html":
+            return self._send_file("frontend/inventory.html", "text/html")
         if self.path.startswith("/css/"):
             return self._send_file("frontend" + self.path, "text/css")
         if self.path.startswith("/js/"):
