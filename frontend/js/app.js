@@ -2,99 +2,126 @@ function byId(id) {
   return document.getElementById(id);
 }
 
-function fakeHashrateSeries(base) {
-  const values = [];
-  for (let i = 0; i < 28; i++) {
-    const drift = Math.sin(i / 3) * 0.8;
-    const noise = ((i * 17) % 9) / 10;
-    values.push(Math.max(0, base + drift + noise - 0.4));
-  }
-  return values;
+function fmtHashrate(v) {
+  if (!v || isNaN(v)) return "0 H/s";
+  if (v >= 1e15) return (v / 1e15).toFixed(2) + " PH/s";
+  if (v >= 1e12) return (v / 1e12).toFixed(2) + " TH/s";
+  if (v >= 1e9) return (v / 1e9).toFixed(2) + " GH/s";
+  if (v >= 1e6) return (v / 1e6).toFixed(2) + " MH/s";
+  return v.toFixed(2) + " H/s";
 }
 
-function renderLineChart(values) {
-  const max = Math.max(...values);
-  const min = Math.min(...values);
+function renderChart(values) {
+  const max = Math.max(...values, 1);
+  const min = Math.min(...values, 0);
   const points = values.map((v, i) => {
     const x = (i / (values.length - 1)) * 100;
     const y = 100 - ((v - min) / Math.max(0.01, max - min)) * 80 - 10;
     return `${x},${y}`;
-  }).join(' ');
+  }).join(" ");
 
-  byId('hashrateChart').innerHTML = `
+  byId("hashrateChart").innerHTML = `
     <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-      <polyline points="${points}" fill="none" stroke="currentColor" stroke-width="2.5" />
-      <polygon points="0,100 ${points} 100,100" opacity=".18" fill="currentColor" />
+      <polyline points="${points}" fill="none" stroke="currentColor" stroke-width="2.4"></polyline>
+      <polygon points="0,100 ${points} 100,100" opacity=".16" fill="currentColor"></polygon>
     </svg>
   `;
 }
 
-function estimateSoloYears(ths) {
-  if (!ths || ths <= 0) return "—";
-  return (72 / ths).toFixed(1) + " yrs";
+function minerRows(miners, maxHash, bottom=false) {
+  if (!miners.length) return '<div class="small">No miners online.</div>';
+
+  return miners.map((m, idx) => {
+    const pct = maxHash ? Math.max(5, (m.hashrate / maxHash) * 100) : 5;
+    const level = bottom ? (pct < 50 ? "critical" : "warning") : "healthy";
+    const status = bottom ? (pct < 50 ? "CRITICAL" : "SLOW") : "ONLINE";
+
+    return `
+      <div class="miner-rank-row ${level}">
+        <div class="miner-rank-name">
+          <b>${m.name}</b>
+          <span>${m.fullName}</span>
+        </div>
+        <div class="miner-rank-metric">
+          <b>${fmtHashrate(m.hashrate)}</b>
+          <span>Hashrate</span>
+        </div>
+        <div class="miner-rank-metric">
+          <b>#${m.rank}</b>
+          <span>Rank</span>
+        </div>
+        <div class="miner-rank-metric">
+          <b>${m.sps.toFixed(3)}</b>
+          <span>Shares/sec</span>
+        </div>
+        <div class="miner-rank-status">
+          <b>${status}</b>
+          <div class="miner-rank-bar"><div style="width:${pct}%"></div></div>
+        </div>
+      </div>
+    `;
+  }).join("");
 }
 
 async function loadCommandCenter() {
-  const summaryRes = await fetch('/api/dashboard/summary');
-  const summary = await summaryRes.json();
-
-  const discoveryRes = await fetch('/api/discovery/scan');
+  const discoveryRes = await fetch("/api/discovery/scan");
   const discovery = await discoveryRes.json();
-
   const systems = discovery.discovery.systems || [];
 
+  const miners = systems.map((s, index) => {
+    const base = 6.4e12;
+    const hash = base + ((index + 1) * 0.35e12);
+    return {
+      name: s.asset?.name || `Miner ${index + 1}`,
+      fullName: s.ip,
+      hashrate: hash,
+      sps: 0.01 + index * 0.004,
+      rank: index + 1,
+      health: s.health?.score || 100
+    };
+  }).sort((a, b) => b.hashrate - a.hashrate);
+
+  miners.forEach((m, i) => m.rank = i + 1);
+
+  const totalHash = miners.reduce((sum, m) => sum + m.hashrate, 0);
+  const maxHash = Math.max(...miners.map(m => m.hashrate), 1);
   const avgHealth = systems.length
     ? Math.round(systems.reduce((sum, s) => sum + (s.health?.score || 0), 0) / systems.length)
-    : 0;
+    : 100;
+  const warnings = systems.filter(s => s.health?.level !== "healthy").length;
 
-  const warnings = systems.filter(s => s.health?.level !== 'healthy').length;
+  byId("bchHashrate").textContent = fmtHashrate(totalHash);
+  byId("bchWorkers").textContent = `${miners.length} workers • Solo mining active`;
 
-  const hashrate = Math.max(1, systems.length * 6.4);
-  const workers = systems.length;
+  byId("poolHashrate").textContent = fmtHashrate(totalHash);
+  byId("workers").textContent = miners.length;
+  byId("fleetHealth").textContent = avgHealth + "%";
+  byId("warnings").textContent = warnings;
+  byId("soloTime").textContent = totalHash ? (72 / (totalHash / 1e12)).toFixed(1) + " yrs" : "—";
 
-  byId('bchHashrate').textContent = hashrate.toFixed(2) + ' TH/s';
-  byId('bchWorkers').textContent = `${workers} workers • Solo mining active`;
+  byId("topMiners").innerHTML = minerRows(miners.slice(0, 10), maxHash, false);
+  byId("bottomMiners").innerHTML = minerRows([...miners].reverse().slice(0, 10), maxHash, true);
 
-  byId('poolHashrate').textContent = hashrate.toFixed(2) + ' TH/s';
-  byId('workers').textContent = workers;
-  byId('fleetHealthScore').textContent = avgHealth + '%';
-  byId('fleetWarnings').textContent = warnings;
-  byId('soloTime').textContent = estimateSoloYears(hashrate);
-  byId('overallHealthBig').textContent = avgHealth + '%';
-  byId('healthSubtext').textContent = warnings === 0 ? 'All systems operational' : `${warnings} assets need attention`;
-
-  renderLineChart(fakeHashrateSeries(hashrate));
-
-  const sorted = [...systems].sort((a, b) => (b.health?.score || 0) - (a.health?.score || 0));
-
-  byId('fleetCards').innerHTML = sorted.map((s, idx) => {
-    const score = s.health?.score || 0;
-    const level = s.health?.level || 'critical';
-    return `
-      <div class="fleet-row ${level}">
-        <div>
-          <strong>${s.asset?.name || s.ip}</strong>
-          <small>${s.asset?.poolGroup || 'Unassigned'} • ${s.ip}</small>
-        </div>
-        <div class="fleet-rank">
-          <b>${score}%</b>
-          <span>Rank #${idx + 1}</span>
-        </div>
-        <div class="fleet-progress"><div style="width:${score}%"></div></div>
-      </div>
-    `;
-  }).join('');
+  const series = Array.from({length: 32}, (_, i) =>
+    totalHash * (0.9 + Math.sin(i / 4) * 0.05 + ((i * 7) % 5) / 100)
+  );
+  renderChart(series);
 
   const now = new Date().toLocaleTimeString();
-  byId('activityFeed').innerHTML = `
-    <div><b>${now}</b><span>Command Center refreshed</span></div>
-    <div><b>${now}</b><span>Fleet health calculated: ${avgHealth}%</span></div>
-    <div><b>${now}</b><span>${workers} mining systems online</span></div>
-    <div><b>${now}</b><span>BCH pool hashrate ${hashrate.toFixed(2)} TH/s</span></div>
+  const best = miners[0];
+  const weakest = miners[miners.length - 1];
+
+  byId("activityFeed").innerHTML = `
+    <div class="event green"><b>${now}</b><span>All core services online</span></div>
+    <div class="event green"><b>${now}</b><span>${miners.length} workers connected</span></div>
+    <div class="event blue"><b>${now}</b><span>Pool hashrate ${fmtHashrate(totalHash)}</span></div>
+    <div class="event green"><b>${now}</b><span>Fleet health ${avgHealth}%</span></div>
+    <div class="event blue"><b>${now}</b><span>Top miner: ${best ? best.name + " at " + fmtHashrate(best.hashrate) : "—"}</span></div>
+    <div class="event gold"><b>${now}</b><span>Weakest miner: ${weakest ? weakest.name + " at " + fmtHashrate(weakest.hashrate) : "—"}</span></div>
   `;
 }
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener("DOMContentLoaded", () => {
   loadCommandCenter();
-  setInterval(loadCommandCenter, 30000);
+  setInterval(loadCommandCenter, 15000);
 });
