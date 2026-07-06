@@ -2,6 +2,8 @@ function byId(id) {
   return document.getElementById(id);
 }
 
+let hashHistory = [];
+
 function fmtHashrate(v) {
   if (!v || isNaN(v)) return "0 H/s";
   if (v >= 1e15) return (v / 1e15).toFixed(2) + " PH/s";
@@ -12,10 +14,13 @@ function fmtHashrate(v) {
 }
 
 function renderChart(values) {
+  if (!values.length) values = [0];
+
   const max = Math.max(...values, 1);
   const min = Math.min(...values, 0);
+
   const points = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * 100;
+    const x = values.length === 1 ? 0 : (i / (values.length - 1)) * 100;
     const y = 100 - ((v - min) / Math.max(0.01, max - min)) * 80 - 10;
     return `${x},${y}`;
   }).join(" ");
@@ -31,7 +36,7 @@ function renderChart(values) {
 function minerRows(miners, maxHash, bottom=false) {
   if (!miners.length) return '<div class="small">No miners online.</div>';
 
-  return miners.map((m, idx) => {
+  return miners.map((m) => {
     const pct = maxHash ? Math.max(5, (m.hashrate / maxHash) * 100) : 5;
     const level = bottom ? (pct < 50 ? "critical" : "warning") : "healthy";
     const status = bottom ? (pct < 50 ? "CRITICAL" : "SLOW") : "ONLINE";
@@ -64,64 +69,66 @@ function minerRows(miners, maxHash, bottom=false) {
 }
 
 async function loadCommandCenter() {
-  const discoveryRes = await fetch("/api/discovery/scan");
-  const discovery = await discoveryRes.json();
-  const systems = discovery.discovery.systems || [];
+  const miningRes = await fetch("/api/mining/summary");
+  const mining = await miningRes.json();
 
-  const miners = systems.map((s, index) => {
-    const base = 6.4e12;
-    const hash = base + ((index + 1) * 0.35e12);
-    return {
-      name: s.asset?.name || `Miner ${index + 1}`,
-      fullName: s.ip,
-      hashrate: hash,
-      sps: 0.01 + index * 0.004,
-      rank: index + 1,
-      health: s.health?.score || 100
-    };
-  }).sort((a, b) => b.hashrate - a.hashrate);
+  const workers = (mining.workers || []).map((w, index) => ({
+    name: w.displayName || ("ASIC " + w.name),
+    fullName: w.fullName || w.name,
+    hashrate: w.hashrate || 0,
+    sps: w.sharesPerSecond || 0,
+    rank: index + 1
+  })).sort((a, b) => b.hashrate - a.hashrate);
 
-  miners.forEach((m, i) => m.rank = i + 1);
+  workers.forEach((m, i) => m.rank = i + 1);
 
-  const totalHash = miners.reduce((sum, m) => sum + m.hashrate, 0);
-  const maxHash = Math.max(...miners.map(m => m.hashrate), 1);
-  const avgHealth = systems.length
-    ? Math.round(systems.reduce((sum, s) => sum + (s.health?.score || 0), 0) / systems.length)
-    : 100;
-  const warnings = systems.filter(s => s.health?.level !== "healthy").length;
+  const totalHash = mining.totalHashrate || workers.reduce((sum, w) => sum + w.hashrate, 0);
+  const maxHash = Math.max(...workers.map(w => w.hashrate), 1);
+  const workerCount = mining.workerCount ?? workers.length;
+
+  hashHistory.push(totalHash);
+  if (hashHistory.length > 40) hashHistory.shift();
 
   byId("bchHashrate").textContent = fmtHashrate(totalHash);
-  byId("bchWorkers").textContent = `${miners.length} workers • Solo mining active`;
+  byId("bchWorkers").textContent = `${workerCount} workers • Solo mining active`;
 
   byId("poolHashrate").textContent = fmtHashrate(totalHash);
-  byId("workers").textContent = miners.length;
-  byId("fleetHealth").textContent = avgHealth + "%";
-  byId("warnings").textContent = warnings;
+  byId("workers").textContent = workerCount;
+  byId("fleetHealth").textContent = mining.status === "online" ? "100%" : "0%";
+  byId("warnings").textContent = mining.status === "online" ? "0" : "1";
   byId("soloTime").textContent = totalHash ? (72 / (totalHash / 1e12)).toFixed(1) + " yrs" : "—";
 
-  byId("topMiners").innerHTML = minerRows(miners.slice(0, 10), maxHash, false);
-  byId("bottomMiners").innerHTML = minerRows([...miners].reverse().slice(0, 10), maxHash, true);
+  byId("topMiners").innerHTML = minerRows(workers.slice(0, 10), maxHash, false);
+  const avgHash = workers.length
+    ? workers.reduce((sum, w) => sum + w.hashrate, 0) / workers.length
+    : 0;
 
-  const series = Array.from({length: 32}, (_, i) =>
-    totalHash * (0.9 + Math.sin(i / 4) * 0.05 + ((i * 7) % 5) / 100)
-  );
-  renderChart(series);
+  const underperforming = workers
+    .filter(w => avgHash && w.hashrate < avgHash * 0.85)
+    .sort((a, b) => a.hashrate - b.hashrate)
+    .slice(0, 10);
+
+  byId("bottomMiners").innerHTML = underperforming.length
+    ? minerRows(underperforming, maxHash, true)
+    : '<div class="all-clear-box">All miners performing within normal range.</div>';
+
+  renderChart(hashHistory);
 
   const now = new Date().toLocaleTimeString();
-  const best = miners[0];
-  const weakest = miners[miners.length - 1];
+  const best = workers[0];
+  const weakest = workers[workers.length - 1];
 
   byId("activityFeed").innerHTML = `
-    <div class="event green"><b>${now}</b><span>All core services online</span></div>
-    <div class="event green"><b>${now}</b><span>${miners.length} workers connected</span></div>
-    <div class="event blue"><b>${now}</b><span>Pool hashrate ${fmtHashrate(totalHash)}</span></div>
-    <div class="event green"><b>${now}</b><span>Fleet health ${avgHealth}%</span></div>
-    <div class="event blue"><b>${now}</b><span>Top miner: ${best ? best.name + " at " + fmtHashrate(best.hashrate) : "—"}</span></div>
+    <div class="event green"><b>${now}</b><span>MiningCore connector online</span></div>
+    <div class="event green"><b>${now}</b><span>${workerCount} workers connected</span></div>
+    <div class="event blue"><b>${now}</b><span>Live pool hashrate ${fmtHashrate(totalHash)}</span></div>
+    <div class="event blue"><b>${now}</b><span>Shares/sec ${Number(mining.sharesPerSecond || 0).toFixed(3)}</span></div>
+    <div class="event green"><b>${now}</b><span>Top miner: ${best ? best.name + " at " + fmtHashrate(best.hashrate) : "—"}</span></div>
     <div class="event gold"><b>${now}</b><span>Weakest miner: ${weakest ? weakest.name + " at " + fmtHashrate(weakest.hashrate) : "—"}</span></div>
   `;
 }
 
 window.addEventListener("DOMContentLoaded", () => {
   loadCommandCenter();
-  setInterval(loadCommandCenter, 15000);
+  setInterval(loadCommandCenter, 10000);
 });

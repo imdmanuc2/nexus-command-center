@@ -1292,3 +1292,12 @@ html, body {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: .55; transform: scale(.75); }
 }
+
+.all-clear-box {
+  border: 1px solid #14532d;
+  background: rgba(5, 46, 26, .65);
+  color: #39ff88;
+  border-radius: 16px;
+  padding: 18px;
+  font-weight: 900;
+}

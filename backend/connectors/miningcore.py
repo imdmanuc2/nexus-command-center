@@ -6,6 +6,7 @@ from backend.core.connector import Connector
 
 MININGCORE_BASE = "http://192.168.1.154:4000"
 POOL_ID = "bch"
+WALLET = "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7"
 
 
 def fetch_json(path, timeout=4):
@@ -58,36 +59,34 @@ class MiningCoreConnector(Connector):
     def pool_performance(self):
         return fetch_json(f"/api/pools/{POOL_ID}/performance")
 
+    def miner_detail(self):
+        return fetch_json(f"/api/pools/{POOL_ID}/miners/{WALLET}")
+
     def summary(self):
         stats = self.pool_stats()
         perf = self.pool_performance()
 
         pool = stats.get("pool", {})
         pool_stats = pool.get("poolStats", {})
-        top_miners = pool.get("topMiners", [])
 
-        workers = perf.get("performance", {}).get("workers", {})
+        detail = self.miner_detail()
+        workers = detail.get("performance", {}).get("workers", {})
+
         worker_list = []
 
         for name, data in workers.items():
             worker_list.append({
                 "name": name,
+                "displayName": f"ASIC {name}",
+                "fullName": f"{WALLET}.{name}",
                 "hashrate": data.get("hashrate", 0),
                 "sharesPerSecond": data.get("sharesPerSecond", 0),
             })
 
-        if not worker_list and top_miners:
-            for idx, miner in enumerate(top_miners, start=1):
-                worker_list.append({
-                    "name": miner.get("miner", f"miner-{idx}"),
-                    "hashrate": miner.get("hashrate", 0),
-                    "sharesPerSecond": miner.get("sharesPerSecond", 0),
-                })
-
         worker_list.sort(key=lambda x: x["hashrate"], reverse=True)
 
-        total_hashrate = pool_stats.get("poolHashrate") or sum(w["hashrate"] for w in worker_list)
-        total_sps = pool_stats.get("sharesPerSecond") or sum(w["sharesPerSecond"] for w in worker_list)
+        total_hashrate = sum(w["hashrate"] for w in worker_list) or pool_stats.get("poolHashrate", 0)
+        total_sps = sum(w["sharesPerSecond"] for w in worker_list) or pool_stats.get("sharesPerSecond", 0)
 
         return {
             "poolId": POOL_ID,
