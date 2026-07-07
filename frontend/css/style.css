@@ -2386,3 +2386,128 @@ canvas.nexus-line-chart {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Pools Management v1 */
+
+.pool-page-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.pool-management-card {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.88);
+  border-radius: 24px;
+  padding: 20px;
+  cursor: pointer;
+}
+
+.pool-management-card:hover {
+  border-color: #60a5fa;
+  transform: translateY(-1px);
+}
+
+.pool-management-card h2 {
+  margin: 14px 0 4px;
+}
+
+.pool-management-card p {
+  color: #93c5fd;
+  margin: 0 0 14px;
+}
+
+.pool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(49,82,127,.55);
+}
+
+.pool-wallet {
+  color: #bfdbfe;
+  word-break: break-all;
+  font-weight: 800;
+}
+
+@media (max-width: 1100px) {
+  .pool-page-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Discovery Center v1 */
+
+.discovery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.discovery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.discovery-card {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.88);
+  border-radius: 24px;
+  padding: 20px;
+  cursor: pointer;
+}
+
+.discovery-card:hover {
+  border-color: #60a5fa;
+  transform: translateY(-1px);
+}
+
+.discovery-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.discovery-card h2 {
+  margin: 0 0 4px;
+}
+
+.discovery-card p {
+  margin: 0;
+  color: #93c5fd;
+}
+
+.discovery-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.discovery-pill {
+  border: 1px solid #31527f;
+  background: rgba(2,6,23,.5);
+  color: #bfdbfe;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.discovery-card small {
+  display: block;
+  color: #93c5fd;
+  line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+  .discovery-grid {
+    grid-template-columns: 1fr;
+  }
+}

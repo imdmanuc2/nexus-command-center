@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Nexus Discovery</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div>
+        <h1>Nexus Discovery</h1>
+        <p>Scan, classify, and track mining infrastructure changes.</p>
+      </div>
+      <div id="discoveryStatus" class="status healthy">Loading</div>
+    </header>
+
+    <nav id="topNav" class="nav"></nav>
+
+    <section class="assets-toolbar">
+      <div class="asset-search-wrap">
+        <label for="discoverySearch">Search Discovery</label>
+        <input id="discoverySearch" class="asset-search" placeholder="Search IP, role, service, pool, node..." autocomplete="off">
+      </div>
+
+      <div class="asset-filter-pills">
+        <button class="asset-filter active" data-filter="all">All</button>
+        <button class="asset-filter" data-filter="mining">Mining</button>
+        <button class="asset-filter" data-filter="node">Nodes</button>
+        <button class="asset-filter" data-filter="dashboard">Dashboards</button>
+        <button class="asset-filter" data-filter="healthy">Healthy</button>
+      </div>
+    </section>
+
+    <section id="discoverySummary" class="asset-summary-grid"></section>
+
+    <section class="discovery-actions">
+      <button id="runScan" class="btn">Run Scan</button>
+      <button class="btn">Scan Range Later</button>
+      <button class="btn">Claim New Assets Later</button>
+    </section>
+
+    <section id="discoveryList" class="discovery-grid">
+      Loading discovery results...
+    </section>
+  </main>
+
+  <aside id="drawer" class="drawer">
+    <button id="drawerClose" class="drawer-close">×</button>
+    <div id="drawerContent"></div>
+  </aside>
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/discovery.js"></script>
+  <script>renderNav("Discovery");</script>
+</body>
+</html>

@@ -7,8 +7,8 @@ function renderNav(active) {
     ["Mining", "#"],
     ["Infrastructure", "/map.html"],
     ["Assets", "/assets.html"],
-    ["Pools", "#"],
-    ["Discovery", "#"],
+    ["Pools", "/pools.html"],
+    ["Discovery", "/discovery.html"],
     ["AI Assistant", "#"],
     ["Reports", "#"],
     ["Settings", "#"]
