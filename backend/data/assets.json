@@ -9,7 +9,21 @@
     "poolGroup": "BCH Solo Pool",
     "workerId": "001",
     "poolId": "bch",
-    "poolHost": "192.168.1.154"
+    "poolHost": "192.168.1.154",
+    "id": "asset-28a5a306",
+    "ip": "192.168.1.154",
+    "friendlyName": "Nano 3s",
+    "type": "asic",
+    "location": "",
+    "rack": "",
+    "position": "",
+    "manufacturer": "",
+    "model": "",
+    "serialNumber": "",
+    "macAddress": "",
+    "hostname": "",
+    "createdAt": "2026-07-07T14:14:36.678735+00:00",
+    "updatedAt": "2026-07-07T14:34:17.780618+00:00"
   },
   "192.168.1.156": {
     "name": "Mining System 2",
@@ -21,6 +35,20 @@
     "workerId": "002",
     "poolId": "bch",
     "poolHost": "192.168.1.154",
-    "poolGroup": "BCH Solo Pool"
+    "poolGroup": "BCH Solo Pool",
+    "id": "asset-b63808dd",
+    "ip": "192.168.1.156",
+    "friendlyName": "Mining System 2",
+    "type": "asic",
+    "location": "",
+    "rack": "",
+    "position": "",
+    "manufacturer": "",
+    "model": "",
+    "serialNumber": "",
+    "macAddress": "",
+    "hostname": "",
+    "createdAt": "2026-07-07T14:14:36.678788+00:00",
+    "updatedAt": "2026-07-07T14:34:17.780625+00:00"
   }
 }

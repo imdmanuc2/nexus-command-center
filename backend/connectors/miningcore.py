@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 from urllib.request import urlopen, Request
 
 from backend.core.connector import Connector
-from backend.core.assets import load_assets
+from backend.core.assets import migrate_assets
 
 
 MININGCORE_BASE = "http://192.168.1.154:4000"
@@ -23,7 +23,7 @@ def miningcore_host():
 
 
 def sorted_mining_assets():
-    assets = load_assets()
+    assets = migrate_assets()
 
     mining_assets = []
 
@@ -53,12 +53,12 @@ def correlate_worker(name):
     Correlates MiningCore worker suffixes like wallet.001 / wallet.002
     to Nexus inventory assets.
 
-    Current lab rule:
-      worker 001 -> first discovered mining asset by IP
-      worker 002 -> second discovered mining asset by IP
+    Preferred:
+      asset.workerId == worker suffix
 
-    Future:
-      replace this with explicit asset.workerName / asset.workerId mapping.
+    Fallback:
+      worker 001 -> first mining asset by IP
+      worker 002 -> second mining asset by IP
     """
     assets = sorted_mining_assets()
 
@@ -67,26 +67,30 @@ def correlate_worker(name):
     except Exception:
         index = -1
 
-    explicit = next((asset for asset in assets if str(asset.get("workerId", "")).zfill(3) == str(name).zfill(3)), None)
+    explicit = next(
+        (asset for asset in assets if str(asset.get("workerId", "")).zfill(3) == str(name).zfill(3)),
+        None
+    )
 
     if explicit:
         asset = explicit
     elif index >= 0 and index < len(assets):
         asset = assets[index]
+    else:
         return {
-            "assetIp": asset.get("ip"),
-            "assetName": asset.get("name"),
-            "displayName": asset.get("name"),
-            "poolGroup": asset.get("poolGroup"),
-            "purpose": asset.get("purpose"),
+            "assetIp": None,
+            "assetName": None,
+            "displayName": f"ASIC {name}",
+            "poolGroup": None,
+            "purpose": None,
         }
 
     return {
-        "assetIp": None,
-        "assetName": None,
-        "displayName": f"ASIC {name}",
-        "poolGroup": None,
-        "purpose": None,
+        "assetIp": asset.get("ip"),
+        "assetName": asset.get("friendlyName") or asset.get("name"),
+        "displayName": asset.get("friendlyName") or asset.get("name") or f"ASIC {name}",
+        "poolGroup": asset.get("poolGroup"),
+        "purpose": asset.get("purpose"),
     }
 
 
