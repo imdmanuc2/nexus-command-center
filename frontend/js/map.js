@@ -97,7 +97,9 @@ function liveWorkerHost() {
     latestMiningSummary.serverIp ||
     latestMiningSummary.poolHost ||
     latestMiningSummary.apiHost ||
-    "192.168.1.154"
+    latestWorkers[0]?.poolHost ||
+    latestWorkers[0]?.host ||
+    ""
   );
 }
 

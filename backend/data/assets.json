@@ -6,7 +6,10 @@
     "notes": "",
     "tags": [],
     "createdAutomatically": true,
-    "poolGroup": "BCH Solo Pool"
+    "poolGroup": "BCH Solo Pool",
+    "workerId": "001",
+    "poolId": "bch",
+    "poolHost": "192.168.1.154"
   },
   "192.168.1.156": {
     "name": "Mining System 2",
@@ -14,6 +17,10 @@
     "favorite": false,
     "notes": "",
     "tags": [],
-    "createdAutomatically": true
+    "createdAutomatically": true,
+    "workerId": "002",
+    "poolId": "bch",
+    "poolHost": "192.168.1.154",
+    "poolGroup": "BCH Solo Pool"
   }
 }
