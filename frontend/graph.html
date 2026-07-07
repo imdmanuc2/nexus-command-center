@@ -30,6 +30,7 @@ Loading...
   <button id="showAllNodes" class="btn">Show All</button>
   <button id="saveGraphLayout" class="btn">Save Layout</button>
   <button id="resetGraphLayout" class="btn">Reset Layout</button>
+  <button id="tvModeToggle" class="btn">TV Mode</button>
   <label class="auto-refresh-toggle">
     <input id="autoRefreshGraph" type="checkbox" checked>
     Auto refresh
@@ -46,7 +47,21 @@ Loading...
 
 <section class="asset-summary-grid" id="graphSummary"></section>
 
-<section class="infra-canvas-panel">
+<section id="timeMachinePanel" class="time-machine-panel info-card">
+  <span class="info-dot" data-tip="Replay saved graph snapshots to see how infrastructure changed over time.">i</span>
+  <div>
+    <h2>Infrastructure Time Machine</h2>
+    <p>Replay saved graph snapshots.</p>
+  </div>
+  <div class="time-machine-controls">
+    <input id="snapshotSlider" type="range" min="0" max="0" value="0">
+    <span id="snapshotLabel">Live</span>
+    <button id="returnToLive" class="btn">Return Live</button>
+  </div>
+</section>
+
+<section class="infra-canvas-panel info-card">
+<span class="info-dot" data-tip="Live digital twin canvas. Drag nodes, click to highlight impact, and watch live mining metrics.">i</span>
 <h2>Live Infrastructure Canvas</h2>
 <div id="graphCanvas" class="infra-canvas">Loading digital twin...</div>
 </section>
@@ -81,6 +96,16 @@ Select a node.
 
 </section>
 
+<aside id="inspectorPanel" class="inspector-panel">
+  <button id="closeInspector" class="drawer-close">×</button>
+  <div id="inspectorContent">
+    <h2>Inspector</h2>
+    <p>Select any node on the canvas.</p>
+  </div>
+</aside>
+<div id="inspectorBackdrop" class="drawer-backdrop"></div>
+
+<button id="tvExitFloating" class="tv-exit-floating">Exit TV Mode</button>
 </main>
 
 <script src="/js/nav.js"></script>

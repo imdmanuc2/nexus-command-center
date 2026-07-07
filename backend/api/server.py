@@ -15,6 +15,7 @@ from backend.modules import graph_engine
 from backend.modules import graph_diff
 from backend.modules import timeline
 from backend.modules import relationships
+from backend.modules import snapshots
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -84,6 +85,18 @@ class NexusHandler(BaseHTTPRequestHandler):
 
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
+
+        if parsed.path == "/api/snapshots":
+            status, payload = json_response(snapshots.list_snapshots())
+            return self._send_json(payload, status)
+
+        if parsed.path == "/api/snapshot":
+            file_name = query.get("file", [""])[0]
+            if not file_name:
+                status, payload = json_response({"error": "Missing file"}, 400)
+            else:
+                status, payload = json_response(snapshots.get_snapshot(file_name))
+            return self._send_json(payload, status)
 
         if parsed.path == "/api/relationships":
             node_id = query.get("nodeId", [""])[0]

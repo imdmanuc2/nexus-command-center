@@ -2972,3 +2972,272 @@ canvas.nexus-line-chart {
   from { stroke-dashoffset: 0; }
   to { stroke-dashoffset: -36; }
 }
+
+/* Infrastructure Time Machine */
+
+.time-machine-panel {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.88);
+  border-radius: 24px;
+  padding: 18px;
+  margin-bottom: 18px;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+}
+
+.time-machine-panel h2 {
+  margin: 0;
+}
+
+.time-machine-panel p {
+  margin: 5px 0 0;
+  color: #93c5fd;
+}
+
+.time-machine-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-width: 420px;
+}
+
+.time-machine-controls input[type="range"] {
+  width: 260px;
+}
+
+#snapshotLabel {
+  color: #39ff88;
+  font-weight: 900;
+  min-width: 150px;
+}
+
+/* Standard Nexus page shell */
+
+.wrap {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 28px 32px;
+}
+
+body {
+  overflow-x: auto;
+}
+
+header {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.78);
+  border-radius: 28px;
+  padding: 28px;
+  margin-bottom: 20px;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding-bottom: 8px;
+}
+
+.nav a {
+  flex: 0 0 auto;
+}
+
+.info-card {
+  position: relative;
+}
+
+.info-dot {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid #31527f;
+  background: rgba(2,6,23,.8);
+  color: #93c5fd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: help;
+}
+
+.info-dot:hover {
+  color: #39ff88;
+  border-color: #39ff88;
+}
+
+#snapshotLabel {
+  min-width: 230px;
+}
+
+.time-machine-controls {
+  min-width: 560px;
+}
+
+.time-machine-controls input[type="range"] {
+  width: 320px;
+}
+
+@media (max-width: 1200px) {
+  .wrap {
+    padding: 20px;
+  }
+
+  .time-machine-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .time-machine-controls {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+/* Infrastructure Inspector */
+
+.inspector-panel {
+  position: fixed;
+  top: 0;
+  right: -560px;
+  width: 520px;
+  max-width: 92vw;
+  height: 100vh;
+  overflow-y: auto;
+  background: rgba(3,10,24,.98);
+  border-left: 1px solid #31527f;
+  box-shadow: -20px 0 60px rgba(0,0,0,.45);
+  z-index: 200;
+  padding: 28px;
+  transition: right .22s ease;
+}
+
+.inspector-panel.open {
+  right: 0;
+}
+
+.inspector-panel h2 {
+  margin-top: 0;
+  font-size: 30px;
+}
+
+.inspector-panel pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #bfdbfe;
+  font-size: 12px;
+}
+
+/* TV Mode / Mission Control Wall */
+
+body.tv-mode {
+  overflow: hidden;
+}
+
+body.tv-mode header,
+body.tv-mode .nav,
+body.tv-mode .explorer-controls,
+body.tv-mode .explorer-type-filters,
+body.tv-mode .asset-summary-grid,
+body.tv-mode .time-machine-panel,
+body.tv-mode .graph-layout {
+  display: none !important;
+}
+
+body.tv-mode .wrap {
+  max-width: none;
+  width: 100vw;
+  height: 100vh;
+  padding: 18px;
+  margin: 0;
+}
+
+body.tv-mode .infra-canvas-panel {
+  height: calc(100vh - 36px);
+  margin: 0;
+  padding: 20px;
+  border-radius: 28px;
+}
+
+body.tv-mode .infra-canvas-panel h2 {
+  font-size: 34px;
+  margin-bottom: 18px;
+}
+
+body.tv-mode .infra-canvas {
+  height: calc(100vh - 120px);
+  min-height: 0;
+}
+
+body.tv-mode .infra-svg {
+  height: 100%;
+  min-height: 760px;
+}
+
+body.tv-mode .infra-node-title {
+  font-size: 14px;
+}
+
+body.tv-mode .infra-node-metric {
+  font-size: 13px;
+}
+
+/* Better info tooltip */
+
+.info-dot {
+  z-index: 25;
+}
+
+.info-dot::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: 34px;
+  right: 0;
+  width: 340px;
+  max-width: 70vw;
+  display: none;
+  border: 1px solid #60a5fa;
+  background: rgba(2,6,23,.98);
+  color: #e5f3ff;
+  border-radius: 16px;
+  padding: 14px;
+  text-align: left;
+  line-height: 1.25;
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  box-shadow: 0 20px 50px rgba(0,0,0,.5);
+}
+
+.info-dot:hover::after {
+  display: block;
+}
+
+/* TV mode escape hatch */
+
+.tv-exit-floating {
+  display: none;
+}
+
+body.tv-mode .tv-exit-floating {
+  display: block;
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 999;
+  border: 1px solid #39ff88;
+  background: rgba(5,46,26,.92);
+  color: #39ff88;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(57,255,136,.35);
+}

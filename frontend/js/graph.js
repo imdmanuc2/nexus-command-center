@@ -6,6 +6,8 @@ let searchQuery = "";
 let graphRefreshTimer = null;
 let activeNodeType = "all";
 let liveWorkers = [];
+let snapshots = [];
+let timeMachineMode = false;
 let manualPositions = {};
 
 const typeOrder = {
@@ -21,12 +23,40 @@ const typeOrder = {
 function byId(id) { return document.getElementById(id); }
 function safe(v, f = "Unknown") { return v === undefined || v === null || v === "" ? f : v; }
 
+function formatSnapshotTime(value) {
+  if (!value) return "Live";
+
+  const raw = String(value);
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})(\d{2})$/);
+
+  if (!match) return raw;
+
+  const [, y, mo, d, h, mi, se] = match;
+  const date = new Date(`${y}-${mo}-${d}T${h}:${mi}:${se}`);
+
+  return date.toLocaleString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+}
+
 function shortLabel(value, max = 18) {
   const text = safe(value, "");
   return text.length > max ? text.slice(0, max - 1) + "…" : text;
 }
 function nodeById(id) { return graph.nodes.find(n => n.id === id); }
 function connectedEdges(id) { return graph.edges.filter(e => e.source === id || e.target === id); }
+
+function toggleTvMode() {
+  document.body.classList.toggle("tv-mode");
+  const enabled = document.body.classList.contains("tv-mode");
+  if (byId("tvModeToggle")) byId("tvModeToggle").textContent = enabled ? "Exit TV Mode" : "TV Mode";
+}
 
 function clearGraphSelection() {
   selectedNodeId = null;
@@ -352,6 +382,62 @@ function formatHashrate(value) {
   return `${n.toFixed(0)} H/s`;
 }
 
+
+function openInspector(node, impact) {
+  const props = node?.properties || {};
+  const hashrate = liveHashrateForNode(node);
+  const affectedTypes = impact?.affectedByType || {};
+
+  byId("inspectorContent").innerHTML = `
+    <h2>${safe(node?.label, "Selected Node")}</h2>
+    <p class="drawer-subtitle">${safe(node?.type).toUpperCase()} • ${safe(node?.status, "online")}</p>
+
+    <div class="asset-drawer-section">
+      <h3>Live Status</h3>
+      <div class="asset-detail-grid">
+        <div class="asset-detail-field"><label>Hashrate</label><strong>${formatHashrate(hashrate)}</strong></div>
+        <div class="asset-detail-field"><label>Status</label><strong>${safe(liveNodeStatus(node)).toUpperCase()}</strong></div>
+        <div class="asset-detail-field"><label>Risk</label><strong>${safe(impact?.risk, "Unknown").toUpperCase()}</strong></div>
+        <div class="asset-detail-field"><label>Affected</label><strong>${impact?.affectedCount ?? 0}</strong></div>
+      </div>
+    </div>
+
+    <div class="asset-drawer-section">
+      <h3>Identity</h3>
+      <div class="asset-detail-grid">
+        <div class="asset-detail-field"><label>Node ID</label><strong>${safe(node?.id)}</strong></div>
+        <div class="asset-detail-field"><label>IP</label><strong>${safe(props.ip || props.host || props.poolHost, "Not set")}</strong></div>
+        <div class="asset-detail-field"><label>Pool</label><strong>${safe(props.poolGroup || props.poolId || props.id, "Not set")}</strong></div>
+        <div class="asset-detail-field"><label>Worker</label><strong>${safe(props.workerName || props.workerId, "Not set")}</strong></div>
+      </div>
+    </div>
+
+    <div class="asset-drawer-section">
+      <h3>Blast Radius</h3>
+      <ul class="service-list">
+        ${
+          Object.entries(affectedTypes).map(([type, count]) =>
+            `<li><span>${type}</span><b>${count}</b></li>`
+          ).join("") || "<li>No downstream impact detected.</li>"
+        }
+      </ul>
+    </div>
+
+    <div class="asset-drawer-section">
+      <h3>Raw Properties</h3>
+      <pre>${JSON.stringify(props, null, 2)}</pre>
+    </div>
+  `;
+
+  byId("inspectorPanel")?.classList.add("open");
+  byId("inspectorBackdrop")?.classList.add("open");
+}
+
+function closeInspector() {
+  byId("inspectorPanel")?.classList.remove("open");
+  byId("inspectorBackdrop")?.classList.remove("open");
+}
+
 async function renderRelationships() {
   if (!selectedNodeId) {
     byId("graphRelationships").innerHTML = "Select a node.";
@@ -362,6 +448,7 @@ async function renderRelationships() {
   const edges = connectedEdges(selectedNodeId);
   const impact = await fetchImpact(selectedNodeId);
   const affectedTypes = impact?.affectedByType || {};
+  openInspector(node, impact);
 
   byId("graphRelationships").innerHTML = `
     <div class="asset-drawer-section">
@@ -430,8 +517,54 @@ async function resetGraphLayout() {
   renderRelationships();
 }
 
+
+async function loadSnapshots() {
+  try {
+    const res = await fetch("/api/snapshots");
+    if (!res.ok) return;
+
+    const payload = await res.json();
+    snapshots = payload.snapshots || [];
+
+    const slider = byId("snapshotSlider");
+    if (!slider) return;
+
+    slider.max = Math.max(0, snapshots.length - 1);
+    slider.value = Math.max(0, snapshots.length - 1);
+
+    byId("snapshotLabel").textContent = snapshots.length
+      ? formatSnapshotTime(snapshots[snapshots.length - 1].createdAt)
+      : "Live";
+  } catch {}
+}
+
+async function loadSnapshotByIndex(index) {
+  const snap = snapshots[index];
+  if (!snap) return;
+
+  const res = await fetch(`/api/snapshot?file=${encodeURIComponent(snap.file)}`);
+  if (!res.ok) return;
+
+  graph = await res.json();
+  timeMachineMode = true;
+
+  byId("graphHealth").textContent = "Replay";
+  byId("snapshotLabel").textContent = formatSnapshotTime(snap.createdAt);
+
+  renderSummary();
+  renderCanvas();
+  renderNodes();
+  renderRelationships();
+}
+
+async function returnToLiveMode() {
+  timeMachineMode = false;
+  await loadGraph(false);
+}
+
 async function loadGraph(rebuild = false) {
   try {
+    if (timeMachineMode && !rebuild) return;
     byId("graphHealth").textContent = rebuild ? "Rebuilding..." : "Loading...";
     const res = await fetch(rebuild ? "/api/graph/rebuild" : "/api/graph/live");
     graph = await res.json();
@@ -457,6 +590,8 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   byId("clearGraphSelection")?.addEventListener("click", clearGraphSelection);
+  byId("tvModeToggle")?.addEventListener("click", toggleTvMode);
+  byId("tvExitFloating")?.addEventListener("click", toggleTvMode);
   byId("saveGraphLayout")?.addEventListener("click", saveGraphLayout);
   byId("resetGraphLayout")?.addEventListener("click", resetGraphLayout);
 
@@ -490,6 +625,16 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  byId("closeInspector")?.addEventListener("click", closeInspector);
+  byId("inspectorBackdrop")?.addEventListener("click", closeInspector);
+
+  byId("snapshotSlider")?.addEventListener("input", e => {
+    loadSnapshotByIndex(Number(e.target.value));
+  });
+
+  byId("returnToLive")?.addEventListener("click", returnToLiveMode);
+
+  loadSnapshots();
   loadGraph();
   graphRefreshTimer = setInterval(() => loadGraph(false), 15000);
 });
