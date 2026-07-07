@@ -1301,3 +1301,55 @@ html, body {
   padding: 18px;
   font-weight: 900;
 }
+
+.chart-head {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 12px 0 16px;
+}
+
+.chart-head span {
+  display: block;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 1.3px;
+  font-size: 11px;
+}
+
+.chart-head strong {
+  display: block;
+  color: #60a5fa;
+  font-size: 24px;
+  margin-top: 4px;
+}
+
+.hash-line {
+  fill: none;
+  stroke: #60a5fa;
+  stroke-width: 3.2;
+  filter: drop-shadow(0 0 8px rgba(96,165,250,.8));
+}
+
+.hash-fill {
+  fill: #60a5fa;
+  opacity: .18;
+}
+
+.grid-line {
+  stroke: rgba(147,197,253,.18);
+  stroke-width: .5;
+}
+
+canvas.nexus-line-chart {
+  display: block;
+  width: 100%;
+  height: 340px;
+  background:
+    linear-gradient(rgba(96,165,250,.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96,165,250,.08) 1px, transparent 1px),
+    #071226;
+  background-size: 44px 44px;
+  border-radius: 18px;
+  margin-top: 14px;
+}

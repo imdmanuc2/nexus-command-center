@@ -2,7 +2,7 @@ function byId(id) {
   return document.getElementById(id);
 }
 
-let hashHistory = [];
+let poolHistories = { bch: [] };
 
 function fmtHashrate(v) {
   if (!v || isNaN(v)) return "0 H/s";
@@ -13,24 +13,119 @@ function fmtHashrate(v) {
   return v.toFixed(2) + " H/s";
 }
 
-function renderChart(values) {
-  if (!values.length) values = [0];
+function renderChart(seriesMap) {
+  const canvas = byId("hashrateChart");
+  const ctx = canvas.getContext("2d");
 
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  ctx.scale(devicePixelRatio, devicePixelRatio);
 
-  const points = values.map((v, i) => {
-    const x = values.length === 1 ? 0 : (i / (values.length - 1)) * 100;
-    const y = 100 - ((v - min) / Math.max(0.01, max - min)) * 80 - 10;
-    return `${x},${y}`;
-  }).join(" ");
+  const width = rect.width;
+  const height = rect.height;
 
-  byId("hashrateChart").innerHTML = `
-    <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-      <polyline points="${points}" fill="none" stroke="currentColor" stroke-width="2.4"></polyline>
-      <polygon points="0,100 ${points} 100,100" opacity=".16" fill="currentColor"></polygon>
-    </svg>
-  `;
+  ctx.clearRect(0, 0, width, height);
+
+  const padding = { left: 78, right: 26, top: 38, bottom: 58 };
+  const plotW = width - padding.left - padding.right;
+  const plotH = height - padding.top - padding.bottom;
+
+  const allValues = Object.values(seriesMap).flat();
+  if (!allValues.length) return;
+
+  const max = Math.max(...allValues);
+  const min = Math.min(...allValues);
+  const range = Math.max(1, max - min);
+
+  ctx.font = "12px Arial";
+  ctx.strokeStyle = "rgba(147,197,253,.14)";
+  ctx.fillStyle = "#93c5fd";
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i <= 5; i++) {
+    const y = padding.top + (plotH / 5) * i;
+    const value = max - (range / 5) * i;
+
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
+    ctx.stroke();
+
+    ctx.fillText(fmtHashrate(value), 12, y + 4);
+  }
+
+  for (let i = 0; i <= 10; i++) {
+    const x = padding.left + (plotW / 10) * i;
+    ctx.beginPath();
+    ctx.moveTo(x, padding.top);
+    ctx.lineTo(x, height - padding.bottom);
+    ctx.stroke();
+  }
+
+  const colors = {
+    bch: "#60a5fa",
+    btc: "#f7931a",
+    doge: "#ffd166",
+    dgb: "#39ff88"
+  };
+
+  Object.entries(seriesMap).forEach(([pool, values]) => {
+    if (!values.length) return;
+
+    const color = colors[pool] || "#60a5fa";
+
+    const points = values.map((v, i) => {
+      const x = padding.left + (values.length === 1 ? 0 : (i / (values.length - 1)) * plotW);
+      const y = padding.top + (1 - ((v - min) / range)) * plotH;
+      return { x, y };
+    });
+
+    const grad = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+    grad.addColorStop(0, color + "55");
+    grad.addColorStop(1, color + "05");
+
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, height - padding.bottom);
+    points.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(points[points.length - 1].x, height - padding.bottom);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    ctx.beginPath();
+    points.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    points.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = "#0b1427";
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    ctx.fillStyle = color;
+    ctx.font = "bold 13px Arial";
+    ctx.fillText(pool.toUpperCase() + " Pool Hashrate", padding.left, 22);
+  });
+
+  const latest = allValues[allValues.length - 1];
+
+  ctx.fillStyle = "#e5f3ff";
+  ctx.font = "bold 18px Arial";
+  ctx.fillText("Live Pool Hashrate", padding.left, height - 24);
+
+  ctx.fillStyle = "#60a5fa";
+  ctx.font = "bold 22px Arial";
+  ctx.fillText(fmtHashrate(latest), padding.left + 190, height - 24);
 }
 
 function minerRows(miners, maxHash, bottom=false) {
@@ -86,8 +181,8 @@ async function loadCommandCenter() {
   const maxHash = Math.max(...workers.map(w => w.hashrate), 1);
   const workerCount = mining.workerCount ?? workers.length;
 
-  hashHistory.push(totalHash);
-  if (hashHistory.length > 40) hashHistory.shift();
+  poolHistories.bch.push(totalHash);
+  if (poolHistories.bch.length > 40) poolHistories.bch.shift();
 
   byId("bchHashrate").textContent = fmtHashrate(totalHash);
   byId("bchWorkers").textContent = `${workerCount} workers • Solo mining active`;
@@ -112,7 +207,7 @@ async function loadCommandCenter() {
     ? minerRows(underperforming, maxHash, true)
     : '<div class="all-clear-box">All miners performing within normal range.</div>';
 
-  renderChart(hashHistory);
+  renderChart(poolHistories);
 
   const now = new Date().toLocaleTimeString();
   const best = workers[0];

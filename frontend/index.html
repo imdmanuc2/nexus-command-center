@@ -18,14 +18,7 @@
         <div class="live-badge">LIVE</div>
       </header>
 
-      <nav class="nav">
-        <a class="active" href="/">Command Center</a>
-        <a href="/inventory.html">Inventory</a>
-        <a href="/map.html">Infrastructure</a>
-        <a href="#">Mining</a>
-        <a href="#">Discovery</a>
-        <a href="#">Settings</a>
-      </nav>
+      <nav id="topNav" class="nav"></nav>
 
       <section class="nexus-status-strip">
         <div class="status-chip"><span></span>BCH NODE</div>
@@ -62,7 +55,7 @@
       <section class="nexus-two">
         <div class="nexus-card chart-card">
           <div class="label">Live Pool Hashrate</div>
-          <div id="hashrateChart" class="nexus-line-chart"></div>
+          <canvas id="hashrateChart" class="nexus-line-chart"></canvas>
         </div>
 
         <div class="nexus-card">
@@ -88,6 +81,8 @@
     </section>
   </main>
 
+  <script src="/js/nav.js"></script>
   <script src="/js/app.js"></script>
+  <script>renderNav("Command Center");</script>
 </body>
 </html>

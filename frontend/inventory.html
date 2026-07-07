@@ -14,15 +14,7 @@
       </div>
     </header>
 
-    <nav class="nav">
-      <a href="/">Command Center</a>
-      <a href="/map.html">Infrastructure Map</a>
-      <a class="active" href="/inventory.html">Inventory</a>
-      <a href="#">Mining</a>
-      <a href="#">Nodes</a>
-      <a href="#">ASICs</a>
-      <a href="#">Settings</a>
-    </nav>
+    <nav id="topNav" class="nav"></nav>
 
     <section id="inventoryList" class="inventory-grid">
       Loading inventory...
@@ -35,6 +27,8 @@
   </aside>
   <div id="drawerBackdrop" class="drawer-backdrop"></div>
 
+  <script src="/js/nav.js"></script>
   <script src="/js/inventory.js"></script>
+  <script>renderNav("ASIC Fleet");</script>
 </body>
 </html>

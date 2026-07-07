@@ -14,14 +14,7 @@
       </div>
     </header>
 
-    <nav class="nav">
-      <a href="/">Command Center</a>
-      <a class="active" href="/map.html">Infrastructure Map</a>
-      <a href="#">Mining</a>
-      <a href="#">Nodes</a>
-      <a href="#">ASICs</a>
-      <a href="#">Settings</a>
-    </nav>
+    <nav id="topNav" class="nav"></nav>
 
     <section class="map-card">
       <div class="map-layer internet">🌐 Internet / LAN</div>
@@ -36,6 +29,8 @@
   </aside>
   <div id="drawerBackdrop" class="drawer-backdrop"></div>
 
+  <script src="/js/nav.js"></script>
   <script src="/js/map.js"></script>
+  <script>renderNav("Infrastructure");</script>
 </body>
 </html>
