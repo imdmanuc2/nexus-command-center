@@ -7,6 +7,7 @@ from backend.modules import connectors
 from backend.modules import discovery
 from backend.modules import dashboard
 from backend.modules import mining
+from backend.modules import assets
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -58,6 +59,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/dashboard/summary": dashboard.summary,
             "/api/mining/summary": mining.summary,
             "/api/mining/workers": mining.workers,
+            "/api/assets/relationships": assets.relationships,
         }
 
         if self.path == "/api":

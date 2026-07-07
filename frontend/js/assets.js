@@ -1,5 +1,6 @@
 let latestSystems = [];
 let latestFound = [];
+let latestRelationships = { relationships: [], pools: [], assets: [] };
 let activeFilter = "all";
 let searchQuery = "";
 
@@ -143,6 +144,35 @@ function field(label, value) {
   `;
 }
 
+function relationshipRows(asset) {
+  const rels = latestRelationships.relationships || [];
+  const pools = latestRelationships.pools || [];
+
+  const rows = rels
+    .filter(rel => rel.fromId === asset.id || rel.toId === asset.id || rel.fromId === asset.poolId || rel.toId === asset.poolId)
+    .map(rel => {
+      let targetLabel = rel.toId;
+
+      if (rel.toType === "pool") {
+        const pool = pools.find(p => p.id === rel.toId);
+        targetLabel = pool?.name || rel.toId;
+      }
+
+      if (rel.toType === "host") {
+        targetLabel = rel.toId;
+      }
+
+      return `
+        <li>
+          <span>${rel.relationship.replaceAll("_", " ")}</span>
+          <b>${targetLabel}</b>
+        </li>
+      `;
+    });
+
+  return rows.join("") || "<li>No relationships mapped yet.</li>";
+}
+
 function openDrawer(system) {
   const asset = system.asset || {};
   const services = latestFound.filter(item => item.ip === system.ip);
@@ -186,6 +216,13 @@ function openDrawer(system) {
     `)}
 
     <div class="asset-drawer-section">
+      <h3>Relationships</h3>
+      <ul class="service-list">
+        ${relationshipRows(asset)}
+      </ul>
+    </div>
+
+    <div class="asset-drawer-section">
       <h3>Discovered Services</h3>
       <ul class="service-list">
         ${services.map(s => `<li><span>${s.service}</span><b>:${s.port}</b></li>`).join("") || "<li>No services discovered.</li>"}
@@ -204,8 +241,14 @@ function openDrawer(system) {
 
 async function loadAssets() {
   try {
-    const res = await fetch("/api/discovery/scan");
-    const data = await res.json();
+    const [scanRes, relRes] = await Promise.all([
+      fetch("/api/discovery/scan"),
+      fetch("/api/assets/relationships")
+    ]);
+
+    const data = await scanRes.json();
+    latestRelationships = await relRes.json();
+
     const discovery = data.discovery || data;
 
     latestSystems = discovery.systems || [];
