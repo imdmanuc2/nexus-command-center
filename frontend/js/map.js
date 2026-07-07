@@ -156,18 +156,17 @@ function renderMinerRow(worker, index, maxHashrate) {
   `;
 }
 
-function renderMinerPreview(workers, poolIndex, poolColumn) {
+function renderConnectedAssets(workers, poolIndex, poolColumn) {
   if (!workers.length) {
-    return `<div class="no-miners">No live miners reported by this pool.</div>`;
+    return `<div class="no-miners">No connected assets reported by this pool.</div>`;
   }
 
   const sorted = sortedWorkers(workers);
-  const maxHashrate = Math.max(...sorted.map(rawHashrate), 1);
   const preview = sorted.slice(0, PREVIEW_MINERS);
 
   return `
     <div class="miner-preview-head">
-      <strong>Top ${Math.min(PREVIEW_MINERS, sorted.length)} Miners</strong>
+      <strong>Connected Assets</strong>
       <button class="mini-btn"
               data-kind="pool-miners"
               data-pool-column="${poolColumn}"
@@ -175,9 +174,19 @@ function renderMinerPreview(workers, poolIndex, poolColumn) {
         View All ${sorted.length}
       </button>
     </div>
-    ${preview.map((worker, index) => renderMinerRow(worker, index, maxHashrate)).join("")}
+
+    <div class="connected-assets">
+      ${preview.map((worker, index) => `
+        <button class="asset-chip" data-kind="miner" data-worker-index="${latestWorkers.indexOf(worker)}">
+          <span class="asset-dot ${workerStatus(worker)}"></span>
+          <span>${workerName(worker, index)}</span>
+          <small>${safe(worker.assetIp || worker.host || "", "")}</small>
+        </button>
+      `).join("")}
+    </div>
   `;
 }
+
 
 function renderPoolCard(pool, index, column) {
   const workers = poolWorkers(pool);
@@ -202,7 +211,7 @@ function renderPoolCard(pool, index, column) {
       <div class="pool-stats">
         <div><b>Status</b><span class="good">ONLINE</span></div>
         <div><b>Miners</b><span>${workers.length || pool.stats?.connectedMiners || 0}</span></div>
-        <div><b>Hashrate</b><span>${formatHashrate(totalHashrate || pool.stats?.poolHashrate)}</span></div>
+        <div><b>Coin</b><span>${coin}</span></div>
       </div>
 
       <div class="pool-stats">
@@ -211,8 +220,8 @@ function renderPoolCard(pool, index, column) {
         <div><b>Blocks</b><span>${safe(pool.stats?.totalBlocks, 0)}</span></div>
       </div>
 
-      <div class="miner-row">
-        ${renderMinerPreview(workers, index, column)}
+      <div class="miner-row topology-assets-row">
+        ${renderConnectedAssets(workers, index, column)}
       </div>
     </div>
   `;

@@ -2139,3 +2139,51 @@ canvas.nexus-line-chart {
     text-align: left;
   }
 }
+
+/* Infrastructure relationship view */
+
+.topology-assets-row {
+  border-top: 1px solid rgba(49,82,127,.55);
+  padding-top: 14px;
+}
+
+.connected-assets {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.asset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.92);
+  color: #e5f3ff;
+  border-radius: 999px;
+  padding: 9px 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.asset-chip:hover {
+  border-color: #39ff88;
+}
+
+.asset-chip small {
+  color: #93c5fd;
+  font-size: 11px;
+}
+
+.asset-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #39ff88;
+  box-shadow: 0 0 12px rgba(57,255,136,.75);
+}
+
+.asset-dot.offline {
+  background: #ef4444;
+  box-shadow: 0 0 12px rgba(239,68,68,.75);
+}

@@ -1,113 +1,100 @@
-#!/usr/bin/env python3
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import json
+let latestSystems = [];
+let latestFound = [];
 
-from backend.modules import system
-from backend.modules import connectors
-from backend.modules import discovery
-from backend.modules import dashboard
-from backend.modules import mining
-from backend.core.assets import update_asset
+function byId(id) {
+  return document.getElementById(id);
+}
 
-APP_NAME = "Nexus Command Center"
+function safe(value, fallback = "Unknown") {
+  return value === undefined || value === null || value === "" ? fallback : value;
+}
 
+function closeDrawer() {
+  byId("drawer")?.classList.remove("open");
+  byId("drawerBackdrop")?.classList.remove("open");
+}
 
-def json_response(payload, status=200):
-    return status, json.dumps(payload, indent=2).encode("utf-8")
+function assetLabel(asset, system) {
+  return safe(asset?.friendlyName || asset?.name || system?.ip, "Unknown Asset");
+}
 
+function openDrawer(system) {
+  const asset = system.asset || {};
+  const services = latestFound.filter(item => item.ip === system.ip);
 
-class NexusHandler(BaseHTTPRequestHandler):
-    def _send_json(self, payload, status=200):
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(payload)
+  byId("drawerContent").innerHTML = `
+    <h2>${assetLabel(asset, system)}</h2>
+    <p class="drawer-subtitle">${safe(asset.type || system.profile?.assetType, "Asset")}</p>
 
-    def _send_file(self, file_path, content_type):
-        try:
-            with open(file_path, "rb") as f:
-                data = f.read()
-            self.send_response(200)
-            self.send_header("Content-Type", content_type)
-            self.end_headers()
-            self.wfile.write(data)
-        except FileNotFoundError:
-            status, payload = json_response({"error": "File not found"}, 404)
-            self._send_json(payload, status)
+    <div class="drawer-section"><label>Asset ID</label><strong>${safe(asset.id)}</strong></div>
+    <div class="drawer-section"><label>Friendly Name</label><strong>${safe(asset.friendlyName || asset.name)}</strong></div>
+    <div class="drawer-section"><label>IP Address</label><strong>${safe(asset.ip || system.ip)}</strong></div>
+    <div class="drawer-section"><label>Type</label><strong>${safe(asset.type)}</strong></div>
+    <div class="drawer-section"><label>Purpose</label><strong>${safe(asset.purpose)}</strong></div>
 
-    def do_GET(self):
-        if self.path == "/" or self.path == "/index.html":
-            return self._send_file("frontend/index.html", "text/html")
-        if self.path == "/map.html":
-            return self._send_file("frontend/map.html", "text/html")
-        if self.path == "/assets.html":
-            return self._send_file("frontend/assets.html", "text/html")
-        if self.path == "/inventory.html":
-            return self._send_file("frontend/assets.html", "text/html")
-        if self.path.startswith("/css/"):
-            return self._send_file("frontend" + self.path, "text/css")
-        if self.path.startswith("/js/"):
-            return self._send_file("frontend" + self.path, "application/javascript")
+    <div class="drawer-section"><label>Worker ID</label><strong>${safe(asset.workerId, "Unassigned")}</strong></div>
+    <div class="drawer-section"><label>Pool ID</label><strong>${safe(asset.poolId, "Unassigned")}</strong></div>
+    <div class="drawer-section"><label>Pool Host</label><strong>${safe(asset.poolHost, "Unassigned")}</strong></div>
+    <div class="drawer-section"><label>Pool Group</label><strong>${safe(asset.poolGroup, "Unassigned")}</strong></div>
 
-        routes = {
-            "/api/system/status": system.status,
-            "/api/connectors/status": connectors.status,
-            "/api/discovery/scan": discovery.scan,
-            "/api/discovery/topology": discovery.topology,
-            "/api/dashboard/summary": dashboard.summary,
-            "/api/mining/summary": mining.summary,
-            "/api/mining/workers": mining.workers,
-        }
+    <div class="drawer-section"><label>Manufacturer</label><strong>${safe(asset.manufacturer, "Not set")}</strong></div>
+    <div class="drawer-section"><label>Model</label><strong>${safe(asset.model, "Not set")}</strong></div>
+    <div class="drawer-section"><label>Serial Number</label><strong>${safe(asset.serialNumber, "Not set")}</strong></div>
+    <div class="drawer-section"><label>MAC Address</label><strong>${safe(asset.macAddress, "Not set")}</strong></div>
 
-        if self.path == "/api":
-            status, payload = json_response({
-                "message": "Nexus API online",
-                "endpoints": sorted(routes.keys())
-            })
-            return self._send_json(payload, status)
+    <div class="drawer-section"><label>Rack / Position</label><strong>${safe(asset.rack, "No rack")} ${safe(asset.position, "")}</strong></div>
+    <div class="drawer-section"><label>Services</label><ul>${services.map(s => `<li>${s.service} <b>:${s.port}</b></li>`).join("") || "<li>No services discovered.</li>"}</ul></div>
+  `;
 
-        handler = routes.get(self.path)
+  byId("drawer")?.classList.add("open");
+  byId("drawerBackdrop")?.classList.add("open");
+}
 
-        if handler:
-            status, payload = json_response(handler())
-            return self._send_json(payload, status)
+async function loadAssets() {
+  try {
+    const res = await fetch("/api/discovery/scan");
+    const data = await res.json();
 
-        status, payload = json_response({"error": "Not found"}, 404)
-        return self._send_json(payload, status)
+    const discovery = data.discovery || data;
 
-    def do_POST(self):
-        if self.path == "/api/assets/update":
-            try:
-                length = int(self.headers.get("Content-Length", 0))
-                body = self.rfile.read(length).decode("utf-8")
-                data = json.loads(body)
+    latestSystems = discovery.systems || [];
+    latestFound = discovery.found || [];
 
-                ip = data.get("ip")
-                updates = data.get("updates", {})
+    const html = latestSystems.map(system => {
+      const asset = system.asset || {};
 
-                if not ip:
-                    status, payload = json_response({"error": "Missing ip"}, 400)
-                    return self._send_json(payload, status)
+      return `
+        <div class="inventory-card asset-card" data-ip="${system.ip}">
+          <div class="node-status"></div>
+          <h3>${assetLabel(asset, system)}</h3>
+          <p>${safe(asset.type || system.profile?.assetType, "Unknown Asset")}</p>
 
-                asset = update_asset(ip, updates)
-                status, payload = json_response({"success": True, "asset": asset})
-                return self._send_json(payload, status)
+          <div class="inventory-meta">
+            <span>${safe(asset.ip || system.ip)}</span>
+            <span>${safe(asset.poolGroup, "Unassigned")}</span>
+            <span>Worker ${safe(asset.workerId, "—")}</span>
+          </div>
 
-            except Exception as e:
-                status, payload = json_response({"error": str(e)}, 500)
-                return self._send_json(payload, status)
+          <small>${safe(asset.manufacturer || asset.model || asset.purpose, "No hardware details yet")}</small>
+        </div>
+      `;
+    }).join("");
 
-        status, payload = json_response({"error": "Not found"}, 404)
-        return self._send_json(payload, status)
+    byId("assetsList").innerHTML = html || "No assets discovered.";
 
+    document.querySelectorAll(".asset-card").forEach(card => {
+      card.addEventListener("click", () => {
+        const system = latestSystems.find(s => s.ip === card.dataset.ip);
+        if (system) openDrawer(system);
+      });
+    });
+  } catch (err) {
+    byId("assetsList").innerHTML = `<div class="empty-state"><h2>Assets failed to load.</h2><p>${err.message}</p></div>`;
+  }
+}
 
-def main():
-    host = "0.0.0.0"
-    port = 8080
-    print(f"{APP_NAME} API running on http://{host}:{port}")
-    HTTPServer((host, port), NexusHandler).serve_forever()
-
-
-if __name__ == "__main__":
-    main()
+window.addEventListener("DOMContentLoaded", () => {
+  byId("drawerClose")?.addEventListener("click", closeDrawer);
+  byId("drawerBackdrop")?.addEventListener("click", closeDrawer);
+  loadAssets();
+});
