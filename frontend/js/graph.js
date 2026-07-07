@@ -1,6 +1,12 @@
 let graph = { nodes: [], edges: [], counts: {} };
 let selectedNodeId = null;
+let highlightedNodeIds = new Set();
+let highlightedEdgeKeys = new Set();
 let searchQuery = "";
+let graphRefreshTimer = null;
+let activeNodeType = "all";
+let liveWorkers = [];
+let manualPositions = {};
 
 const typeOrder = {
   host: 1,
@@ -14,8 +20,57 @@ const typeOrder = {
 
 function byId(id) { return document.getElementById(id); }
 function safe(v, f = "Unknown") { return v === undefined || v === null || v === "" ? f : v; }
+
+function shortLabel(value, max = 18) {
+  const text = safe(value, "");
+  return text.length > max ? text.slice(0, max - 1) + "…" : text;
+}
 function nodeById(id) { return graph.nodes.find(n => n.id === id); }
 function connectedEdges(id) { return graph.edges.filter(e => e.source === id || e.target === id); }
+
+function clearGraphSelection() {
+  selectedNodeId = null;
+  highlightedNodeIds = new Set();
+  highlightedEdgeKeys = new Set();
+  renderCanvas();
+  renderNodes();
+  renderRelationships();
+}
+
+function edgeKey(edge) {
+  return `${edge.source}->${edge.target}:${edge.type}`;
+}
+
+async function loadImpactHighlight(nodeId) {
+  highlightedNodeIds = new Set([nodeId]);
+  highlightedEdgeKeys = new Set();
+
+  // Always highlight direct neighbors so every click does something obvious.
+  graph.edges.forEach(edge => {
+    if (edge.source === nodeId || edge.target === nodeId) {
+      highlightedNodeIds.add(edge.source);
+      highlightedNodeIds.add(edge.target);
+      highlightedEdgeKeys.add(edgeKey(edge));
+    }
+  });
+
+  try {
+    const res = await fetch(`/api/impact?nodeId=${encodeURIComponent(nodeId)}`);
+    if (!res.ok) return;
+
+    const impact = await res.json();
+
+    (impact.affected || []).forEach(item => {
+      if (item.node?.id) highlightedNodeIds.add(item.node.id);
+    });
+
+    graph.edges.forEach(edge => {
+      if (highlightedNodeIds.has(edge.source) && highlightedNodeIds.has(edge.target)) {
+        highlightedEdgeKeys.add(edgeKey(edge));
+      }
+    });
+  } catch {}
+}
 
 function filteredNodes() {
   const q = searchQuery.trim().toLowerCase();
@@ -51,8 +106,8 @@ function layoutNodes() {
 
   Object.entries(groups).forEach(([layer, items]) => {
     items.forEach((n, i) => {
-      n.x = 120 + (Number(layer) - 1) * 220;
-      n.y = 90 + i * 120;
+      n.x = 90 + (Number(layer) - 1) * 250;
+      n.y = 90 + i * 130;
     });
   });
 
@@ -60,7 +115,13 @@ function layoutNodes() {
 }
 
 function renderCanvas() {
-  const nodes = layoutNodes();
+  const nodes = layoutNodes().map(n => {
+    if (manualPositions[n.id]) {
+      n.x = manualPositions[n.id].x;
+      n.y = manualPositions[n.id].y;
+    }
+    return n;
+  });
   const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
 
   const edges = graph.edges
@@ -71,45 +132,130 @@ function renderCanvas() {
   const maxY = Math.max(...nodes.map(n => n.y), 460) + 100;
 
   byId("graphCanvas").innerHTML = `
-    <svg viewBox="0 0 ${maxX} ${maxY}" class="infra-svg">
+    <svg viewBox="0 0 ${maxX} ${maxY}" class="infra-svg" id="infraSvgCanvas">
       <defs>
         <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
           <path d="M0,0 L0,6 L9,3 z" fill="#60a5fa"></path>
         </marker>
       </defs>
 
-      ${edges.map(e => `
+      ${edges.map(e => {
+        const active = highlightedEdgeKeys.has(edgeKey(e));
+        const faded = selectedNodeId && !active;
+        return `
         <line
-          x1="${e.sourceNode.x + 70}" y1="${e.sourceNode.y + 28}"
-          x2="${e.targetNode.x + 70}" y2="${e.targetNode.y + 28}"
-          class="infra-link"
+          x1="${e.sourceNode.x + 85}" y1="${e.sourceNode.y + 37}"
+          x2="${e.targetNode.x + 85}" y2="${e.targetNode.y + 37}"
+          class="infra-link ${active ? "active" : ""} ${faded ? "faded" : ""}"
           marker-end="url(#arrow)"
         />
-        <text
-          x="${(e.sourceNode.x + e.targetNode.x) / 2 + 65}"
-          y="${(e.sourceNode.y + e.targetNode.y) / 2 + 18}"
-          class="infra-link-label">${e.type}</text>
-      `).join("")}
+        <circle class="share-pulse ${active ? "active" : ""}" r="4">
+          <animateMotion dur="2.2s" repeatCount="indefinite"
+            path="M${e.sourceNode.x + 85},${e.sourceNode.y + 37} L${e.targetNode.x + 85},${e.targetNode.y + 37}" />
+        </circle>
+      `}).join("")}
 
-      ${nodes.map(n => `
-        <g class="infra-node ${selectedNodeId === n.id ? "selected" : ""}" data-id="${n.id}">
-          <rect x="${n.x}" y="${n.y}" rx="16" ry="16" width="150" height="66"></rect>
-          <circle cx="${n.x + 18}" cy="${n.y + 20}" r="6"></circle>
-          <text x="${n.x + 34}" y="${n.y + 24}" class="infra-node-title">${safe(n.label, n.id)}</text>
-          <text x="${n.x + 16}" y="${n.y + 49}" class="infra-node-type">${safe(n.type)}</text>
+      ${nodes.map(n => {
+        const h = liveHashrateForNode(n);
+        const liveStatus = liveNodeStatus(n);
+        return `
+        <g class="infra-node node-${n.type} status-${liveStatus} ${selectedNodeId === n.id ? "selected" : ""} ${highlightedNodeIds.has(n.id) ? "highlighted" : ""} ${selectedNodeId && !highlightedNodeIds.has(n.id) ? "faded" : ""}" data-id="${n.id}">
+          <rect x="${n.x}" y="${n.y}" rx="16" ry="16" width="180" height="84"></rect>
+          <circle cx="${n.x + 18}" cy="${n.y + 22}" r="6"></circle>
+          <text x="${n.x + 34}" y="${n.y + 26}" class="infra-node-title">${shortLabel(n.label, 20)}</text>
+          <text x="${n.x + 16}" y="${n.y + 54}" class="infra-node-type">${safe(n.type)}</text>
+          <text x="${n.x + 16}" y="${n.y + 73}" class="infra-node-metric">${h > 0 ? formatHashrate(h) : liveStatus.toUpperCase()}</text>
         </g>
-      `).join("")}
+      `}).join("")}
     </svg>
   `;
 
+  byId("infraSvgCanvas")?.addEventListener("click", () => {
+    selectedNodeId = null;
+    highlightedNodeIds = new Set();
+    highlightedEdgeKeys = new Set();
+    renderCanvas();
+    renderNodes();
+    renderRelationships();
+  });
+
+  enableDrag(nodes);
+
   document.querySelectorAll(".infra-node").forEach(el => {
-    el.addEventListener("click", () => {
+    el.addEventListener("click", async (event) => {
+      event.stopPropagation();
       selectedNodeId = el.dataset.id;
+      await loadImpactHighlight(selectedNodeId);
       renderCanvas();
       renderNodes();
       renderRelationships();
     });
   });
+}
+
+function svgPoint(svg, event) {
+  const pt = svg.createSVGPoint();
+  pt.x = event.clientX;
+  pt.y = event.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+let dragState = null;
+
+function enableDrag(nodes) {
+  const svg = byId("infraSvgCanvas");
+  if (!svg) return;
+
+  const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
+
+  document.querySelectorAll(".infra-node").forEach(el => {
+    const nodeId = el.dataset.id;
+
+    el.addEventListener("mousedown", event => {
+      event.stopPropagation();
+      event.preventDefault();
+
+      const node = nodeMap[nodeId];
+      const point = svgPoint(svg, event);
+
+      dragState = {
+        nodeId,
+        offsetX: point.x - node.x,
+        offsetY: point.y - node.y
+      };
+
+      el.classList.add("dragging");
+    });
+  });
+
+  svg.onmousemove = event => {
+    if (!dragState) return;
+
+    const point = svgPoint(svg, event);
+
+    manualPositions[dragState.nodeId] = {
+      x: Math.max(20, point.x - dragState.offsetX),
+      y: Math.max(20, point.y - dragState.offsetY)
+    };
+
+    renderCanvas();
+  };
+
+  svg.onmouseup = async () => {
+    if (dragState) {
+      dragState = null;
+      document.querySelectorAll(".infra-node.dragging").forEach(n => n.classList.remove("dragging"));
+      await saveGraphLayout();
+    }
+  };
+
+  svg.onmouseleave = async () => {
+    if (dragState) {
+      dragState = null;
+      document.querySelectorAll(".infra-node.dragging").forEach(n => n.classList.remove("dragging"));
+      await saveGraphLayout();
+    }
+  };
 }
 
 function renderNodes() {
@@ -126,8 +272,9 @@ function renderNodes() {
   `).join("");
 
   document.querySelectorAll(".graph-node").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       selectedNodeId = btn.dataset.id;
+      await loadImpactHighlight(selectedNodeId);
       renderNodes();
       renderCanvas();
       renderRelationships();
@@ -143,6 +290,58 @@ async function fetchImpact(nodeId) {
   } catch {
     return null;
   }
+}
+
+async function loadLiveMetrics() {
+  try {
+    const res = await fetch("/api/mining/workers");
+    if (res.ok) {
+      const payload = await res.json();
+      liveWorkers = payload.workers || [];
+    }
+  } catch {}
+}
+
+function workerForNode(node) {
+  const props = node.properties || {};
+  const workerName = props.workerName || props.name || props.workerId;
+  return liveWorkers.find(w =>
+    w.workerName === workerName ||
+    w.name === workerName ||
+    w.workerId === props.workerId ||
+    w.assetName === node.label
+  );
+}
+
+function liveHashrateForNode(node) {
+  if (!node) return 0;
+
+  const props = node.properties || {};
+
+  if (node.type === "worker") {
+    return Number(props.hashrate || workerForNode(node)?.hashrate || 0);
+  }
+
+  if (node.type === "asic") {
+    const worker = liveWorkers.find(w => w.assetName === node.label || w.assetIp === props.ip);
+    return Number(worker?.hashrate || 0);
+  }
+
+  if (node.type === "pool") {
+    return liveWorkers
+      .filter(w => w.poolId === props.id && w.poolHost === props.host)
+      .reduce((sum, w) => sum + Number(w.hashrate || 0), 0);
+  }
+
+  return 0;
+}
+
+function liveNodeStatus(node) {
+  const h = liveHashrateForNode(node);
+  if (["worker", "asic", "pool"].includes(node.type)) {
+    return h > 0 ? "mining" : "idle";
+  }
+  return node.status || "online";
 }
 
 function formatHashrate(value) {
@@ -202,11 +401,42 @@ async function renderRelationships() {
   `;
 }
 
-async function loadGraph() {
+async function loadSavedLayout() {
   try {
-    byId("graphHealth").textContent = "Loading...";
-    const res = await fetch("/api/graph/live");
+    const res = await fetch("/api/graph/layout");
+    if (res.ok) manualPositions = await res.json();
+  } catch {}
+}
+
+async function saveGraphLayout() {
+  await fetch("/api/graph/layout/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(manualPositions)
+  });
+  byId("graphHealth").textContent = "Layout Saved";
+  setTimeout(() => byId("graphHealth").textContent = "Live", 1200);
+}
+
+async function resetGraphLayout() {
+  manualPositions = {};
+  await fetch("/api/graph/layout/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({})
+  });
+  renderCanvas();
+  renderNodes();
+  renderRelationships();
+}
+
+async function loadGraph(rebuild = false) {
+  try {
+    byId("graphHealth").textContent = rebuild ? "Rebuilding..." : "Loading...";
+    const res = await fetch(rebuild ? "/api/graph/rebuild" : "/api/graph/live");
     graph = await res.json();
+    await loadSavedLayout();
+    await loadLiveMetrics();
 
     renderSummary();
     renderCanvas();
@@ -226,5 +456,40 @@ window.addEventListener("DOMContentLoaded", () => {
     renderNodes();
   });
 
+  byId("clearGraphSelection")?.addEventListener("click", clearGraphSelection);
+  byId("saveGraphLayout")?.addEventListener("click", saveGraphLayout);
+  byId("resetGraphLayout")?.addEventListener("click", resetGraphLayout);
+
+  byId("showAllNodes")?.addEventListener("click", () => {
+    activeNodeType = "all";
+    searchQuery = "";
+    if (byId("graphSearch")) byId("graphSearch").value = "";
+    document.querySelectorAll(".type-filter").forEach(b => b.classList.remove("active"));
+    document.querySelector(".type-filter[data-type='all']")?.classList.add("active");
+    renderNodes();
+  });
+
+  document.querySelectorAll(".type-filter").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".type-filter").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeNodeType = btn.dataset.type;
+      renderNodes();
+    });
+  });
+
+  byId("rebuildGraph")?.addEventListener("click", async () => {
+    await loadGraph(true);
+  });
+
+  byId("autoRefreshGraph")?.addEventListener("change", e => {
+    if (graphRefreshTimer) clearInterval(graphRefreshTimer);
+
+    if (e.target.checked) {
+      graphRefreshTimer = setInterval(() => loadGraph(false), 15000);
+    }
+  });
+
   loadGraph();
+  graphRefreshTimer = setInterval(() => loadGraph(false), 15000);
 });

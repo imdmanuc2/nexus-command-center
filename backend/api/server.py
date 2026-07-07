@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 from backend.modules import system
@@ -100,6 +101,13 @@ class NexusHandler(BaseHTTPRequestHandler):
                 status, payload = json_response(relationships.impact(node_id))
             return self._send_json(payload, status)
 
+        if self.path == "/api/graph/layout":
+            layout_path = Path("backend/data/graph/layout.json")
+            if not layout_path.exists():
+                layout_path.write_text("{}")
+            status, payload = json_response(json.loads(layout_path.read_text()))
+            return self._send_json(payload, status)
+
         if self.path == "/api":
             status, payload = json_response({
                 "message": "Nexus API online",
@@ -117,6 +125,22 @@ class NexusHandler(BaseHTTPRequestHandler):
         return self._send_json(payload, status)
 
     def do_POST(self):
+        if self.path == "/api/graph/layout/save":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length).decode("utf-8")
+                data = json.loads(body)
+
+                layout_path = Path("backend/data/graph/layout.json")
+                layout_path.parent.mkdir(parents=True, exist_ok=True)
+                layout_path.write_text(json.dumps(data, indent=2))
+
+                status, payload = json_response({"success": True})
+                return self._send_json(payload, status)
+            except Exception as e:
+                status, payload = json_response({"error": str(e)}, 500)
+                return self._send_json(payload, status)
+
         if self.path == "/api/assets/update":
             try:
                 length = int(self.headers.get("Content-Length", 0))

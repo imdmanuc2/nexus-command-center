@@ -2579,3 +2579,396 @@ canvas.nexus-line-chart {
     grid-template-columns: 1fr;
   }
 }
+
+/* Discovery Timeline */
+
+.timeline-panel {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.88);
+  border-radius: 24px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.timeline-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.timeline-head h2 {
+  margin: 0;
+}
+
+.timeline-head span {
+  color: #93c5fd;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 10px;
+}
+
+.timeline-empty {
+  border: 1px solid rgba(49,82,127,.72);
+  background: rgba(2,6,23,.42);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.timeline-empty strong,
+.timeline-empty span {
+  display: block;
+}
+
+.timeline-empty span {
+  color: #93c5fd;
+  margin-top: 5px;
+}
+
+.timeline-event {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid rgba(49,82,127,.72);
+  background: rgba(2,6,23,.42);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.timeline-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #39ff88;
+  margin-top: 5px;
+  box-shadow: 0 0 12px rgba(57,255,136,.75);
+}
+
+.timeline-event.warning .timeline-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 12px rgba(245,158,11,.75);
+}
+
+.timeline-event strong,
+.timeline-event span,
+.timeline-event small {
+  display: block;
+}
+
+.timeline-event span {
+  color: #bfdbfe;
+  margin-top: 4px;
+}
+
+.timeline-event small {
+  color: #93c5fd;
+  margin-top: 4px;
+}
+
+/* Infrastructure Explorer Canvas */
+
+.infra-canvas-panel {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.82);
+  border-radius: 26px;
+  padding: 20px;
+  margin-bottom: 22px;
+}
+
+.infra-canvas-panel h2 {
+  margin-top: 0;
+}
+
+.infra-canvas {
+  min-height: 460px;
+  border: 1px solid rgba(49,82,127,.7);
+  background:
+    linear-gradient(rgba(96,165,250,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96,165,250,.05) 1px, transparent 1px),
+    rgba(2,6,23,.55);
+  background-size: 32px 32px;
+  border-radius: 22px;
+  overflow: auto;
+}
+
+.infra-svg {
+  width: 100%;
+  min-width: 900px;
+  height: 560px;
+}
+
+.infra-link {
+  stroke: #60a5fa;
+  stroke-width: 2;
+  opacity: .58;
+}
+
+.infra-link-label {
+  fill: #93c5fd;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.infra-node {
+  cursor: pointer;
+}
+
+.infra-node rect {
+  fill: rgba(8,18,37,.96);
+  stroke: #31527f;
+  stroke-width: 2;
+}
+
+.infra-node:hover rect,
+.infra-node.selected rect {
+  stroke: #39ff88;
+  fill: rgba(5,46,26,.72);
+}
+
+.infra-node circle {
+  fill: #39ff88;
+  filter: drop-shadow(0 0 8px rgba(57,255,136,.75));
+}
+
+.infra-node-title {
+  fill: #e5f3ff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.infra-node-type {
+  fill: #93c5fd;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+/* Mission Control highlighting */
+
+.infra-node.faded {
+  opacity: .22;
+}
+
+.infra-node.highlighted rect {
+  stroke: #38bdf8;
+  fill: rgba(8,47,73,.72);
+  filter: drop-shadow(0 0 14px rgba(56,189,248,.45));
+}
+
+.infra-node.selected rect {
+  stroke: #39ff88;
+  fill: rgba(5,46,26,.82);
+  filter: drop-shadow(0 0 18px rgba(57,255,136,.65));
+}
+
+.infra-link.faded,
+.infra-link-label.faded {
+  opacity: .12;
+}
+
+.infra-link.active {
+  stroke: #39ff88;
+  stroke-width: 3;
+  opacity: .95;
+  filter: drop-shadow(0 0 8px rgba(57,255,136,.8));
+  stroke-dasharray: 10 8;
+  animation: flowLine 1.6s linear infinite;
+}
+
+.share-pulse {
+  display: none;
+  fill: #39ff88;
+  filter: drop-shadow(0 0 10px rgba(57,255,136,.9));
+}
+
+.share-pulse.active {
+  display: block;
+}
+
+@keyframes flowLine {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -36; }
+}
+
+/* Infrastructure Explorer Controls */
+
+.explorer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.auto-refresh-toggle {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.88);
+  color: #93c5fd;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Infrastructure Explorer Type Filters */
+
+.explorer-type-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.type-filter {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.88);
+  color: #93c5fd;
+  border-radius: 999px;
+  padding: 9px 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.type-filter.active {
+  color: #39ff88;
+  border-color: #14532d;
+  background: #052e1a;
+}
+
+.infra-node.node-host rect {
+  stroke: #38bdf8;
+}
+
+.infra-node.node-pool rect {
+  stroke: #60a5fa;
+}
+
+.infra-node.node-worker rect {
+  stroke: #a78bfa;
+}
+
+.infra-node.node-asic rect {
+  stroke: #39ff88;
+}
+
+/* Canvas cleanup v2 */
+
+.infra-link-label {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.infra-link-label:not(.faded) {
+  opacity: .85;
+}
+
+.infra-node rect {
+  width: 170px;
+}
+
+.infra-node-title {
+  font-size: 12px;
+}
+
+.infra-node-type {
+  font-size: 10px;
+  letter-spacing: .6px;
+}
+
+.infra-node.faded {
+  opacity: .16;
+}
+
+.infra-link.faded {
+  opacity: .08;
+}
+
+.infra-node.highlighted rect {
+  stroke-width: 3;
+}
+
+.infra-node.selected rect {
+  stroke-width: 3;
+}
+
+/* Drag/drop canvas nodes */
+
+.infra-node.dragging rect {
+  stroke: #facc15;
+  filter: drop-shadow(0 0 18px rgba(250,204,21,.65));
+}
+
+.infra-node {
+  user-select: none;
+}
+
+.infra-link-label {
+  display: none;
+}
+
+/* Live Metrics / Mission Control Mode */
+
+.infra-node-metric {
+  fill: #39ff88;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .4px;
+}
+
+.infra-node.status-mining circle {
+  animation: miningPulse 1.4s ease-in-out infinite;
+}
+
+.infra-node.status-mining rect {
+  filter: drop-shadow(0 0 12px rgba(57,255,136,.35));
+}
+
+.infra-node.status-idle circle {
+  fill: #64748b;
+  filter: none;
+}
+
+.infra-node.status-idle .infra-node-metric {
+  fill: #94a3b8;
+}
+
+.infra-node.status-warning rect {
+  stroke: #f59e0b;
+}
+
+.infra-node.status-offline rect {
+  stroke: #ef4444;
+}
+
+@keyframes miningPulse {
+  0% {
+    r: 5;
+    opacity: .7;
+  }
+  50% {
+    r: 8;
+    opacity: 1;
+  }
+  100% {
+    r: 5;
+    opacity: .7;
+  }
+}
+
+.infra-link {
+  stroke-dasharray: 8 10;
+  animation: subtleFlow 3.4s linear infinite;
+}
+
+@keyframes subtleFlow {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -36; }
+}
