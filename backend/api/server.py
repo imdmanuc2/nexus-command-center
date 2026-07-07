@@ -9,6 +9,7 @@ from backend.modules import dashboard
 from backend.modules import mining
 from backend.modules import assets
 from backend.modules import graph
+from backend.modules import graph_engine
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -68,6 +69,10 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/mining/workers": mining.workers,
             "/api/assets/relationships": assets.relationships,
             "/api/graph": graph.graph,
+            "/api/graph/live": graph_engine.live,
+            "/api/graph/rebuild": graph_engine.rebuild,
+            "/api/graph/snapshots": graph_engine.snapshots,
+            "/api/graph/statistics": graph_engine.statistics,
         }
 
         if self.path == "/api":
