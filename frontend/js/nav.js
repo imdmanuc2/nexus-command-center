@@ -9,6 +9,7 @@ function renderNav(active) {
     ["Assets", "/assets.html"],
     ["Pools", "/pools.html"],
     ["Discovery", "/discovery.html"],
+    ["Graph", "/graph.html"],
     ["AI Assistant", "#"],
     ["Reports", "#"],
     ["Settings", "#"]

@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from backend.core.assets import get_assets_list
 from backend.modules import discovery
 from backend.modules import mining
@@ -33,6 +35,48 @@ def add_edge(edges, source, target, rel_type, label=None):
     if edge not in edges:
         edges.append(edge)
 
+
+def load_external_graphs():
+    graph_dir = Path("backend/data/external_graphs")
+    graphs = []
+
+    if not graph_dir.exists():
+        return graphs
+
+    for path in graph_dir.glob("*.json"):
+        try:
+            graphs.append(json.loads(path.read_text()))
+        except Exception:
+            pass
+
+    return graphs
+
+
+def merge_external_graphs(nodes, edges):
+    for graph in load_external_graphs():
+        source = graph.get("source", "external")
+
+        for node in graph.get("nodes", []):
+            node_id = f"{source}:{node.get('id')}"
+            nodes[node_id] = {
+                "id": node_id,
+                "type": node.get("type", "external"),
+                "label": node.get("label", node.get("id")),
+                "status": "online",
+                "properties": {
+                    **node.get("metadata", {}),
+                    "source": source,
+                    "externalId": node.get("id")
+                }
+            }
+
+        for edge in graph.get("edges", []):
+            edges.append({
+                "source": f"{source}:{edge.get('source')}",
+                "target": f"{source}:{edge.get('target')}",
+                "type": edge.get("type", "RELATED_TO"),
+                "label": edge.get("type", "RELATED_TO").replace("_", " ").title()
+            })
 
 def build_graph():
     topo_payload = discovery.topology()

@@ -1,0 +1,54 @@
+{
+  "graphVersion": "v1",
+  "source": "seymour-miningcore",
+  "nodes": [
+    {
+      "id": "server-Nakamoto",
+      "type": "server",
+      "label": "Nakamoto",
+      "metadata": {
+        "ip": "192.168.1.172",
+        "role": "seymour-miningcore-node"
+      }
+    },
+    {
+      "id": "pool-btc-solo",
+      "type": "pool",
+      "label": "Bitcoin Solo",
+      "metadata": {
+        "poolId": "btc-solo",
+        "coin": "BTC",
+        "network": "mainnet",
+        "mode": "solo",
+        "enabled": true,
+        "stratumPort": 3333,
+        "apiPort": 4000,
+        "payoutScheme": "SOLO",
+        "feePercent": 0.75
+      }
+    },
+    {
+      "id": "rpc-btc-solo",
+      "type": "coin-node-rpc",
+      "label": "BTC RPC",
+      "metadata": {
+        "poolId": "btc-solo",
+        "coin": "BTC",
+        "rpcHost": "192.168.1.156",
+        "rpcPort": 8332
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "server-Nakamoto",
+      "target": "pool-btc-solo",
+      "type": "HOSTS"
+    },
+    {
+      "source": "pool-btc-solo",
+      "target": "rpc-btc-solo",
+      "type": "USES_RPC"
+    }
+  ]
+}

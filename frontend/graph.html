@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nexus Graph Explorer</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+
+<main class="wrap">
+
+<header>
+<div>
+<h1>Graph Explorer</h1>
+<p>Digital Twin Relationship Engine</p>
+</div>
+
+<div id="graphHealth" class="status healthy">
+Loading...
+</div>
+
+</header>
+
+<nav id="topNav" class="nav"></nav>
+
+<section class="asset-summary-grid" id="graphSummary"></section>
+
+<section class="graph-layout">
+
+<div class="graph-list-panel">
+
+<h2>Nodes</h2>
+
+<input
+id="graphSearch"
+class="asset-search"
+placeholder="Search graph..."
+autocomplete="off">
+
+<div id="graphNodes"></div>
+
+</div>
+
+<div class="graph-detail-panel">
+
+<h2>Relationships</h2>
+
+<div id="graphRelationships">
+
+Select a node.
+
+</div>
+
+</div>
+
+</section>
+
+</main>
+
+<script src="/js/nav.js"></script>
+<script src="/js/graph.js"></script>
+
+<script>
+renderNav("Graph");
+</script>
+
+</body>
+</html>
