@@ -1,5 +1,7 @@
 let latestSystems = [];
 let latestFound = [];
+let activeFilter = "all";
+let searchQuery = "";
 
 function byId(id) {
   return document.getElementById(id);
@@ -18,32 +20,182 @@ function assetLabel(asset, system) {
   return safe(asset?.friendlyName || asset?.name || system?.ip, "Unknown Asset");
 }
 
+function assetText(system) {
+  const asset = system.asset || {};
+  return [
+    asset.friendlyName,
+    asset.name,
+    asset.ip,
+    system.ip,
+    asset.type,
+    asset.purpose,
+    asset.workerId,
+    asset.poolId,
+    asset.poolHost,
+    asset.poolGroup,
+    asset.manufacturer,
+    asset.model,
+    asset.serialNumber,
+    asset.macAddress,
+    asset.rack,
+    asset.position,
+    ...(asset.tags || [])
+  ].join(" ").toLowerCase();
+}
+
+function matchesFilter(system) {
+  const asset = system.asset || {};
+  const type = asset.type || "";
+
+  if (activeFilter === "all") return true;
+  if (activeFilter === "favorite") return asset.favorite === true;
+  if (activeFilter === "unassigned") return !asset.poolId && !asset.poolGroup && !asset.workerId;
+  return type === activeFilter;
+}
+
+function filteredSystems() {
+  return latestSystems.filter(system => {
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q || assetText(system).includes(q);
+    return matchesSearch && matchesFilter(system);
+  });
+}
+
+function renderSummary() {
+  const counts = {
+    total: latestSystems.length,
+    asic: latestSystems.filter(s => s.asset?.type === "asic").length,
+    pools: latestSystems.filter(s => s.asset?.type === "pool-host").length,
+    nodes: latestSystems.filter(s => s.asset?.type === "blockchain-node").length,
+    unassigned: latestSystems.filter(s => !s.asset?.poolId && !s.asset?.poolGroup && !s.asset?.workerId).length
+  };
+
+  byId("assetSummary").innerHTML = `
+    <div class="asset-summary-card"><span>Total Assets</span><strong>${counts.total}</strong></div>
+    <div class="asset-summary-card"><span>ASICs</span><strong>${counts.asic}</strong></div>
+    <div class="asset-summary-card"><span>Pool Hosts</span><strong>${counts.pools}</strong></div>
+    <div class="asset-summary-card"><span>Nodes</span><strong>${counts.nodes}</strong></div>
+    <div class="asset-summary-card"><span>Unassigned</span><strong>${counts.unassigned}</strong></div>
+  `;
+}
+
+function renderAssets() {
+  const systems = filteredSystems();
+
+  const html = systems.map(system => {
+    const asset = system.asset || {};
+
+    return `
+      <div class="inventory-card asset-card" data-ip="${system.ip}">
+        <div class="node-status"></div>
+
+        <div class="asset-card-head">
+          <h3>${assetLabel(asset, system)}</h3>
+          <span>${safe(asset.type, "unknown")}</span>
+        </div>
+
+        <div class="asset-card-meta">
+          <span>${safe(asset.ip || system.ip)}</span>
+          <span>${safe(asset.poolGroup, "Unassigned")}</span>
+          <span>Worker ${safe(asset.workerId, "—")}</span>
+        </div>
+
+        <div class="asset-card-detail">
+          <b>${safe(asset.manufacturer || asset.model || asset.purpose, "No hardware details yet")}</b>
+          <small>${safe(system.primaryRole, "No detected role")}</small>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  byId("assetsList").innerHTML = html || `
+    <div class="empty-state">
+      <h2>No assets match.</h2>
+      <p>Try clearing the search or changing the filter.</p>
+    </div>
+  `;
+
+  document.querySelectorAll(".asset-card").forEach(card => {
+    card.addEventListener("click", () => {
+      const system = latestSystems.find(s => s.ip === card.dataset.ip);
+      if (system) openDrawer(system);
+    });
+  });
+}
+
+function section(title, html) {
+  return `
+    <div class="asset-drawer-section">
+      <h3>${title}</h3>
+      <div class="asset-detail-grid">
+        ${html}
+      </div>
+    </div>
+  `;
+}
+
+function field(label, value) {
+  return `
+    <div class="asset-detail-field">
+      <label>${label}</label>
+      <strong>${safe(value, "Not set")}</strong>
+    </div>
+  `;
+}
+
 function openDrawer(system) {
   const asset = system.asset || {};
   const services = latestFound.filter(item => item.ip === system.ip);
 
   byId("drawerContent").innerHTML = `
-    <h2>${assetLabel(asset, system)}</h2>
-    <p class="drawer-subtitle">${safe(asset.type || system.profile?.assetType, "Asset")}</p>
+    <div class="asset-profile-head">
+      <div>
+        <h2>${assetLabel(asset, system)}</h2>
+        <p class="drawer-subtitle">${safe(asset.type || system.profile?.assetType, "Asset")}</p>
+      </div>
+      <span class="asset-profile-status">ONLINE</span>
+    </div>
 
-    <div class="drawer-section"><label>Asset ID</label><strong>${safe(asset.id)}</strong></div>
-    <div class="drawer-section"><label>Friendly Name</label><strong>${safe(asset.friendlyName || asset.name)}</strong></div>
-    <div class="drawer-section"><label>IP Address</label><strong>${safe(asset.ip || system.ip)}</strong></div>
-    <div class="drawer-section"><label>Type</label><strong>${safe(asset.type)}</strong></div>
-    <div class="drawer-section"><label>Purpose</label><strong>${safe(asset.purpose)}</strong></div>
+    ${section("Identity", `
+      ${field("Asset ID", asset.id)}
+      ${field("Friendly Name", asset.friendlyName || asset.name)}
+      ${field("IP Address", asset.ip || system.ip)}
+      ${field("Hostname", asset.hostname || system.profile?.hostname)}
+      ${field("Type", asset.type)}
+      ${field("Purpose", asset.purpose)}
+    `)}
 
-    <div class="drawer-section"><label>Worker ID</label><strong>${safe(asset.workerId, "Unassigned")}</strong></div>
-    <div class="drawer-section"><label>Pool ID</label><strong>${safe(asset.poolId, "Unassigned")}</strong></div>
-    <div class="drawer-section"><label>Pool Host</label><strong>${safe(asset.poolHost, "Unassigned")}</strong></div>
-    <div class="drawer-section"><label>Pool Group</label><strong>${safe(asset.poolGroup, "Unassigned")}</strong></div>
+    ${section("Mining Relationship", `
+      ${field("Worker ID", asset.workerId)}
+      ${field("Pool ID", asset.poolId)}
+      ${field("Pool Host", asset.poolHost)}
+      ${field("Pool Group", asset.poolGroup)}
+    `)}
 
-    <div class="drawer-section"><label>Manufacturer</label><strong>${safe(asset.manufacturer, "Not set")}</strong></div>
-    <div class="drawer-section"><label>Model</label><strong>${safe(asset.model, "Not set")}</strong></div>
-    <div class="drawer-section"><label>Serial Number</label><strong>${safe(asset.serialNumber, "Not set")}</strong></div>
-    <div class="drawer-section"><label>MAC Address</label><strong>${safe(asset.macAddress, "Not set")}</strong></div>
+    ${section("Hardware", `
+      ${field("Manufacturer", asset.manufacturer)}
+      ${field("Model", asset.model)}
+      ${field("Serial Number", asset.serialNumber)}
+      ${field("MAC Address", asset.macAddress)}
+    `)}
 
-    <div class="drawer-section"><label>Rack / Position</label><strong>${safe(asset.rack, "No rack")} ${safe(asset.position, "")}</strong></div>
-    <div class="drawer-section"><label>Services</label><ul>${services.map(s => `<li>${s.service} <b>:${s.port}</b></li>`).join("") || "<li>No services discovered.</li>"}</ul></div>
+    ${section("Location", `
+      ${field("Location", asset.location)}
+      ${field("Rack", asset.rack)}
+      ${field("Position", asset.position)}
+    `)}
+
+    <div class="asset-drawer-section">
+      <h3>Discovered Services</h3>
+      <ul class="service-list">
+        ${services.map(s => `<li><span>${s.service}</span><b>:${s.port}</b></li>`).join("") || "<li>No services discovered.</li>"}
+      </ul>
+    </div>
+
+    <div class="asset-drawer-section">
+      <h3>Notes</h3>
+      <p>${safe(asset.notes, "No notes yet.")}</p>
+    </div>
   `;
 
   byId("drawer")?.classList.add("open");
@@ -54,40 +206,13 @@ async function loadAssets() {
   try {
     const res = await fetch("/api/discovery/scan");
     const data = await res.json();
-
     const discovery = data.discovery || data;
 
     latestSystems = discovery.systems || [];
     latestFound = discovery.found || [];
 
-    const html = latestSystems.map(system => {
-      const asset = system.asset || {};
-
-      return `
-        <div class="inventory-card asset-card" data-ip="${system.ip}">
-          <div class="node-status"></div>
-          <h3>${assetLabel(asset, system)}</h3>
-          <p>${safe(asset.type || system.profile?.assetType, "Unknown Asset")}</p>
-
-          <div class="inventory-meta">
-            <span>${safe(asset.ip || system.ip)}</span>
-            <span>${safe(asset.poolGroup, "Unassigned")}</span>
-            <span>Worker ${safe(asset.workerId, "—")}</span>
-          </div>
-
-          <small>${safe(asset.manufacturer || asset.model || asset.purpose, "No hardware details yet")}</small>
-        </div>
-      `;
-    }).join("");
-
-    byId("assetsList").innerHTML = html || "No assets discovered.";
-
-    document.querySelectorAll(".asset-card").forEach(card => {
-      card.addEventListener("click", () => {
-        const system = latestSystems.find(s => s.ip === card.dataset.ip);
-        if (system) openDrawer(system);
-      });
-    });
+    renderSummary();
+    renderAssets();
   } catch (err) {
     byId("assetsList").innerHTML = `<div class="empty-state"><h2>Assets failed to load.</h2><p>${err.message}</p></div>`;
   }
@@ -96,5 +221,20 @@ async function loadAssets() {
 window.addEventListener("DOMContentLoaded", () => {
   byId("drawerClose")?.addEventListener("click", closeDrawer);
   byId("drawerBackdrop")?.addEventListener("click", closeDrawer);
+
+  byId("assetSearch")?.addEventListener("input", e => {
+    searchQuery = e.target.value;
+    renderAssets();
+  });
+
+  document.querySelectorAll(".asset-filter").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".asset-filter").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      activeFilter = btn.dataset.filter;
+      renderAssets();
+    });
+  });
+
   loadAssets();
 });
