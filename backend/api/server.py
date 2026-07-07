@@ -10,6 +10,7 @@ from backend.modules import mining
 from backend.modules import assets
 from backend.modules import graph
 from backend.modules import graph_engine
+from backend.modules import graph_diff
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -73,6 +74,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/graph/rebuild": graph_engine.rebuild,
             "/api/graph/snapshots": graph_engine.snapshots,
             "/api/graph/statistics": graph_engine.statistics,
+            "/api/graph/diff": graph_diff.latest,
         }
 
         if self.path == "/api":
