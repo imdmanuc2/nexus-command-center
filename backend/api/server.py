@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+from urllib.parse import urlparse, parse_qs
 
 from backend.modules import system
 from backend.modules import connectors
@@ -11,6 +12,8 @@ from backend.modules import assets
 from backend.modules import graph
 from backend.modules import graph_engine
 from backend.modules import graph_diff
+from backend.modules import timeline
+from backend.modules import relationships
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -75,7 +78,27 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/graph/snapshots": graph_engine.snapshots,
             "/api/graph/statistics": graph_engine.statistics,
             "/api/graph/diff": graph_diff.latest,
+            "/api/timeline/latest": timeline.latest,
         }
+
+        parsed = urlparse(self.path)
+        query = parse_qs(parsed.query)
+
+        if parsed.path == "/api/relationships":
+            node_id = query.get("nodeId", [""])[0]
+            if not node_id:
+                status, payload = json_response({"error": "Missing nodeId"}, 400)
+            else:
+                status, payload = json_response(relationships.summary(node_id))
+            return self._send_json(payload, status)
+
+        if parsed.path == "/api/impact":
+            node_id = query.get("nodeId", [""])[0]
+            if not node_id:
+                status, payload = json_response({"error": "Missing nodeId"}, 400)
+            else:
+                status, payload = json_response(relationships.impact(node_id))
+            return self._send_json(payload, status)
 
         if self.path == "/api":
             status, payload = json_response({
