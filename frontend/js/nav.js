@@ -6,7 +6,7 @@ function renderNav(active) {
     ["Command Center", "/"],
     ["Mining", "#"],
     ["Infrastructure", "/map.html"],
-    ["ASIC Fleet", "/inventory.html"],
+    ["Assets", "/assets.html"],
     ["Pools", "#"],
     ["Discovery", "#"],
     ["AI Assistant", "#"],
