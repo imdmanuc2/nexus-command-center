@@ -281,3 +281,151 @@ def scan_targets(ips):
 
 def scan_network():
     return scan_targets(["192.168.1.154", "192.168.1.156"])
+
+
+# -----------------------------
+# Discovery V2 - Service Model
+# -----------------------------
+
+def classify_pool_mode(pool):
+    payout = (
+        pool.get("paymentProcessing", {})
+            .get("payoutScheme", "")
+            .lower()
+    )
+
+    if "solo" in payout:
+        return "solo"
+
+    if payout:
+        return "public"
+
+    return "unknown"
+
+
+def normalize_pool(host_ip, api_port, pool):
+    coin = pool.get("coin", {}) or {}
+    stats = pool.get("poolStats", {}) or {}
+    payment = pool.get("paymentProcessing", {}) or {}
+
+    pool_id = pool.get("id") or coin.get("symbol", "unknown").lower()
+    mode = classify_pool_mode(pool)
+
+    return {
+        "id": pool_id,
+        "name": f"{coin.get('symbol', pool_id).upper()} {'Solo' if mode == 'solo' else 'Public'} Pool",
+        "type": "pool",
+        "mode": mode,
+        "visibility": "private" if mode == "solo" else "public",
+        "coin": {
+            "symbol": coin.get("symbol") or coin.get("type") or pool_id.upper(),
+            "name": coin.get("name", ""),
+            "family": coin.get("family", ""),
+            "algorithm": coin.get("algorithm", "")
+        },
+        "host": host_ip,
+        "apiPort": api_port,
+        "apiBase": f"http://{host_ip}:{api_port}",
+        "endpoint": f"http://{host_ip}:{api_port}/api/pools/{pool_id}",
+        "stratumPorts": list((pool.get("ports") or {}).keys()),
+        "payoutScheme": payment.get("payoutScheme"),
+        "poolFeePercent": pool.get("poolFeePercent"),
+        "address": pool.get("address"),
+        "stats": {
+            "connectedMiners": stats.get("connectedMiners", 0),
+            "poolHashrate": stats.get("poolHashrate", 0),
+            "sharesPerSecond": stats.get("sharesPerSecond", 0),
+            "totalBlocks": pool.get("totalBlocks", 0),
+            "totalPaid": pool.get("totalPaid", 0),
+            "poolEffort": pool.get("poolEffort", 0)
+        },
+        "network": pool.get("networkStats", {}),
+        "raw": pool
+    }
+
+
+def discover_miningcore_pools(host_ip, api_port):
+    pools = []
+
+    data = probe_http_json(f"http://{host_ip}:{api_port}/api/pools")
+    if data and isinstance(data.get("pools"), list):
+        for pool in data["pools"]:
+            pools.append(normalize_pool(host_ip, api_port, pool))
+        return pools
+
+    # Fallback for older/simple installs
+    for pool_id in ["bch", "btc", "ltc", "doge"]:
+        data = probe_http_json(f"http://{host_ip}:{api_port}/api/pools/{pool_id}")
+        if data and data.get("pool"):
+            pools.append(normalize_pool(host_ip, api_port, data["pool"]))
+
+    return pools
+
+
+def discovery_v2_from_scan():
+    base = scan_network()
+
+    if "discovery" in base:
+        discovery = base.get("discovery", {})
+    else:
+        discovery = base
+
+    systems = discovery.get("systems", [])
+    found = discovery.get("found", [])
+
+    pools = []
+    blockchain_nodes = []
+    infrastructure = []
+
+    for system in systems:
+        ip = system["ip"]
+        open_ports = system.get("openPorts", [])
+
+        for port in [4000, 8560, 7002]:
+            if port in open_ports:
+                pools.extend(discover_miningcore_pools(ip, port))
+
+        if any(p in open_ports for p in [8332, 8333, 8334, 9002]):
+            blockchain_nodes.append({
+                "type": "blockchain-node",
+                "host": ip,
+                "name": "Bitcoin Cash Node" if 8334 in open_ports or 9002 in open_ports else "Blockchain Node",
+                "coin": "BCH" if 8334 in open_ports or 9002 in open_ports else "Unknown",
+                "ports": [p for p in open_ports if p in [8332, 8333, 8334, 9002]],
+                "status": "detected"
+            })
+
+        infrastructure.append({
+            "type": "host",
+            "host": ip,
+            "name": system.get("asset", {}).get("name") or ip,
+            "primaryRole": system.get("primaryRole"),
+            "assetType": system.get("profile", {}).get("assetType"),
+            "openPorts": open_ports,
+            "health": system.get("health", {}),
+            "services": [item for item in found if item["ip"] == ip],
+            "asset": system.get("asset", {})
+        })
+
+    return {
+        "timestamp": base.get("timestamp"),
+        "discovery": discovery,
+        "topology": {
+            "privatePools": [p for p in pools if p["visibility"] == "private"],
+            "publicPools": [p for p in pools if p["visibility"] == "public"],
+            "pools": pools,
+            "blockchainNodes": blockchain_nodes,
+            "infrastructure": infrastructure,
+            "counts": {
+                "privatePools": len([p for p in pools if p["visibility"] == "private"]),
+                "publicPools": len([p for p in pools if p["visibility"] == "public"]),
+                "pools": len(pools),
+                "blockchainNodes": len(blockchain_nodes),
+                "hosts": len(infrastructure)
+            }
+        }
+    }
+
+
+def scan():
+    return scan_network()

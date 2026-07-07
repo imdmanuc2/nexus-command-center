@@ -52,6 +52,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/system/status": system.status,
             "/api/connectors/status": connectors.status,
             "/api/discovery/scan": discovery.scan,
+            "/api/discovery/topology": discovery.topology,
             "/api/dashboard/summary": dashboard.summary,
             "/api/mining/summary": mining.summary,
             "/api/mining/workers": mining.workers,

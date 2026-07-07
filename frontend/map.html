@@ -10,16 +10,23 @@
     <header>
       <div>
         <h1>Nexus Infrastructure Map</h1>
-        <p>Visual map of your mining operation.</p>
+        <p>Live Server → Solo/Public Pools → Miners</p>
       </div>
+      <div id="mapStatus" class="status healthy">Live</div>
     </header>
 
     <nav id="topNav" class="nav"></nav>
 
-    <section class="map-card">
-      <div class="map-layer internet">🌐 Internet / LAN</div>
-      <div class="map-line"></div>
-      <div id="mapGroups" class="map-groups">Loading infrastructure...</div>
+    <section class="infra-toolbar">
+      <div>
+        <strong>Production Infrastructure View</strong>
+        <span id="infraSubtitle">Loading live MiningCore data...</span>
+      </div>
+      <button id="refreshMap" class="btn">Refresh Map</button>
+    </section>
+
+    <section id="infraMap" class="infra-map">
+      Loading infrastructure...
     </section>
   </main>
 

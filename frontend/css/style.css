@@ -1353,3 +1353,789 @@ canvas.nexus-line-chart {
   border-radius: 18px;
   margin-top: 14px;
 }
+
+/* Nexus Infrastructure Map v2 - Live Production Topology */
+
+.btn {
+  border: 1px solid #31527f;
+  background: #081225;
+  color: #dbeafe;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn:hover { border-color: #60a5fa; }
+
+.btn.danger {
+  border-color: #7f1d1d;
+  color: #fecaca;
+  background: #2a0909;
+}
+
+.infra-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: center;
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.88);
+  border-radius: 22px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+}
+
+.infra-toolbar strong {
+  display: block;
+  color: #e5f3ff;
+  font-size: 18px;
+}
+
+.infra-toolbar span {
+  display: block;
+  color: #93c5fd;
+  margin-top: 5px;
+}
+
+.infra-map {
+  border: 1px solid #31527f;
+  background:
+    linear-gradient(rgba(96,165,250,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(96,165,250,.05) 1px, transparent 1px),
+    rgba(2,6,23,.65);
+  background-size: 36px 36px;
+  border-radius: 28px;
+  min-height: 620px;
+  padding: 32px;
+  box-shadow: inset 0 0 80px rgba(37,99,235,.12);
+}
+
+.internet-node {
+  width: 260px;
+  margin: 0 auto;
+  text-align: center;
+  border: 1px solid #2563eb;
+  background: rgba(8,18,37,.95);
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 0 40px rgba(37,99,235,.24);
+}
+
+.internet-node strong {
+  display: block;
+  font-size: 20px;
+}
+
+.internet-node span {
+  display: block;
+  color: #93c5fd;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.internet-orb {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  margin: 0 auto 12px;
+  border: 2px solid #60a5fa;
+  background: radial-gradient(circle, #60a5fa 0%, #1d4ed8 35%, #020617 75%);
+  box-shadow: 0 0 28px rgba(96,165,250,.75);
+}
+
+.vertical-line {
+  width: 2px;
+  height: 34px;
+  margin: 0 auto;
+  background: linear-gradient(#60a5fa, rgba(96,165,250,.15));
+}
+
+.vertical-line.big { height: 50px; }
+
+.server-grid {
+  display: grid;
+  gap: 34px;
+}
+
+.server-card {
+  position: relative;
+  max-width: 620px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid #31527f;
+  background: linear-gradient(135deg, rgba(8,18,37,.98), rgba(15,23,42,.96));
+  border-radius: 28px;
+  padding: 24px;
+  box-shadow: 0 22px 80px rgba(0,0,0,.35);
+}
+
+.server-glow {
+  position: absolute;
+  inset: -80px auto auto -80px;
+  width: 220px;
+  height: 220px;
+  border-radius: 999px;
+  background: rgba(57,255,136,.12);
+  filter: blur(10px);
+}
+
+.server-top {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.server-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 14px;
+  border: 1px solid #14532d;
+  background: #052e1a;
+  color: #39ff88;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.health-pill {
+  border: 1px solid #14532d;
+  background: #052e1a;
+  color: #39ff88;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.server-card h2 {
+  position: relative;
+  margin: 18px 0 4px;
+  font-size: 30px;
+}
+
+.server-card p {
+  position: relative;
+  margin: 0;
+}
+
+.server-meta {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.server-meta span {
+  border: 1px solid #31527f;
+  background: rgba(2,6,23,.55);
+  color: #bfdbfe;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.pool-lanes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.pool-lane {
+  border: 1px solid rgba(49,82,127,.75);
+  background: rgba(8,18,37,.68);
+  border-radius: 24px;
+  padding: 18px;
+}
+
+.lane-title {
+  color: #dbeafe;
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  margin-bottom: 14px;
+}
+
+.pool-card {
+  border: 1px solid #31527f;
+  background: rgba(2,6,23,.78);
+  border-radius: 22px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.pool-card:last-child { margin-bottom: 0; }
+
+.pool-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.coin-badge {
+  border: 1px solid #60a5fa;
+  background: rgba(30,64,175,.35);
+  color: #dbeafe;
+  border-radius: 14px;
+  padding: 8px 10px;
+  font-weight: 900;
+}
+
+.pool-type {
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.pool-type.solo {
+  border: 1px solid #f59e0b;
+  background: rgba(120,53,15,.5);
+  color: #fde68a;
+}
+
+.pool-type.public {
+  border: 1px solid #22c55e;
+  background: rgba(20,83,45,.5);
+  color: #bbf7d0;
+}
+
+.pool-card strong {
+  display: block;
+  font-size: 20px;
+}
+
+.pool-card small {
+  display: block;
+  color: #93c5fd;
+  margin-top: 6px;
+  word-break: break-all;
+}
+
+.pool-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 9px;
+  margin-top: 16px;
+}
+
+.pool-stats div {
+  border: 1px solid rgba(49,82,127,.7);
+  background: rgba(8,18,37,.7);
+  border-radius: 14px;
+  padding: 10px;
+}
+
+.pool-stats b {
+  display: block;
+  color: #93c5fd;
+  font-size: 11px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.pool-stats span {
+  color: #e5f3ff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.good { color: #39ff88 !important; }
+
+.empty-pool,
+.no-miners {
+  border: 1px dashed #31527f;
+  color: #93c5fd;
+  border-radius: 18px;
+  padding: 18px;
+  text-align: center;
+}
+
+.miner-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(49,82,127,.55);
+}
+
+.miner-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.92);
+  color: #bfdbfe;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.miner-chip b {
+  color: #39ff88;
+}
+
+.miner-chip.offline b {
+  color: #fca5a5;
+}
+
+.miner-chip:hover {
+  border-color: #60a5fa;
+  color: #e5f3ff;
+}
+
+.miner-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #39ff88;
+  box-shadow: 0 0 12px rgba(57,255,136,.75);
+}
+
+.miner-chip.offline .miner-dot {
+  background: #ef4444;
+  box-shadow: 0 0 12px rgba(239,68,68,.75);
+}
+
+.empty-state {
+  max-width: 520px;
+  margin: 80px auto;
+  text-align: center;
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.86);
+  border-radius: 26px;
+  padding: 34px;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: -460px;
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  height: 100vh;
+  z-index: 100;
+  background: #020617;
+  border-left: 1px solid #31527f;
+  box-shadow: -30px 0 70px rgba(0,0,0,.55);
+  transition: right .2s ease;
+  padding: 28px;
+  overflow-y: auto;
+}
+
+.drawer.open { right: 0; }
+
+.drawer-close {
+  float: right;
+  border: 1px solid #31527f;
+  background: #081225;
+  color: #e5f3ff;
+  border-radius: 12px;
+  width: 38px;
+  height: 38px;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.drawer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0,0,0,.42);
+}
+
+.drawer-backdrop.open { display: block; }
+
+.drawer-subtitle {
+  color: #93c5fd;
+  margin-top: -8px;
+}
+
+.drawer-section {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.72);
+  border-radius: 16px;
+  padding: 14px;
+  margin: 12px 0;
+}
+
+.drawer-section label {
+  display: block;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.drawer-section strong { color: #e5f3ff; }
+
+.drawer-section pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #bfdbfe;
+  font-size: 12px;
+}
+
+.drawer-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .infra-toolbar,
+  .pool-lanes {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pool-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .infra-map {
+    padding: 18px;
+  }
+}
+
+/* Live miner rows for Infrastructure Map */
+
+.miner-row {
+  display: grid;
+  gap: 10px;
+}
+
+.miner-live-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.8fr) .8fr .55fr .7fr 1fr;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid #60a5fa;
+  background: rgba(5, 12, 28, .96);
+  color: #e5f3ff;
+  border-radius: 16px;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.miner-live-row:hover {
+  border-color: #39ff88;
+  transform: translateY(-1px);
+}
+
+.miner-live-name strong {
+  display: block;
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.miner-live-name span {
+  display: block;
+  color: #60a5fa;
+  font-size: 11px;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.miner-live-stat b {
+  display: block;
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.miner-live-stat span {
+  display: block;
+  color: #93c5fd;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.miner-live-health span {
+  display: block;
+  color: #39ff88;
+  font-size: 11px;
+  font-weight: 900;
+  text-align: right;
+  margin-bottom: 6px;
+}
+
+.miner-health-track {
+  height: 9px;
+  background: rgba(49, 82, 127, .6);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.miner-health-bar {
+  height: 100%;
+  background: #22c55e;
+  border-radius: 999px;
+  box-shadow: 0 0 14px rgba(34,197,94,.8);
+}
+
+.miner-live-row.offline {
+  border-color: #7f1d1d;
+}
+
+.miner-live-row.offline .miner-health-bar {
+  background: #ef4444;
+}
+
+.miner-live-row.offline .miner-live-health span {
+  color: #fca5a5;
+}
+
+@media (max-width: 1000px) {
+  .miner-live-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .miner-live-name,
+  .miner-live-health {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Infrastructure Map V2 - Enterprise Miner Rows */
+
+.miner-preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.miner-preview-head strong {
+  color: #dbeafe;
+  font-size: 13px;
+}
+
+.mini-btn {
+  border: 1px solid #31527f;
+  background: #081225;
+  color: #93c5fd;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-weight: 900;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.mini-btn:hover {
+  border-color: #39ff88;
+  color: #39ff88;
+}
+
+.miner-row {
+  display: grid;
+  gap: 10px;
+}
+
+.miner-live-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(220px, 1.8fr) .8fr .55fr .75fr 1fr;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid #60a5fa;
+  background: rgba(5, 12, 28, .96);
+  color: #e5f3ff;
+  border-radius: 16px;
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.miner-live-row:hover {
+  border-color: #39ff88;
+  transform: translateY(-1px);
+}
+
+.miner-live-name strong {
+  display: block;
+  font-size: 16px;
+  color: #ffffff;
+}
+
+.miner-live-name span {
+  display: block;
+  color: #60a5fa;
+  font-size: 11px;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.miner-live-stat b {
+  display: block;
+  color: #ffffff;
+  font-size: 16px;
+}
+
+.miner-live-stat span {
+  display: block;
+  color: #93c5fd;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.miner-live-health span {
+  display: block;
+  color: #39ff88;
+  font-size: 11px;
+  font-weight: 900;
+  text-align: right;
+  margin-bottom: 6px;
+}
+
+.miner-health-track {
+  height: 9px;
+  background: rgba(49, 82, 127, .6);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.miner-health-bar {
+  height: 100%;
+  background: #22c55e;
+  border-radius: 999px;
+  box-shadow: 0 0 14px rgba(34,197,94,.8);
+}
+
+.miner-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 8px 0 14px;
+  border: 1px solid #31527f;
+  background: #081225;
+  color: #e5f3ff;
+  border-radius: 12px;
+  padding: 12px;
+  font-weight: 800;
+}
+
+.drawer-miner-list {
+  display: grid;
+  gap: 10px;
+}
+
+.drawer-miner-list .miner-live-row {
+  grid-template-columns: 1.5fr .8fr .55fr .75fr 1fr;
+}
+
+@media (max-width: 1100px) {
+  .miner-live-row,
+  .drawer-miner-list .miner-live-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .miner-live-name,
+  .miner-live-health {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Infrastructure Map v2.1 - Pool-first view */
+
+.live-pool-stack {
+  max-width: 760px;
+  margin: 0 auto 34px;
+}
+
+.live-main-pool {
+  box-shadow: 0 24px 90px rgba(0,0,0,.35), 0 0 40px rgba(34,197,94,.08);
+}
+
+.live-main-pool > strong {
+  font-size: 28px;
+}
+
+/* Infrastructure Map V2.2 - Private/Public Pool Columns */
+
+.topology-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.topology-column {
+  border: 1px solid rgba(49,82,127,.8);
+  background: rgba(8,18,37,.68);
+  border-radius: 26px;
+  padding: 20px;
+  min-height: 320px;
+}
+
+.topology-column-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.topology-column-head h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.topology-column-head span {
+  color: #93c5fd;
+  font-size: 13px;
+  max-width: 280px;
+  text-align: right;
+}
+
+.topology-column.private {
+  box-shadow: inset 0 0 42px rgba(245,158,11,.05);
+}
+
+.topology-column.public {
+  box-shadow: inset 0 0 42px rgba(34,197,94,.05);
+}
+
+.topology-pool-list {
+  display: grid;
+  gap: 16px;
+}
+
+.topology-pool-card {
+  margin-bottom: 0;
+}
+
+@media (max-width: 1200px) {
+  .topology-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .topology-column-head {
+    flex-direction: column;
+  }
+
+  .topology-column-head span {
+    text-align: left;
+  }
+}
