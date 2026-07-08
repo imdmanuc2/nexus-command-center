@@ -3476,3 +3476,440 @@ body.tv-mode .mission-log-panel {
 .node-list-filters {
   margin: 0 0 14px;
 }
+
+/* Analytics Wall */
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.analytics-card {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.86);
+  border-radius: 24px;
+  padding: 18px;
+  min-height: 280px;
+  box-shadow: inset 0 0 40px rgba(96,165,250,.04);
+}
+
+.analytics-card.wide {
+  grid-column: span 2;
+}
+
+.analytics-card h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+}
+
+.analytics-card canvas {
+  width: 100%;
+  height: 220px;
+}
+
+.fleet-pulse,
+.solo-odds {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.pulse-big {
+  font-size: 42px;
+  font-weight: 1000;
+  color: #39ff88;
+  text-shadow: 0 0 24px rgba(57,255,136,.35);
+}
+
+.pulse-sub {
+  color: #93c5fd;
+  margin-top: 8px;
+  font-weight: 800;
+}
+
+.pulse-meter {
+  margin-top: 24px;
+  height: 14px;
+  background: rgba(49,82,127,.5);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.pulse-meter span {
+  display: block;
+  height: 100%;
+  background: #39ff88;
+  box-shadow: 0 0 18px rgba(57,255,136,.65);
+}
+
+.odds-grid {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  color: #93c5fd;
+}
+
+.odds-grid b {
+  color: #e5f3ff;
+}
+
+/* Analytics TV Mode */
+
+body.analytics-tv {
+  overflow: hidden;
+}
+
+body.analytics-tv header,
+body.analytics-tv .nav,
+body.analytics-tv .explorer-controls {
+  display: none !important;
+}
+
+body.analytics-tv .wrap {
+  max-width: none;
+  width: 100vw;
+  height: 100vh;
+  padding: 18px;
+}
+
+body.analytics-tv .analytics-grid {
+  height: calc(100vh - 36px);
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr;
+}
+
+body.analytics-tv .analytics-card {
+  min-height: 0;
+}
+
+body.analytics-tv .analytics-card canvas {
+  height: 75%;
+}
+
+body.analytics-tv .tv-exit-floating {
+  display: block;
+}
+
+/* Global app shell cleanup */
+
+.wrap {
+  max-width: 1580px;
+  margin: 0 auto;
+}
+
+body.analytics-tv .analytics-wall {
+  max-width: none;
+  width: 100vw;
+  height: 100vh;
+  padding: 18px;
+  margin: 0;
+}
+
+.analytics-wall > header,
+.analytics-wall .analytics-shell {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.78);
+  border-radius: 28px;
+}
+
+.analytics-wall > header {
+  padding: 28px;
+  margin-bottom: 20px;
+}
+
+.analytics-shell {
+  padding: 22px;
+}
+
+#analyticsTvExit {
+  display: none;
+}
+
+body.analytics-tv #analyticsTvExit {
+  display: block;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  border: 1px solid #39ff88;
+  background: rgba(5,46,26,.94);
+  color: #39ff88;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(57,255,136,.35);
+}
+
+body.analytics-tv .analytics-grid {
+  height: calc(100vh - 36px);
+  overflow: hidden;
+}
+
+body.analytics-tv .analytics-card {
+  min-height: 0;
+}
+
+body.analytics-tv .analytics-card canvas {
+  height: 240px;
+}
+
+/* Analytics upgraded cards */
+
+.analytics-card h2 {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #93c5fd;
+  font-size: 14px;
+}
+
+.lottery-meter {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.lottery-coin {
+  border: 1px solid #31527f;
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(2,6,23,.42);
+}
+
+.lottery-coin h3 {
+  margin: 0 0 14px;
+  color: #93c5fd;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.lottery-big {
+  color: #39ff88;
+  font-size: 30px;
+  font-weight: 1000;
+}
+
+.lottery-warn {
+  color: #facc15;
+}
+
+.fleet-health-score {
+  display: grid;
+  gap: 18px;
+}
+
+.health-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+}
+
+.health-stat span {
+  color: #93c5fd;
+  font-size: 12px;
+}
+
+.health-stat strong {
+  display: block;
+  font-size: 30px;
+  margin-top: 6px;
+}
+
+.health-bar {
+  height: 16px;
+  border-radius: 999px;
+  background: rgba(49,82,127,.55);
+  overflow: hidden;
+}
+
+.health-bar span {
+  display: block;
+  height: 100%;
+  background: #39ff88;
+  box-shadow: 0 0 18px rgba(57,255,136,.65);
+}
+
+/* Enterprise Analytics Widgets */
+
+.analytics-card.widget {
+  position: relative;
+  transition: min-height .2s ease, opacity .2s ease;
+}
+
+.widget-toggle {
+  all: unset;
+  cursor: pointer;
+  color: #93c5fd;
+  font-weight: 1000;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.widget-toggle::before {
+  content: "▾";
+  display: inline-block;
+  margin-right: 8px;
+  color: #39ff88;
+}
+
+.widget.collapsed .widget-toggle::before {
+  content: "▸";
+}
+
+.widget.collapsed {
+  min-height: 64px !important;
+}
+
+.widget.collapsed canvas,
+.widget.collapsed .fleet-pulse,
+.widget.collapsed .solo-odds,
+.widget.collapsed .lottery-meter,
+.widget.collapsed .fleet-health-score {
+  display: none !important;
+}
+
+.analytics-card canvas {
+  margin-top: 8px;
+}
+
+.analytics-card::after {
+  content: attr(data-widget);
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  color: rgba(147,197,253,.38);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  pointer-events: none;
+}
+
+body.analytics-tv .widget.collapsed {
+  display: none;
+}
+
+/* Analytics widget dock */
+
+.widget-dock {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.dock-pill {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.84);
+  color: #93c5fd;
+  border-radius: 999px;
+  padding: 9px 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.dock-pill.active {
+  color: #39ff88;
+  background: rgba(5,46,26,.78);
+  border-color: #14532d;
+}
+
+/* Hide widget completely, not just the content */
+
+.analytics-card.hidden-widget {
+  display: none !important;
+}
+
+/* Drag/drop cards */
+
+.analytics-card.widget {
+  cursor: grab;
+}
+
+.analytics-card.widget:active {
+  cursor: grabbing;
+}
+
+.analytics-card.dragging-widget {
+  opacity: .45;
+  border-color: #facc15;
+  box-shadow: 0 0 35px rgba(250,204,21,.25);
+}
+
+/* Better widget header controls */
+
+.widget-toggle {
+  max-width: calc(100% - 78px);
+}
+
+.widget-toggle::before {
+  font-size: 12px;
+}
+
+.widget-toggle:hover {
+  color: #39ff88;
+}
+
+/* Analytics info icons */
+
+.analytics-info-dot {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid #31527f;
+  background: rgba(2,6,23,.88);
+  color: #93c5fd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: help;
+  z-index: 20;
+}
+
+.analytics-info-dot::after {
+  content: attr(data-tip);
+  display: none;
+  position: absolute;
+  top: 30px;
+  right: 0;
+  width: 340px;
+  max-width: 70vw;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #60a5fa;
+  background: rgba(2,6,23,.98);
+  color: #e5f3ff;
+  text-align: left;
+  line-height: 1.25;
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-transform: none;
+  box-shadow: 0 20px 50px rgba(0,0,0,.5);
+}
+
+.analytics-info-dot:hover {
+  color: #39ff88;
+  border-color: #39ff88;
+}
+
+.analytics-info-dot:hover::after {
+  display: block;
+}
+
+/* Better chart spacing */
+
+.analytics-card canvas {
+  height: 245px;
+}
+
+body.analytics-tv .widget-dock {
+  display: none;
+}

@@ -4,12 +4,11 @@ function renderNav(active) {
 
   const items = [
     ["Command Center", "/"],
-    ["Mining", "#"],
-    ["Infrastructure", "/map.html"],
-    ["Assets", "/assets.html"],
+        ["Assets", "/assets.html"],
     ["Pools", "/pools.html"],
     ["Discovery", "/discovery.html"],
     ["Infrastructure Explorer", "/graph.html"],
+    ["Analytics", "/analytics.html"],
     ["AI Assistant", "#"],
     ["Reports", "#"],
     ["Settings", "#"]

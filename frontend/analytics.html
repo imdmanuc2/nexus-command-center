@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Nexus Analytics Wall</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main class="wrap analytics-wall">
+  <header>
+    <div>
+      <h1>Analytics Wall</h1>
+      <p>Live mining performance, pool health, and fleet trends.</p>
+    </div>
+    <div class="status healthy">Live</div>
+  </header>
+
+  <nav id="topNav" class="nav"></nav>
+
+  <section class="explorer-controls">
+    <button id="analyticsTvMode" class="btn">TV Mode</button>
+    <button id="refreshAnalytics" class="btn">Refresh</button>
+    <button id="showAllWidgets" class="btn">Show All Widgets</button>
+  </section>
+
+  <section id="widgetDock" class="widget-dock"></section>
+
+  <section class="analytics-shell">
+  <section class="analytics-grid">
+    <div class="analytics-card wide widget open" data-widget="pool-hashrate" data-tip="Live total pool hashrate over time. This shows whether the mining fleet is gaining or losing power.">
+      <h2><button class="widget-toggle">Live Pool Hashrate</button></h2>
+      <canvas id="poolHashrateChart"></canvas>
+    </div>
+
+    <div class="analytics-card wide widget open" data-widget="miner-hashrate" data-tip="Per-miner hashrate trend. Use this to spot weak miners or sudden drops.">
+      <h2><button class="widget-toggle">Per-Miner Hashrate</button></h2>
+      <canvas id="minerHashrateChart"></canvas>
+    </div>
+
+    <div class="analytics-card widget open" data-widget="hashrate-split" data-tip="Shows how total hashrate is divided across active miners.">
+      <h2><button class="widget-toggle">Hashrate Split</button></h2>
+      <canvas id="hashrateSplitChart"></canvas>
+    </div>
+
+    <div class="analytics-card widget open" data-widget="share-rate" data-tip="Shares submitted per second by worker. Low or dropping shares may show pool or miner trouble.">
+      <h2><button class="widget-toggle">Worker Share Rate</button></h2>
+      <canvas id="shareRateChart"></canvas>
+    </div>
+
+    <div class="analytics-card widget open" data-widget="fleet-pulse" data-tip="Big-picture live mining pulse: total hashrate and active miner count.">
+      <h2><button class="widget-toggle">Fleet Pulse</button></h2>
+      <div id="fleetPulse" class="fleet-pulse">Loading...</div>
+    </div>
+
+    <div class="analytics-card widget open" data-widget="solo-odds" data-tip="Solo mining status and expected block timing based on current pool hashrate.">
+      <h2><button class="widget-toggle">Solo Odds</button></h2>
+      <div id="soloOdds" class="solo-odds">Calculating...</div>
+    </div>
+
+    <div class="analytics-card wide widget open" data-widget="network-difficulty" data-tip="Blockchain network difficulty trend for the active coin.">
+      <h2><button class="widget-toggle">Network Difficulty</button></h2>
+      <canvas id="networkDifficultyChart"></canvas>
+    </div>
+
+    <div class="analytics-card wide widget open" data-widget="coin-hashrate" data-tip="Pool hashrate grouped by coin. Future coins will appear here automatically.">
+      <h2><button class="widget-toggle">Pool Hashrate By Coin</button></h2>
+      <canvas id="coinHashrateChart"></canvas>
+    </div>
+
+    <div class="analytics-card wide widget open" data-widget="lottery-meter" data-tip="Multi-coin solo block odds meter for BCH, BTC, DOGE, DGB, and future coins.">
+      <h2><button class="widget-toggle">Multi-Coin Solo Lottery Meter</button></h2>
+      <div id="lotteryMeter" class="lottery-meter">Loading lottery odds...</div>
+    </div>
+
+    <div class="analytics-card wide widget open" data-widget="fleet-health" data-tip="Overall fleet health, online workers, strongest miner, weakest miner, and share rate.">
+      <h2><button class="widget-toggle">Fleet Health Score</button></h2>
+      <div id="fleetHealthScore" class="fleet-health-score">Loading fleet health...</div>
+    </div>
+  </section>
+</section>
+
+  <button id="analyticsTvExit" class="tv-exit-floating">Exit TV Mode</button>
+</main>
+
+<script src="/js/nav.js"></script>
+<script src="/js/analytics.js"></script>
+<script>
+renderNav("Analytics");
+</script>
+</body>
+</html>
