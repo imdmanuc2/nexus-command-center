@@ -10,6 +10,7 @@ function renderNav(active) {
     ["Infrastructure Explorer", "/graph.html"],
     ["Analytics", "/analytics.html"],
     ["AI Assistant", "#"],
+    ["Alerts", "/alerts.html"],
     ["Reports", "#"],
     ["Settings", "#"]
   ];

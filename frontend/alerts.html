@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Nexus Alert Center</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main class="wrap">
+  <div class="nexus-page-shell">
+    <header>
+      <div>
+        <h1>Alert Center</h1>
+        <p>Live warnings, critical events, and operational activity.</p>
+      </div>
+      <div class="status healthy">Live</div>
+    </header>
+
+    <nav id="topNav" class="nav"></nav>
+
+    <section class="explorer-controls">
+      <button class="alert-filter active" data-severity="all">All</button>
+      <button class="alert-filter" data-severity="critical">Critical</button>
+      <button class="alert-filter" data-severity="warning">Warnings</button>
+      <button class="alert-filter" data-severity="success">Success</button>
+      <button class="alert-filter" data-severity="info">Info</button>
+      <button id="refreshAlerts" class="btn">Refresh</button>
+    </section>
+
+    <section class="alert-summary-grid">
+      <div class="stat-card"><span>Total Events</span><strong id="alertTotal">0</strong></div>
+      <div class="stat-card"><span>Critical</span><strong id="alertCritical">0</strong></div>
+      <div class="stat-card"><span>Warnings</span><strong id="alertWarnings">0</strong></div>
+      <div class="stat-card"><span>Latest</span><strong id="alertLatest">—</strong></div>
+    </section>
+
+    <section class="alert-center-layout">
+      <div class="alert-list-panel">
+        <h2>Mission Events</h2>
+        <div id="alertList">Loading alerts...</div>
+      </div>
+
+      <aside class="alert-detail-panel">
+        <h2>Event Detail</h2>
+        <div id="alertDetail">
+          <p>Select an event.</p>
+        </div>
+      </aside>
+    </section>
+  </div>
+</main>
+
+<script src="/js/nav.js"></script>
+<script src="/js/mission.js"></script>
+<script src="/js/alerts.js"></script>
+<script>
+renderNav("Alerts");
+</script>
+</body>
+</html>

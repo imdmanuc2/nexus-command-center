@@ -79,10 +79,21 @@
         </div>
       </section>
     </section>
-  </main>
+  <button id="commandTvExit" class="command-tv-exit">Exit TV Mode</button>
+</main>
 
   <script src="/js/nav.js"></script>
   <script src="/js/app.js"></script>
   <script>renderNav("Command Center");</script>
+<script src="/js/mission.js"></script>
+<script id="command-tv-toggle">
+document.getElementById("commandTvMode")?.addEventListener("click", () => {
+  document.body.classList.add("command-tv");
+});
+
+document.getElementById("commandTvExit")?.addEventListener("click", () => {
+  document.body.classList.remove("command-tv");
+});
+</script>
 </body>
 </html>

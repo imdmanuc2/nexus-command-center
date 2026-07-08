@@ -3947,3 +3947,388 @@ body.analytics-tv .widget-dock {
 body.analytics-tv .analytics-tabs {
   display: none;
 }
+
+/* =========================================================
+   Standard Command Center Page Frame
+========================================================= */
+
+.page-shell{
+
+    max-width:1600px;
+
+    margin:34px auto;
+
+    padding:34px;
+
+    border-radius:30px;
+
+    border:1px solid rgba(76,132,255,.35);
+
+    background:rgba(9,18,35,.45);
+
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,.03),
+        0 18px 55px rgba(0,0,0,.45);
+}
+/* =========================================================
+   Nexus Standard Page Layout
+   Use this on every main app page.
+========================================================= */
+
+.nexus-page-shell {
+  max-width: 1600px;
+  margin: 34px auto;
+  padding: 34px;
+  border-radius: 32px;
+  border: 1px solid rgba(76,132,255,.35);
+  background: rgba(8,15,30,.46);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.03),
+    0 18px 55px rgba(0,0,0,.45);
+}
+
+.nexus-page-shell > header {
+  margin-bottom: 22px;
+}
+
+.nexus-page-shell > .nav {
+  margin-bottom: 22px;
+}
+
+.nexus-page-shell > .explorer-controls,
+.nexus-page-shell > .analytics-tabs,
+.nexus-page-shell > .widget-dock {
+  margin-bottom: 18px;
+}
+
+/* Backward-compatible page-shell class */
+.page-shell {
+  max-width: 1600px;
+  margin: 34px auto;
+  padding: 34px;
+  border-radius: 32px;
+  border: 1px solid rgba(76,132,255,.35);
+  background: rgba(8,15,30,.46);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.03),
+    0 18px 55px rgba(0,0,0,.45);
+}
+
+/* TV mode should remove the frame */
+body.analytics-tv .nexus-page-shell,
+body.tv-mode .nexus-page-shell {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Global Mission Status Bar */
+
+.mission-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  white-space: nowrap;
+  padding: 8px 18px;
+  border-bottom: 1px solid #31527f;
+  background: rgba(3,10,24,.96);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+
+.mission-bar a {
+  flex: 0 0 auto;
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.86);
+  color: #bfdbfe;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.mission-bar a:hover {
+  color: #39ff88;
+  border-color: #39ff88;
+}
+
+.mission-bar.warning {
+  border-bottom-color: #facc15;
+}
+
+.mission-bar.critical {
+  border-bottom-color: #ef4444;
+  box-shadow: 0 0 25px rgba(239,68,68,.3);
+}
+
+body.tv-mode .mission-bar,
+body.analytics-tv .mission-bar {
+  display: none;
+}
+
+/* Mission bar inside page shell */
+
+.mission-bar {
+  position: static !important;
+  margin: 0 0 22px;
+  border: 1px solid #31527f;
+  border-radius: 22px;
+  background: rgba(8,18,37,.84);
+  box-shadow: none;
+}
+
+/* Alert Center */
+
+.alert-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.alert-center-layout {
+  display: grid;
+  grid-template-columns: 1.25fr .75fr;
+  gap: 18px;
+}
+
+.alert-list-panel,
+.alert-detail-panel {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.82);
+  border-radius: 24px;
+  padding: 18px;
+}
+
+.alert-row {
+  width: 100%;
+  border: 1px solid #31527f;
+  background: rgba(2,6,23,.52);
+  color: #e5f3ff;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 10px;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.alert-row:hover {
+  border-color: #60a5fa;
+}
+
+.alert-row strong {
+  display: block;
+  font-size: 16px;
+}
+
+.alert-row small {
+  display: block;
+  color: #93c5fd;
+  margin-top: 4px;
+}
+
+.alert-row.warning {
+  border-color: rgba(250,204,21,.65);
+}
+
+.alert-row.critical {
+  border-color: rgba(239,68,68,.75);
+}
+
+.alert-row.success {
+  border-color: rgba(57,255,136,.55);
+}
+
+.alert-icon {
+  font-size: 20px;
+}
+
+.alert-detail-card pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #bfdbfe;
+  font-size: 12px;
+}
+
+.alert-filter {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.84);
+  color: #93c5fd;
+  border-radius: 999px;
+  padding: 10px 15px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.alert-filter.active {
+  color: #39ff88;
+  background: rgba(5,46,26,.78);
+  border-color: #14532d;
+}
+
+.empty-state {
+  border: 1px dashed #31527f;
+  border-radius: 16px;
+  padding: 18px;
+  color: #93c5fd;
+}
+
+@media (max-width: 1100px) {
+  .alert-summary-grid,
+  .alert-center-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Alert Center polish */
+
+.alert-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.alert-summary-grid .stat-card {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.86);
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.alert-summary-grid .stat-card span {
+  display: block;
+  color: #93c5fd;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  margin-bottom: 8px;
+}
+
+.alert-summary-grid .stat-card strong {
+  display: block;
+  font-size: 30px;
+  color: #e5f3ff;
+}
+
+.alert-center-layout {
+  margin-top: 18px;
+}
+
+.alert-list-panel h2,
+.alert-detail-panel h2 {
+  margin-top: 0;
+}
+
+.alert-row {
+  min-height: 72px;
+  align-items: center;
+}
+
+.alert-row .alert-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-row strong {
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.alert-row small {
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.alert-detail-card h3 {
+  margin-top: 0;
+  font-size: 22px;
+}
+
+.alert-detail-card .asset-detail-grid {
+  margin-bottom: 16px;
+}
+
+.alert-detail-card pre {
+  border: 1px solid #31527f;
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(2,6,23,.55);
+}
+
+.alert-filter,
+#refreshAlerts {
+  margin-bottom: 0;
+}
+
+@media (max-width: 1200px) {
+  .alert-summary-grid,
+  .alert-center-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Command Center TV Mode Fix */
+
+body.command-tv {
+  overflow: hidden;
+}
+
+body.command-tv .wrap {
+  max-width: none;
+  width: 100vw;
+  height: 100vh;
+  padding: 18px;
+  margin: 0;
+}
+
+body.command-tv header,
+body.command-tv .nav {
+  display: none !important;
+}
+
+body.command-tv .nexus-page-shell,
+body.command-tv .page-shell {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body.command-tv #commandTvMode,
+body.command-tv button:has(+ #commandTvExit) {
+  display: none;
+}
+
+.command-tv-exit {
+  display: none;
+}
+
+body.command-tv .command-tv-exit {
+  display: block;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  border: 1px solid #39ff88;
+  background: rgba(5,46,26,.94);
+  color: #39ff88;
+  border-radius: 999px;
+  padding: 12px 18px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 0 25px rgba(57,255,136,.35);
+}

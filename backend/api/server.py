@@ -17,6 +17,7 @@ from backend.modules import timeline
 from backend.modules import relationships
 from backend.modules import snapshots
 from backend.modules import event_engine
+from backend.modules import mission
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -51,6 +52,8 @@ class NexusHandler(BaseHTTPRequestHandler):
             return self._send_file("frontend/index.html", "text/html")
         if self.path == "/map.html":
             return self._send_file("frontend/map.html", "text/html")
+        if self.path == "/alerts.html":
+            return self._send_file("frontend/alerts.html", "text/html")
         if self.path == "/analytics.html":
             return self._send_file("frontend/analytics.html", "text/html")
         if self.path == "/assets.html":
@@ -84,6 +87,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/graph/statistics": graph_engine.statistics,
             "/api/graph/diff": graph_diff.latest,
             "/api/events/live": event_engine.live,
+            "/api/mission/status": mission.status,
             "/api/timeline/latest": timeline.latest,
         }
 
