@@ -304,7 +304,8 @@ function refreshWidgetDock() {
   const dock = byId("widgetDock");
   if (!dock) return;
 
-  const cards = [...document.querySelectorAll(".analytics-card.widget")];
+  const cards = [...document.querySelectorAll(".analytics-card.widget")]
+    .filter(card => !card.classList.contains("tab-hidden"));
 
   dock.innerHTML = cards.map(card => `
     <button class="dock-pill ${card.classList.contains("hidden-widget") ? "" : "active"}"
@@ -419,3 +420,31 @@ function setupWidgets() {
 }
 
 window.addEventListener("DOMContentLoaded", setupWidgets);
+
+let activeAnalyticsTab = "overview";
+
+function applyAnalyticsTab() {
+  document.querySelectorAll(".analytics-tab").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.tab === activeAnalyticsTab);
+  });
+
+  document.querySelectorAll(".analytics-card.widget").forEach(card => {
+    const tabs = (card.dataset.tabs || "overview").split(" ");
+    card.classList.toggle("tab-hidden", !tabs.includes(activeAnalyticsTab));
+  });
+
+  refreshWidgetDock();
+}
+
+function setupAnalyticsTabs() {
+  document.querySelectorAll(".analytics-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeAnalyticsTab = btn.dataset.tab;
+      applyAnalyticsTab();
+    });
+  });
+
+  applyAnalyticsTab();
+}
+
+window.addEventListener("DOMContentLoaded", setupAnalyticsTabs);

@@ -3913,3 +3913,37 @@ body.analytics-tv .widget.collapsed {
 body.analytics-tv .widget-dock {
   display: none;
 }
+
+/* Analytics Tabs */
+
+.analytics-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.analytics-tab {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.84);
+  color: #93c5fd;
+  border-radius: 999px;
+  padding: 10px 15px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.analytics-tab.active {
+  color: #39ff88;
+  background: rgba(5,46,26,.78);
+  border-color: #14532d;
+  box-shadow: 0 0 18px rgba(57,255,136,.14);
+}
+
+.analytics-card.tab-hidden {
+  display: none !important;
+}
+
+body.analytics-tv .analytics-tabs {
+  display: none;
+}

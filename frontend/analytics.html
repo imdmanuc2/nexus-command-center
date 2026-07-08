@@ -23,56 +23,66 @@
     <button id="showAllWidgets" class="btn">Show All Widgets</button>
   </section>
 
+  <section id="analyticsTabs" class="analytics-tabs">
+    <button class="analytics-tab active" data-tab="overview">Overview</button>
+    <button class="analytics-tab" data-tab="mining">Mining</button>
+    <button class="analytics-tab" data-tab="blockchain">Blockchain</button>
+    <button class="analytics-tab" data-tab="hardware">Hardware</button>
+    <button class="analytics-tab" data-tab="financial">Financial</button>
+    <button class="analytics-tab" data-tab="network">Network</button>
+    <button class="analytics-tab" data-tab="ai">AI</button>
+  </section>
+
   <section id="widgetDock" class="widget-dock"></section>
 
   <section class="analytics-shell">
   <section class="analytics-grid">
-    <div class="analytics-card wide widget open" data-widget="pool-hashrate" data-tip="Live total pool hashrate over time. This shows whether the mining fleet is gaining or losing power.">
+    <div class="analytics-card wide widget open" data-widget="pool-hashrate" data-tabs="overview mining" data-tip="Live total pool hashrate over time. This shows whether the mining fleet is gaining or losing power.">
       <h2><button class="widget-toggle">Live Pool Hashrate</button></h2>
       <canvas id="poolHashrateChart"></canvas>
     </div>
 
-    <div class="analytics-card wide widget open" data-widget="miner-hashrate" data-tip="Per-miner hashrate trend. Use this to spot weak miners or sudden drops.">
+    <div class="analytics-card wide widget open" data-widget="miner-hashrate" data-tabs="overview mining hardware" data-tip="Per-miner hashrate trend. Use this to spot weak miners or sudden drops.">
       <h2><button class="widget-toggle">Per-Miner Hashrate</button></h2>
       <canvas id="minerHashrateChart"></canvas>
     </div>
 
-    <div class="analytics-card widget open" data-widget="hashrate-split" data-tip="Shows how total hashrate is divided across active miners.">
+    <div class="analytics-card widget open" data-widget="hashrate-split" data-tabs="overview mining" data-tip="Shows how total hashrate is divided across active miners.">
       <h2><button class="widget-toggle">Hashrate Split</button></h2>
       <canvas id="hashrateSplitChart"></canvas>
     </div>
 
-    <div class="analytics-card widget open" data-widget="share-rate" data-tip="Shares submitted per second by worker. Low or dropping shares may show pool or miner trouble.">
+    <div class="analytics-card widget open" data-widget="share-rate" data-tabs="mining" data-tip="Shares submitted per second by worker. Low or dropping shares may show pool or miner trouble.">
       <h2><button class="widget-toggle">Worker Share Rate</button></h2>
       <canvas id="shareRateChart"></canvas>
     </div>
 
-    <div class="analytics-card widget open" data-widget="fleet-pulse" data-tip="Big-picture live mining pulse: total hashrate and active miner count.">
+    <div class="analytics-card widget open" data-widget="fleet-pulse" data-tabs="overview" data-tip="Big-picture live mining pulse: total hashrate and active miner count.">
       <h2><button class="widget-toggle">Fleet Pulse</button></h2>
       <div id="fleetPulse" class="fleet-pulse">Loading...</div>
     </div>
 
-    <div class="analytics-card widget open" data-widget="solo-odds" data-tip="Solo mining status and expected block timing based on current pool hashrate.">
+    <div class="analytics-card widget open" data-widget="solo-odds" data-tabs="overview mining" data-tip="Solo mining status and expected block timing based on current pool hashrate.">
       <h2><button class="widget-toggle">Solo Odds</button></h2>
       <div id="soloOdds" class="solo-odds">Calculating...</div>
     </div>
 
-    <div class="analytics-card wide widget open" data-widget="network-difficulty" data-tip="Blockchain network difficulty trend for the active coin.">
+    <div class="analytics-card wide widget open" data-widget="network-difficulty" data-tabs="blockchain network" data-tip="Blockchain network difficulty trend for the active coin.">
       <h2><button class="widget-toggle">Network Difficulty</button></h2>
       <canvas id="networkDifficultyChart"></canvas>
     </div>
 
-    <div class="analytics-card wide widget open" data-widget="coin-hashrate" data-tip="Pool hashrate grouped by coin. Future coins will appear here automatically.">
+    <div class="analytics-card wide widget open" data-widget="coin-hashrate" data-tabs="overview mining blockchain" data-tip="Pool hashrate grouped by coin. Future coins will appear here automatically.">
       <h2><button class="widget-toggle">Pool Hashrate By Coin</button></h2>
       <canvas id="coinHashrateChart"></canvas>
     </div>
 
-    <div class="analytics-card wide widget open" data-widget="lottery-meter" data-tip="Multi-coin solo block odds meter for BCH, BTC, DOGE, DGB, and future coins.">
+    <div class="analytics-card wide widget open" data-widget="lottery-meter" data-tabs="mining blockchain" data-tip="Multi-coin solo block odds meter for BCH, BTC, DOGE, DGB, and future coins.">
       <h2><button class="widget-toggle">Multi-Coin Solo Lottery Meter</button></h2>
       <div id="lotteryMeter" class="lottery-meter">Loading lottery odds...</div>
     </div>
 
-    <div class="analytics-card wide widget open" data-widget="fleet-health" data-tip="Overall fleet health, online workers, strongest miner, weakest miner, and share rate.">
+    <div class="analytics-card wide widget open" data-widget="fleet-health" data-tabs="overview hardware ai" data-tip="Overall fleet health, online workers, strongest miner, weakest miner, and share rate.">
       <h2><button class="widget-toggle">Fleet Health Score</button></h2>
       <div id="fleetHealthScore" class="fleet-health-score">Loading fleet health...</div>
     </div>
