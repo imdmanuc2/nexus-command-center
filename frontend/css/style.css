@@ -3241,3 +3241,238 @@ body.tv-mode .tv-exit-floating {
   cursor: pointer;
   box-shadow: 0 0 25px rgba(57,255,136,.35);
 }
+
+/* Mission Control Status + Legend */
+
+.mission-status-banner {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.9);
+  border-radius: 20px;
+  padding: 14px 18px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+}
+
+.mission-status-banner strong {
+  font-size: 16px;
+}
+
+.mission-status-banner span {
+  color: #bfdbfe;
+  font-weight: 900;
+}
+
+.mission-status-banner.ok {
+  border-color: #14532d;
+  box-shadow: 0 0 22px rgba(57,255,136,.12);
+}
+
+.mission-status-banner.ok span {
+  color: #39ff88;
+}
+
+.mission-status-banner.warn {
+  border-color: #f59e0b;
+  box-shadow: 0 0 22px rgba(245,158,11,.14);
+}
+
+.mission-status-banner.warn span {
+  color: #facc15;
+}
+
+.mission-status-banner.fault {
+  border-color: #ef4444;
+  box-shadow: 0 0 22px rgba(239,68,68,.18);
+}
+
+.mission-status-banner.fault span {
+  color: #fb7185;
+}
+
+.flow-legend {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.72);
+  border-radius: 18px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: #93c5fd;
+  font-weight: 900;
+}
+
+.flow-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.legend-dot.mining {
+  background: #39ff88;
+  box-shadow: 0 0 12px rgba(57,255,136,.75);
+}
+
+.legend-dot.rpc {
+  background: #60a5fa;
+  box-shadow: 0 0 12px rgba(96,165,250,.75);
+}
+
+.legend-dot.health {
+  background: #facc15;
+  box-shadow: 0 0 12px rgba(250,204,21,.75);
+}
+
+.legend-dot.fault {
+  background: #ef4444;
+  box-shadow: 0 0 12px rgba(239,68,68,.75);
+}
+
+body.tv-mode .mission-status-banner,
+body.tv-mode .flow-legend {
+  position: fixed;
+  left: 28px;
+  z-index: 998;
+  width: auto;
+}
+
+body.tv-mode .mission-status-banner {
+  top: 18px;
+  right: 160px;
+}
+
+body.tv-mode .flow-legend {
+  bottom: 20px;
+}
+
+/* Live Event Feed */
+
+.mission-log-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 360px;
+  max-height: 430px;
+  overflow: auto;
+  border: 1px solid #31527f;
+  background: rgba(3,10,24,.92);
+  backdrop-filter: blur(10px);
+  border-radius: 22px;
+  padding: 16px;
+  z-index: 120;
+  box-shadow: 0 0 45px rgba(96,165,250,.18);
+}
+
+.mission-log-panel h3 {
+  margin: 0 0 12px;
+  color: #e5f3ff;
+}
+
+.live-event {
+  border: 1px solid rgba(49,82,127,.72);
+  background: rgba(2,6,23,.55);
+  border-radius: 14px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.live-event span {
+  display: block;
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.live-event strong {
+  display: block;
+  color: #e5f3ff;
+  margin-top: 4px;
+}
+
+.live-event.success {
+  border-color: rgba(57,255,136,.45);
+}
+
+.live-event.warning {
+  border-color: rgba(250,204,21,.55);
+}
+
+body.tv-mode .mission-log-panel {
+  right: 24px;
+  bottom: 24px;
+  opacity: .92;
+}
+
+/* Live events empty state fix */
+
+.mission-log-panel .live-event {
+  display: block;
+  width: auto;
+  min-height: auto;
+  text-align: left;
+}
+
+.mission-log-panel .live-event.empty {
+  border-style: dashed;
+  color: #93c5fd;
+}
+
+.mission-log-panel .live-event.empty strong {
+  white-space: normal;
+  line-height: 1.25;
+}
+
+/* Reduce duplicate inspector/detail views */
+
+.graph-detail-panel {
+  display: none;
+}
+
+.graph-layout {
+  grid-template-columns: 1fr;
+}
+
+.mission-log-panel h3 {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+/* Mission Log cleaner event cards */
+
+.mission-log-panel .live-event {
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 72px;
+  width: auto;
+  padding: 12px 16px;
+  margin-bottom: 10px;
+  border-radius: 16px;
+  box-sizing: border-box;
+}
+
+.mission-log-panel .live-event span {
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.mission-log-panel .live-event strong {
+  font-size: 17px;
+  line-height: 1.2;
+  white-space: normal;
+}
+
+.node-list-filters {
+  margin: 0 0 14px;
+}

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from backend.core.graph import build_graph
+from backend.modules import event_engine
 
 GRAPH_DIR = Path("backend/data/graph")
 SNAPSHOT_DIR = Path("backend/data/snapshots")
@@ -31,6 +32,8 @@ def rebuild(save_snapshot=True):
         snapshot_name = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H%M%S") + ".json"
         snapshot_path = SNAPSHOT_DIR / snapshot_name
         snapshot_path.write_text(json.dumps(graph, indent=2) + "\n")
+
+    event_engine.generate_events()
 
     return graph
 

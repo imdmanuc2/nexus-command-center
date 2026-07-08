@@ -16,6 +16,7 @@ from backend.modules import graph_diff
 from backend.modules import timeline
 from backend.modules import relationships
 from backend.modules import snapshots
+from backend.modules import event_engine
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -80,6 +81,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/graph/snapshots": graph_engine.snapshots,
             "/api/graph/statistics": graph_engine.statistics,
             "/api/graph/diff": graph_diff.latest,
+            "/api/events/live": event_engine.live,
             "/api/timeline/latest": timeline.latest,
         }
 
@@ -184,6 +186,8 @@ def main():
     port = 8080
     print(f"{APP_NAME} API running on http://{host}:{port}")
     HTTPServer((host, port), NexusHandler).serve_forever()
+
+
 
 
 if __name__ == "__main__":

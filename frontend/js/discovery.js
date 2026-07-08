@@ -112,6 +112,45 @@ function renderSystems() {
   });
 }
 
+
+function eventLabel(event) {
+  const type = event.type || "CHANGE";
+  if (type === "NODE_ADDED") return `New ${event.nodeType || "node"} discovered`;
+  if (type === "NODE_REMOVED") return `${event.nodeType || "node"} removed`;
+  if (type === "NODE_STATUS_CHANGED") return `Status changed`;
+  if (type === "NODE_RENAMED") return `Node renamed`;
+  if (type === "EDGE_ADDED") return `Relationship added`;
+  if (type === "EDGE_REMOVED") return `Relationship removed`;
+  return type.replaceAll("_", " ");
+}
+
+function renderTimeline(payload) {
+  const events = payload.events || [];
+
+  byId("timelineStatus").textContent = payload.timestamp || "Latest snapshot";
+
+  if (!events.length) {
+    byId("timelinePanel").innerHTML = `
+      <div class="timeline-empty">
+        <strong>No changes detected</strong>
+        <span>The latest graph snapshot matches the previous snapshot.</span>
+      </div>
+    `;
+    return;
+  }
+
+  byId("timelinePanel").innerHTML = events.map(event => `
+    <div class="timeline-event ${event.severity || "info"}">
+      <div class="timeline-dot"></div>
+      <div>
+        <strong>${eventLabel(event)}</strong>
+        <span>${event.label || event.nodeId || event.source || "Infrastructure graph"}</span>
+        <small>${event.from && event.to ? `${event.from} → ${event.to}` : event.relationship || ""}</small>
+      </div>
+    </div>
+  `).join("");
+}
+
 function openDrawer(system) {
   const services = latestFound.filter(f => f.ip === system.ip);
 
@@ -164,8 +203,14 @@ async function loadDiscovery() {
   byId("discoveryStatus").textContent = "Scanning";
 
   try {
-    const res = await fetch("/api/discovery/scan");
-    const data = await res.json();
+    const [scanRes, timelineRes] = await Promise.all([
+      fetch("/api/discovery/scan"),
+      fetch("/api/timeline/latest")
+    ]);
+
+    const data = await scanRes.json();
+    const timeline = await timelineRes.json();
+    renderTimeline(timeline);
     const discovery = data.discovery || data;
 
     latestSystems = discovery.systems || [];

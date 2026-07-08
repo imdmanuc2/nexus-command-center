@@ -5,6 +5,7 @@ let highlightedEdgeKeys = new Set();
 let searchQuery = "";
 let graphRefreshTimer = null;
 let activeNodeType = "all";
+let canvasNodeTypes = new Set(["pool", "asic"]);
 let liveWorkers = [];
 let snapshots = [];
 let timeMachineMode = false;
@@ -113,6 +114,32 @@ function filteredNodes() {
   );
 }
 
+function renderMissionStatus() {
+  const nodes = graph.nodes || [];
+
+  const idle = nodes.filter(n => liveNodeStatus(n) === "idle").length;
+  const mining = nodes.filter(n => liveNodeStatus(n) === "mining").length;
+  const offline = nodes.filter(n => ["offline", "error", "down"].includes(String(n.status || "").toLowerCase())).length;
+  const warning = nodes.filter(n => ["warning", "degraded"].includes(String(n.status || "").toLowerCase())).length;
+
+  const text = byId("missionStatusText");
+  const banner = byId("missionStatusBanner");
+  if (!text || !banner) return;
+
+  banner.classList.remove("ok", "warn", "fault");
+
+  if (offline > 0) {
+    banner.classList.add("fault");
+    text.textContent = `${offline} offline node(s) · ${warning} warning · ${idle} idle`;
+  } else if (warning > 0 || idle > 0) {
+    banner.classList.add("warn");
+    text.textContent = `${mining} mining node(s) · ${idle} idle node(s) · ${warning} warning`;
+  } else {
+    banner.classList.add("ok");
+    text.textContent = `${mining} mining node(s) · all critical systems healthy`;
+  }
+}
+
 function renderSummary() {
   const c = graph.counts || {};
   byId("graphSummary").innerHTML = `
@@ -125,7 +152,9 @@ function renderSummary() {
 }
 
 function layoutNodes() {
-  const nodes = graph.nodes.map(n => ({ ...n }));
+  const nodes = graph.nodes
+    .filter(n => canvasNodeTypes.has(n.type))
+    .map(n => ({ ...n }));
   const groups = {};
 
   nodes.forEach(n => {
@@ -219,6 +248,10 @@ function renderCanvas() {
       renderCanvas();
       renderNodes();
       renderRelationships();
+
+      const node = nodeById(selectedNodeId);
+      const impact = await fetchImpact(selectedNodeId);
+      openInspector(node, impact);
     });
   });
 }
@@ -308,6 +341,10 @@ function renderNodes() {
       renderNodes();
       renderCanvas();
       renderRelationships();
+
+      const node = nodeById(selectedNodeId);
+      const impact = await fetchImpact(selectedNodeId);
+      openInspector(node, impact);
     });
   });
 }
@@ -448,7 +485,6 @@ async function renderRelationships() {
   const edges = connectedEdges(selectedNodeId);
   const impact = await fetchImpact(selectedNodeId);
   const affectedTypes = impact?.affectedByType || {};
-  openInspector(node, impact);
 
   byId("graphRelationships").innerHTML = `
     <div class="asset-drawer-section">
@@ -562,6 +598,38 @@ async function returnToLiveMode() {
   await loadGraph(false);
 }
 
+
+function formatEventTime(value) {
+  try {
+    return new Date(value).toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true
+    });
+  } catch {
+    return "";
+  }
+}
+
+async function loadEvents() {
+  try {
+    const res = await fetch("/api/events/live");
+    if (!res.ok) return;
+
+    const events = await res.json();
+    const feed = byId("eventFeed");
+    if (!feed) return;
+
+    feed.innerHTML = events.slice().reverse().slice(0, 18).map(e => `
+      <div class="live-event ${e.severity || "info"}">
+        <span>${formatEventTime(e.time)}</span>
+        <strong>${e.message}</strong>
+      </div>
+    `).join("") || `<div class="live-event info empty"><strong>No events yet.</strong></div>`;
+  } catch {}
+}
+
 async function loadGraph(rebuild = false) {
   try {
     if (timeMachineMode && !rebuild) return;
@@ -572,6 +640,7 @@ async function loadGraph(rebuild = false) {
     await loadLiveMetrics();
 
     renderSummary();
+    renderMissionStatus();
     renderCanvas();
     renderNodes();
     renderRelationships();
@@ -606,9 +675,13 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.querySelectorAll(".type-filter").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelectorAll(".type-filter").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      activeNodeType = btn.dataset.type;
+      const type = btn.dataset.type;
+      activeNodeType = type;
+
+      document.querySelectorAll(".type-filter").forEach(b => {
+        b.classList.toggle("active", b.dataset.type === type);
+      });
+
       renderNodes();
     });
   });
@@ -636,5 +709,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   loadSnapshots();
   loadGraph();
+  loadEvents();
   graphRefreshTimer = setInterval(() => loadGraph(false), 15000);
+  setInterval(loadEvents, 3000);
 });

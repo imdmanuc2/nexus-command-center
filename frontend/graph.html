@@ -60,6 +60,18 @@ Loading...
   </div>
 </section>
 
+<section id="missionStatusBanner" class="mission-status-banner">
+  <strong>Mission Control</strong>
+  <span id="missionStatusText">Analyzing live infrastructure...</span>
+</section>
+
+<section class="flow-legend">
+  <span><b class="legend-dot mining"></b> Mining / shares</span>
+  <span><b class="legend-dot rpc"></b> RPC / API</span>
+  <span><b class="legend-dot health"></b> Health checks</span>
+  <span><b class="legend-dot fault"></b> Fault / idle</span>
+</section>
+
 <section class="infra-canvas-panel info-card">
 <span class="info-dot" data-tip="Live digital twin canvas. Drag nodes, click to highlight impact, and watch live mining metrics.">i</span>
 <h2>Live Infrastructure Canvas</h2>
@@ -71,6 +83,14 @@ Loading...
 <div class="graph-list-panel">
 
 <h2>Nodes</h2>
+
+<section id="nodeListTypeFilters" class="explorer-type-filters node-list-filters">
+  <button class="type-filter active" data-type="all">All</button>
+  <button class="type-filter" data-type="host">Hosts</button>
+  <button class="type-filter" data-type="pool">Pools</button>
+  <button class="type-filter" data-type="worker">Workers</button>
+  <button class="type-filter" data-type="asic">ASICs</button>
+</section>
 
 <input
 id="graphSearch"
@@ -104,6 +124,11 @@ Select a node.
   </div>
 </aside>
 <div id="inspectorBackdrop" class="drawer-backdrop"></div>
+
+<aside id="eventFeedPanel" class="mission-log-panel">
+  <h3>Mission Log</h3>
+  <div id="eventFeed">Loading events...</div>
+</aside>
 
 <button id="tvExitFloating" class="tv-exit-floating">Exit TV Mode</button>
 </main>
