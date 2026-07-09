@@ -23,7 +23,7 @@
     "macAddress": "",
     "hostname": "",
     "createdAt": "2026-07-07T14:14:36.678735+00:00",
-    "updatedAt": "2026-07-07T15:45:40.150606+00:00"
+    "updatedAt": "2026-07-09T03:37:17.089416+00:00"
   },
   "192.168.1.156": {
     "name": "Mining System 2",
@@ -49,6 +49,32 @@
     "macAddress": "",
     "hostname": "",
     "createdAt": "2026-07-07T14:14:36.678788+00:00",
-    "updatedAt": "2026-07-07T15:45:40.150619+00:00"
+    "updatedAt": "2026-07-09T03:37:17.089422+00:00"
+  },
+  "192.168.1.169": {
+    "name": "Unknown System 3",
+    "friendlyName": "Unknown System 3",
+    "purpose": "Unknown",
+    "createdAutomatically": true,
+    "id": "asset-6626af42",
+    "ip": "192.168.1.169",
+    "type": "unknown",
+    "favorite": false,
+    "notes": "",
+    "tags": [],
+    "location": "",
+    "rack": "",
+    "position": "",
+    "manufacturer": "",
+    "model": "",
+    "serialNumber": "",
+    "macAddress": "",
+    "hostname": "",
+    "workerId": "",
+    "poolId": "",
+    "poolHost": "",
+    "poolGroup": "",
+    "createdAt": "2026-07-08T22:24:22.988507+00:00",
+    "updatedAt": "2026-07-09T03:37:17.089427+00:00"
   }
 }

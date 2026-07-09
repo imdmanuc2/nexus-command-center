@@ -144,7 +144,7 @@
         "address": "bitcoincash:qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7",
         "stats": {
           "connectedMiners": 1,
-          "poolHashrate": 11785508749312,
+          "poolHashrate": 14094028505088,
           "sharesPerSecond": 0,
           "totalBlocks": 0,
           "totalPaid": 0,
@@ -152,12 +152,12 @@
         },
         "network": {
           "networkType": "Main",
-          "networkHashrate": 3.66290877977894e+18,
-          "networkDifficulty": 508647243996.66925,
-          "nextNetworkTarget": "000000000000000002295f000000000000000000000000000000000000000000",
-          "nextNetworkBits": "1802295f",
-          "lastNetworkBlockTime": "2026-07-08T23:11:21.5968101Z",
-          "blockHeight": 958824,
+          "networkHashrate": 3.693454922809311e+18,
+          "networkDifficulty": 510636977459.58966,
+          "nextNetworkTarget": "0000000000000000022737000000000000000000000000000000000000000000",
+          "nextNetworkBits": "18022737",
+          "lastNetworkBlockTime": "2026-07-08T22:15:11.1780106Z",
+          "blockHeight": 958820,
           "connectedPeers": 8,
           "rewardType": "POW"
         },
@@ -210,25 +210,25 @@
           "addressInfoLink": "https://bchblockexplorer.com/address/bitcoincash:qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7",
           "poolStats": {
             "connectedMiners": 1,
-            "poolHashrate": 11785508749312,
+            "poolHashrate": 14094028505088,
             "sharesPerSecond": 0
           },
           "networkStats": {
             "networkType": "Main",
-            "networkHashrate": 3.66290877977894e+18,
-            "networkDifficulty": 508647243996.66925,
-            "nextNetworkTarget": "000000000000000002295f000000000000000000000000000000000000000000",
-            "nextNetworkBits": "1802295f",
-            "lastNetworkBlockTime": "2026-07-08T23:11:21.5968101Z",
-            "blockHeight": 958824,
+            "networkHashrate": 3.693454922809311e+18,
+            "networkDifficulty": 510636977459.58966,
+            "nextNetworkTarget": "0000000000000000022737000000000000000000000000000000000000000000",
+            "nextNetworkBits": "18022737",
+            "lastNetworkBlockTime": "2026-07-08T22:15:11.1780106Z",
+            "blockHeight": 958820,
             "connectedPeers": 8,
             "rewardType": "POW"
           },
           "topMiners": [
             {
               "miner": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7",
-              "hashrate": 17499362126866,
-              "sharesPerSecond": 0.16399999999999998
+              "hashrate": 17285466720575,
+              "sharesPerSecond": 0.132
             }
           ],
           "totalPaid": 0,
@@ -277,12 +277,12 @@
         },
         "network": {
           "networkType": "Main",
-          "networkHashrate": 3.66290877977894e+18,
-          "networkDifficulty": 508647243996.66925,
-          "nextNetworkTarget": "000000000000000002295f000000000000000000000000000000000000000000",
-          "nextNetworkBits": "1802295f",
-          "lastNetworkBlockTime": "2026-07-08T23:11:17.8716801Z",
-          "blockHeight": 958824,
+          "networkHashrate": 3.693454922809311e+18,
+          "networkDifficulty": 510636977459.58966,
+          "nextNetworkTarget": "0000000000000000022737000000000000000000000000000000000000000000",
+          "nextNetworkBits": "18022737",
+          "lastNetworkBlockTime": "2026-07-08T22:15:07.3824169Z",
+          "blockHeight": 958820,
           "connectedPeers": 8,
           "nodeVersion": "29000000",
           "rewardType": "POW"
@@ -378,12 +378,12 @@
           },
           "networkStats": {
             "networkType": "Main",
-            "networkHashrate": 3.66290877977894e+18,
-            "networkDifficulty": 508647243996.66925,
-            "nextNetworkTarget": "000000000000000002295f000000000000000000000000000000000000000000",
-            "nextNetworkBits": "1802295f",
-            "lastNetworkBlockTime": "2026-07-08T23:11:17.8716801Z",
-            "blockHeight": 958824,
+            "networkHashrate": 3.693454922809311e+18,
+            "networkDifficulty": 510636977459.58966,
+            "nextNetworkTarget": "0000000000000000022737000000000000000000000000000000000000000000",
+            "nextNetworkBits": "18022737",
+            "lastNetworkBlockTime": "2026-07-08T22:15:07.3824169Z",
+            "blockHeight": 958820,
             "connectedPeers": 8,
             "nodeVersion": "29000000",
             "rewardType": "POW"
@@ -427,7 +427,7 @@
         "macAddress": "",
         "hostname": "",
         "createdAt": "2026-07-07T14:14:36.678735+00:00",
-        "updatedAt": "2026-07-08T23:21:13.373866+00:00"
+        "updatedAt": "2026-07-08T22:27:43.309953+00:00"
       }
     },
     {
@@ -459,7 +459,7 @@
         "macAddress": "",
         "hostname": "",
         "createdAt": "2026-07-07T14:14:36.678788+00:00",
-        "updatedAt": "2026-07-08T23:21:13.373885+00:00"
+        "updatedAt": "2026-07-08T22:27:43.309966+00:00"
       }
     },
     {
@@ -491,7 +491,7 @@
         "poolHost": "",
         "poolGroup": "",
         "createdAt": "2026-07-08T22:24:22.988507+00:00",
-        "updatedAt": "2026-07-08T23:21:13.373900+00:00"
+        "updatedAt": "2026-07-08T22:27:43.309977+00:00"
       }
     },
     {
@@ -512,8 +512,8 @@
         "poolGroup": "BCH Solo Pool",
         "purpose": "Mining",
         "fullName": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001",
-        "hashrate": 6607462243842,
-        "sharesPerSecond": 0.065
+        "hashrate": 7309888388946,
+        "sharesPerSecond": 0.077
       }
     },
     {
@@ -534,8 +534,8 @@
         "poolGroup": "BCH Solo Pool",
         "purpose": "Mining",
         "fullName": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002",
-        "hashrate": 5178046496433,
-        "sharesPerSecond": 0.1
+        "hashrate": 6784139886078,
+        "sharesPerSecond": 0.077
       }
     }
   ],
@@ -615,6 +615,6 @@
     "workers": 2,
     "hosts": 2
   },
-  "generatedAt": "2026-07-08T23:21:13.492016+00:00",
+  "generatedAt": "2026-07-08T22:27:43.469125+00:00",
   "graphVersion": "nexus-graph-v1"
 }

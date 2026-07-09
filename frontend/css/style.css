@@ -4332,3 +4332,166 @@ body.command-tv .command-tv-exit {
   cursor: pointer;
   box-shadow: 0 0 25px rgba(57,255,136,.35);
 }
+
+/* Infrastructure scan panel */
+
+.scan-target-panel {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.84);
+  border-radius: 24px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.scan-target-panel h2 {
+  margin: 0;
+}
+
+.scan-target-panel p {
+  margin: 6px 0 14px;
+  color: #93c5fd;
+}
+
+#scanTargetsForm {
+  display: flex;
+  gap: 12px;
+}
+
+#scanTargetsInput {
+  flex: 1;
+  border: 1px solid #31527f;
+  background: rgba(2,6,23,.75);
+  color: #e5f3ff;
+  border-radius: 14px;
+  padding: 13px 15px;
+  font-weight: 800;
+}
+
+#scanTargetsResult {
+  margin-top: 14px;
+  color: #bfdbfe;
+}
+
+.scan-result-row {
+  margin-top: 10px;
+  border: 1px solid #31527f;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.scan-result-row b,
+.scan-result-row span,
+.scan-result-row small {
+  display: block;
+}
+
+.scan-result-row small {
+  color: #93c5fd;
+}
+
+/* Use global Mission Bar instead of old local fake banner */
+#missionStatusBanner {
+  display: none !important;
+}
+
+.scan-result-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.scan-result-main b,
+.scan-result-main span,
+.scan-result-main small {
+  display: block;
+}
+
+.btn-add-infra {
+  border-color: #14532d !important;
+  background: rgba(5,46,26,.9) !important;
+  color: #39ff88 !important;
+}
+
+.btn-setup-rpc {
+  border-color: #60a5fa !important;
+  color: #93c5fd !important;
+}
+
+/* Mission Timeline */
+
+.timeline-panel {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.84);
+  border-radius: 24px;
+  padding: 22px;
+}
+
+.timeline-panel h2 {
+  margin-top: 0;
+}
+
+.timeline-event {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  gap: 14px;
+  border-left: 3px solid #31527f;
+  background: rgba(2,6,23,.45);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.timeline-event h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.timeline-event p {
+  margin: 6px 0;
+  color: #93c5fd;
+  font-weight: 800;
+}
+
+.timeline-event small {
+  color: #bfdbfe;
+}
+
+.timeline-event.success {
+  border-left-color: #39ff88;
+}
+
+.timeline-event.warning {
+  border-left-color: #facc15;
+}
+
+.timeline-event.critical {
+  border-left-color: #ef4444;
+}
+
+.timeline-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8,18,37,.9);
+  border: 1px solid #31527f;
+}
+
+.timeline-filter {
+  border: 1px solid #31527f;
+  background: rgba(8,18,37,.84);
+  color: #93c5fd;
+  border-radius: 999px;
+  padding: 10px 15px;
+  font-weight: 1000;
+  cursor: pointer;
+}
+
+.timeline-filter.active {
+  color: #39ff88;
+  background: rgba(5,46,26,.78);
+  border-color: #14532d;
+}

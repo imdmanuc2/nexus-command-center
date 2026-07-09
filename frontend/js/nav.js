@@ -11,6 +11,7 @@ function renderNav(active) {
     ["Analytics", "/analytics.html"],
     ["AI Assistant", "#"],
     ["Alerts", "/alerts.html"],
+    ["Timeline", "/timeline.html"],
     ["Reports", "#"],
     ["Settings", "#"]
   ];

@@ -9,6 +9,7 @@
 <body>
 
 <main class="wrap">
+  <div class="nexus-page-shell">
 
 <header>
 <div>
@@ -23,6 +24,18 @@ Loading...
 </header>
 
 <nav id="topNav" class="nav"></nav>
+
+<section class="scan-target-panel">
+  <div>
+    <h2>Scan Infrastructure</h2>
+    <p>Enter IPs or ranges to discover blockchain nodes, pools, miners, and services.</p>
+  </div>
+  <form id="scanTargetsForm">
+    <input id="scanTargetsInput" type="text" placeholder="192.168.1.169, 192.168.1.154, 192.168.1.156">
+    <button class="btn" type="submit">Run Scan</button>
+  </form>
+  <div id="scanTargetsResult"></div>
+</section>
 
 <section class="explorer-controls">
   <button id="rebuildGraph" class="btn">Rebuild Graph</button>
@@ -131,6 +144,7 @@ Select a node.
 </aside>
 
 <button id="tvExitFloating" class="tv-exit-floating">Exit TV Mode</button>
+  </div>
 </main>
 
 <script src="/js/nav.js"></script>

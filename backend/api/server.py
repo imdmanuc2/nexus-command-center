@@ -7,6 +7,7 @@ from urllib.parse import urlparse, parse_qs
 from backend.modules import system
 from backend.modules import connectors
 from backend.modules import discovery
+from backend.core import discovery as discovery_core
 from backend.modules import dashboard
 from backend.modules import mining
 from backend.modules import assets
@@ -18,6 +19,7 @@ from backend.modules import relationships
 from backend.modules import snapshots
 from backend.modules import event_engine
 from backend.modules import mission
+from backend.modules import scan_registry
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -52,6 +54,8 @@ class NexusHandler(BaseHTTPRequestHandler):
             return self._send_file("frontend/index.html", "text/html")
         if self.path == "/map.html":
             return self._send_file("frontend/map.html", "text/html")
+        if self.path == "/timeline.html":
+            return self._send_file("frontend/timeline.html", "text/html")
         if self.path == "/alerts.html":
             return self._send_file("frontend/alerts.html", "text/html")
         if self.path == "/analytics.html":
@@ -157,6 +161,36 @@ class NexusHandler(BaseHTTPRequestHandler):
                 layout_path.write_text(json.dumps(data, indent=2))
 
                 status, payload = json_response({"success": True})
+                return self._send_json(payload, status)
+            except Exception as e:
+                status, payload = json_response({"error": str(e)}, 500)
+                return self._send_json(payload, status)
+
+        if self.path == "/api/discovery/scan-targets":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length).decode("utf-8")
+                data = json.loads(body)
+
+                targets = data.get("targets", [])
+                if isinstance(targets, str):
+                    targets = [x.strip() for x in targets.replace("\n", ",").split(",") if x.strip()]
+
+                result = scan_registry.scan_targets(targets)
+                status, payload = json_response(result)
+                return self._send_json(payload, status)
+
+            except Exception as e:
+                status, payload = json_response({"error": str(e)}, 500)
+                return self._send_json(payload, status)
+
+        if self.path == "/api/discovery/add-system":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length).decode("utf-8")
+                data = json.loads(body)
+                asset = scan_registry.add_system(data)
+                status, payload = json_response({"status": "ok", "asset": asset})
                 return self._send_json(payload, status)
             except Exception as e:
                 status, payload = json_response({"error": str(e)}, 500)

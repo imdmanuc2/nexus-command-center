@@ -6,3 +6,5 @@ __pycache__/
 *.log
 dist/
 build/
+config/install/install-state.json
+config/database/postgresql.json

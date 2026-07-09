@@ -5,7 +5,7 @@ let highlightedEdgeKeys = new Set();
 let searchQuery = "";
 let graphRefreshTimer = null;
 let activeNodeType = "all";
-let canvasNodeTypes = new Set(["pool", "asic"]);
+let canvasNodeTypes = new Set(["pool", "asic", "blockchain-node", "infrastructure-node"]);
 let liveWorkers = [];
 let snapshots = [];
 let timeMachineMode = false;
@@ -713,3 +713,108 @@ window.addEventListener("DOMContentLoaded", () => {
   graphRefreshTimer = setInterval(() => loadGraph(false), 15000);
   setInterval(loadEvents, 3000);
 });
+
+async function runTargetScan(event) {
+  event.preventDefault();
+
+  const input = byId("scanTargetsInput");
+  const result = byId("scanTargetsResult");
+  const targets = input?.value || "";
+
+  if (!targets.trim()) {
+    result.textContent = "Enter at least one IP address.";
+    return;
+  }
+
+  result.textContent = "Scanning...";
+
+  try {
+    const res = await fetch("/api/discovery/scan-targets", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({targets})
+    });
+
+    const payload = await res.json();
+
+    if (!res.ok || payload.error) {
+      result.textContent = payload.error || "Scan failed.";
+      return;
+    }
+
+    const systems = payload.systems || [];
+    result.innerHTML = `
+      <strong>${systems.length} system(s) discovered.</strong>
+      ${systems.map(s => `
+        <div class="scan-result-row">
+          <div class="scan-result-main">
+            <b>${s.ip}</b>
+            <span>${s.primaryRole || "Unknown System"}</span>
+            <small>Ports: ${(s.openPorts || []).join(", ") || "none"}</small>
+          </div>
+          <button class="btn btn-setup-rpc" type="button" onclick='showRpcSetup(${JSON.stringify(s)})'>Setup RPC</button>
+          <button class="btn btn-add-infra" type="button" onclick='addDiscoveredSystem(${JSON.stringify(s)})'>Add</button>
+        </div>
+      `).join("")}
+    `;
+
+    await loadGraph(true);
+  } catch (e) {
+    result.textContent = e.message;
+  }
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  byId("scanTargetsForm")?.addEventListener("submit", runTargetScan);
+});
+
+async function addDiscoveredSystem(system) {
+  const name = prompt("Name this discovered system:", system.primaryRole || system.ip);
+  if (!name) return;
+
+  const payload = {...system, friendlyName: name};
+
+  const res = await fetch("/api/discovery/add-system", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json();
+
+  if (!res.ok || data.error) {
+    alert(data.error || "Failed to add system.");
+    return;
+  }
+
+  await loadGraph(true);
+}
+
+
+function showRpcSetup(system) {
+  const ip = system?.ip || "SERVER_IP";
+  alert(`Bitcoin RPC setup for ${ip}
+
+SSH into the BTC node and edit:
+
+~/.bitcoin/bitcoin.conf
+
+Add:
+
+server=1
+rpcbind=0.0.0.0
+rpcallowip=192.168.1.0/24
+rpcuser=nexus
+rpcpassword=CHANGE_ME_LONG_RANDOM_PASSWORD
+txindex=1
+
+Then restart Bitcoin Core:
+
+sudo systemctl restart bitcoind
+
+Then test from Nexus:
+
+nc -vz ${ip} 8332
+
+Later Nexus can use RPC to read sync percent from getblockchaininfo.verificationprogress.`);
+}

@@ -51,7 +51,7 @@
           ]
         },
         "profile": {
-          "hostname": "umbrel",
+          "hostname": null,
           "assetType": "Infrastructure Host",
           "os": "Unknown",
           "agent": "Not installed"
@@ -144,7 +144,7 @@
         "address": "bitcoincash:qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7",
         "stats": {
           "connectedMiners": 1,
-          "poolHashrate": 11785508749312,
+          "poolHashrate": 12200840265728,
           "sharesPerSecond": 0,
           "totalBlocks": 0,
           "totalPaid": 0,
@@ -152,12 +152,12 @@
         },
         "network": {
           "networkType": "Main",
-          "networkHashrate": 3.66290877977894e+18,
-          "networkDifficulty": 508647243996.66925,
-          "nextNetworkTarget": "000000000000000002295f000000000000000000000000000000000000000000",
-          "nextNetworkBits": "1802295f",
-          "lastNetworkBlockTime": "2026-07-08T23:11:21.5968101Z",
-          "blockHeight": 958824,
+          "networkHashrate": 3.826081429058403e+18,
+          "networkDifficulty": 513797441058.02185,
+          "nextNetworkTarget": "00000000000000000223d3000000000000000000000000000000000000000000",
+          "nextNetworkBits": "180223d3",
+          "lastNetworkBlockTime": "2026-07-07T20:19:27.009669Z",
+          "blockHeight": 958667,
           "connectedPeers": 8,
           "rewardType": "POW"
         },
@@ -210,25 +210,25 @@
           "addressInfoLink": "https://bchblockexplorer.com/address/bitcoincash:qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7",
           "poolStats": {
             "connectedMiners": 1,
-            "poolHashrate": 11785508749312,
+            "poolHashrate": 12200840265728,
             "sharesPerSecond": 0
           },
           "networkStats": {
             "networkType": "Main",
-            "networkHashrate": 3.66290877977894e+18,
-            "networkDifficulty": 508647243996.66925,
-            "nextNetworkTarget": "000000000000000002295f000000000000000000000000000000000000000000",
-            "nextNetworkBits": "1802295f",
-            "lastNetworkBlockTime": "2026-07-08T23:11:21.5968101Z",
-            "blockHeight": 958824,
+            "networkHashrate": 3.826081429058403e+18,
+            "networkDifficulty": 513797441058.02185,
+            "nextNetworkTarget": "00000000000000000223d3000000000000000000000000000000000000000000",
+            "nextNetworkBits": "180223d3",
+            "lastNetworkBlockTime": "2026-07-07T20:19:27.009669Z",
+            "blockHeight": 958667,
             "connectedPeers": 8,
             "rewardType": "POW"
           },
           "topMiners": [
             {
               "miner": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7",
-              "hashrate": 17499362126866,
-              "sharesPerSecond": 0.16399999999999998
+              "hashrate": 18043010193909,
+              "sharesPerSecond": 0.144
             }
           ],
           "totalPaid": 0,
@@ -277,12 +277,12 @@
         },
         "network": {
           "networkType": "Main",
-          "networkHashrate": 3.66290877977894e+18,
-          "networkDifficulty": 508647243996.66925,
-          "nextNetworkTarget": "000000000000000002295f000000000000000000000000000000000000000000",
-          "nextNetworkBits": "1802295f",
-          "lastNetworkBlockTime": "2026-07-08T23:11:17.8716801Z",
-          "blockHeight": 958824,
+          "networkHashrate": 3.858055069461768e+18,
+          "networkDifficulty": 513797441058.02185,
+          "nextNetworkTarget": "00000000000000000223d3000000000000000000000000000000000000000000",
+          "nextNetworkBits": "180223d3",
+          "lastNetworkBlockTime": "2026-07-07T20:19:25.7686203Z",
+          "blockHeight": 958667,
           "connectedPeers": 8,
           "nodeVersion": "29000000",
           "rewardType": "POW"
@@ -378,12 +378,12 @@
           },
           "networkStats": {
             "networkType": "Main",
-            "networkHashrate": 3.66290877977894e+18,
-            "networkDifficulty": 508647243996.66925,
-            "nextNetworkTarget": "000000000000000002295f000000000000000000000000000000000000000000",
-            "nextNetworkBits": "1802295f",
-            "lastNetworkBlockTime": "2026-07-08T23:11:17.8716801Z",
-            "blockHeight": 958824,
+            "networkHashrate": 3.858055069461768e+18,
+            "networkDifficulty": 513797441058.02185,
+            "nextNetworkTarget": "00000000000000000223d3000000000000000000000000000000000000000000",
+            "nextNetworkBits": "180223d3",
+            "lastNetworkBlockTime": "2026-07-07T20:19:25.7686203Z",
+            "blockHeight": 958667,
             "connectedPeers": 8,
             "nodeVersion": "29000000",
             "rewardType": "POW"
@@ -427,7 +427,7 @@
         "macAddress": "",
         "hostname": "",
         "createdAt": "2026-07-07T14:14:36.678735+00:00",
-        "updatedAt": "2026-07-08T23:21:13.373866+00:00"
+        "updatedAt": "2026-07-07T20:20:45.078816+00:00"
       }
     },
     {
@@ -459,39 +459,7 @@
         "macAddress": "",
         "hostname": "",
         "createdAt": "2026-07-07T14:14:36.678788+00:00",
-        "updatedAt": "2026-07-08T23:21:13.373885+00:00"
-      }
-    },
-    {
-      "id": "asset-6626af42",
-      "type": "unknown",
-      "label": "Unknown System 3",
-      "status": "online",
-      "properties": {
-        "name": "Unknown System 3",
-        "friendlyName": "Unknown System 3",
-        "purpose": "Unknown",
-        "createdAutomatically": true,
-        "id": "asset-6626af42",
-        "ip": "192.168.1.169",
-        "type": "unknown",
-        "favorite": false,
-        "notes": "",
-        "tags": [],
-        "location": "",
-        "rack": "",
-        "position": "",
-        "manufacturer": "",
-        "model": "",
-        "serialNumber": "",
-        "macAddress": "",
-        "hostname": "",
-        "workerId": "",
-        "poolId": "",
-        "poolHost": "",
-        "poolGroup": "",
-        "createdAt": "2026-07-08T22:24:22.988507+00:00",
-        "updatedAt": "2026-07-08T23:21:13.373900+00:00"
+        "updatedAt": "2026-07-07T20:20:45.078823+00:00"
       }
     },
     {
@@ -512,8 +480,8 @@
         "poolGroup": "BCH Solo Pool",
         "purpose": "Mining",
         "fullName": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001",
-        "hashrate": 6607462243842,
-        "sharesPerSecond": 0.065
+        "hashrate": 6831714800625,
+        "sharesPerSecond": 0.077
       }
     },
     {
@@ -534,8 +502,8 @@
         "poolGroup": "BCH Solo Pool",
         "purpose": "Mining",
         "fullName": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002",
-        "hashrate": 5178046496433,
-        "sharesPerSecond": 0.1
+        "hashrate": 5369125621463,
+        "sharesPerSecond": 0.058
       }
     }
   ],
@@ -577,12 +545,6 @@
       "label": "Mines On"
     },
     {
-      "source": "asset-6626af42",
-      "target": "host-192-168-1-169",
-      "type": "HAS_NETWORK_IDENTITY",
-      "label": "Has Network Identity"
-    },
-    {
       "source": "asset-28a5a306",
       "target": "worker-001",
       "type": "RUNS_WORKER",
@@ -608,13 +570,13 @@
     }
   ],
   "counts": {
-    "nodes": 9,
-    "edges": 11,
-    "assets": 3,
+    "nodes": 8,
+    "edges": 10,
+    "assets": 2,
     "pools": 2,
     "workers": 2,
     "hosts": 2
   },
-  "generatedAt": "2026-07-08T23:21:13.492016+00:00",
+  "generatedAt": "2026-07-07T20:20:45.184332+00:00",
   "graphVersion": "nexus-graph-v1"
 }
