@@ -5,7 +5,13 @@ let highlightedEdgeKeys = new Set();
 let searchQuery = "";
 let graphRefreshTimer = null;
 let activeNodeType = "all";
-let canvasNodeTypes = new Set(["pool", "asic", "blockchain-node", "infrastructure-node"]);
+const canvasAssetCategories = new Set([
+  "pool",
+  "asic",
+  "blockchain",
+  "server",
+  "unknown"
+]);
 let liveWorkers = [];
 let snapshots = [];
 let timeMachineMode = false;
@@ -158,61 +164,133 @@ function inventoryOpenPorts(node) {
   return [...new Set(ports)];
 }
 
-function inventoryCategory(node) {
-  const type = String(node?.type || "").toLowerCase();
+function canonicalAssetType(node) {
+  const type = String(node?.type || "").trim().toLowerCase();
   const props = node?.properties || {};
+
+  const explicit = String(
+    props.assetType ||
+    props.asset_type ||
+    props.canonicalType ||
+    props.canonical_type ||
+    props.deviceType ||
+    ""
+  ).trim().toLowerCase();
+
+  const id = String(node?.id || "").toLowerCase();
+  const label = String(node?.label || "").toLowerCase();
+  const role = String(
+    props.primaryRole ||
+    props.primary_role ||
+    props.role ||
+    ""
+  ).toLowerCase();
+
   const ports = inventoryOpenPorts(node);
 
-  const text = [
-    type,
-    node?.id,
-    node?.label,
-    propertyText(props)
-  ].join(" ").toLowerCase();
+  /*
+   * Explicit backend classification always wins.
+   */
+  if (["pool", "mining-pool", "solo-pool", "public-pool"].includes(explicit)) {
+    return "pool";
+  }
 
-  if (
-    type === "blockchain-node" ||
-    type === "coin-node-rpc" ||
-    ports.includes(8332) ||
-    ports.includes(8333) ||
-    ports.includes(8334) ||
-    text.includes("blockchain") ||
-    text.includes("bitcoin core") ||
-    text.includes("bitcoin node") ||
-    text.includes("btc node") ||
-    text.includes("bitcoin cash") ||
-    text.includes("bch node")
-  ) {
+  if (["asic", "miner", "asic-miner"].includes(explicit)) {
+    return "asic";
+  }
+
+  if ([
+    "blockchain",
+    "blockchain-node",
+    "coin-node",
+    "bitcoin-node",
+    "bitcoin-core",
+    "bch-node"
+  ].includes(explicit)) {
     return "blockchain";
   }
 
-  if (
-    type === "pool" ||
-    text.includes("mining pool") ||
-    text.includes("solo pool") ||
-    text.includes("public pool")
-  ) {
+  if (["server", "host", "infrastructure-node"].includes(explicit)) {
+    return "server";
+  }
+
+  /*
+   * Native graph object types are the next most trustworthy signal.
+   * A pool containing the word BCH must remain a pool.
+   * An ASIC related to a pool must remain an ASIC.
+   */
+  if (type === "pool" || id.startsWith("pool-")) {
     return "pool";
   }
 
   if (
     type === "asic" ||
-    text.includes("asic miner") ||
-    text.includes("nano 3") ||
-    text.includes("mining system")
+    id.startsWith("asset-") && (
+      label.includes("nano") ||
+      label.includes("mining system") ||
+      role.includes("asic") ||
+      role.includes("miner")
+    )
   ) {
     return "asic";
   }
 
   if (
+    type === "blockchain-node" ||
+    type === "coin-node-rpc" ||
+    id.startsWith("blockchain-") ||
+    id.startsWith("coin-node-")
+  ) {
+    return "blockchain";
+  }
+
+  /*
+   * Discovery systems may still arrive as infrastructure-node or unknown.
+   * Only use ports and role for those generic graph objects.
+   */
+  if (
+    role.includes("blockchain") ||
+    role.includes("bitcoin core") ||
+    role.includes("btc node") ||
+    role.includes("bitcoin node") ||
+    role.includes("bch node") ||
+    ports.includes(8332) ||
+    ports.includes(8333)
+  ) {
+    return "blockchain";
+  }
+
+  if (
+    role.includes("asic") ||
+    role.includes("miner") ||
+    label.includes("nano 3") ||
+    label.includes("mining system")
+  ) {
+    return "asic";
+  }
+
+  if (
+    role.includes("pool") ||
+    role.includes("mining backend") ||
+    label.includes("solo pool") ||
+    label.includes("public pool")
+  ) {
+    return "pool";
+  }
+
+  if (
     type === "server" ||
-    type === "infrastructure-node" ||
-    type === "host"
+    type === "host" ||
+    type === "infrastructure-node"
   ) {
     return "server";
   }
 
   return "unknown";
+}
+
+function inventoryCategory(node) {
+  return canonicalAssetType(node);
 }
 
 function blockchainDisplayName(node) {
@@ -321,8 +399,16 @@ function normalizedInventoryNodes() {
    */
   graph.nodes.forEach(node => {
     const type = String(node?.type || "").toLowerCase();
+    const props = node?.properties || {};
 
-    if (type === "worker") {
+    /*
+     * Workers and internal host identities remain available to the
+     * relationship engine, but are not standalone managed assets.
+     */
+    if (
+      type === "worker" ||
+      props.internalGraphNode === true
+    ) {
       return;
     }
 
@@ -425,10 +511,59 @@ function renderSummary() {
   `;
 }
 
+function isManagedInfrastructureNode(node) {
+  const props = node?.properties || {};
+  const category = inventoryCategory(node);
+  const type = String(node?.type || "").toLowerCase();
+
+  /*
+   * Pools and ASICs are already managed operational objects produced
+   * by the live MiningCore graph.
+   */
+  if (category === "pool" || category === "asic") {
+    return true;
+  }
+
+  /*
+   * Discovery candidates do not enter the graph until the operator
+   * chooses Add. Added systems should carry managed=true, but we also
+   * accept persisted infrastructure nodes for backward compatibility.
+   */
+  if (
+    props.managed === true ||
+    props.lifecycleStatus === "managed" ||
+    props.lifecycle_status === "managed"
+  ) {
+    return true;
+  }
+
+  if (
+    ["infrastructure-node", "blockchain-node", "coin-node-rpc"].includes(type) &&
+    (
+      props.addedAt ||
+      props.added_at ||
+      props.friendlyName ||
+      props.assetType
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 function layoutNodes() {
-  const nodes = graph.nodes
-    .filter(n => canvasNodeTypes.has(n.type))
-    .map(n => ({ ...n }));
+  /*
+   * The canvas and inventory must use the exact same normalized asset list.
+   * This prevents Host + ASIC + Worker copies of one physical miner.
+   */
+  const nodes = normalizedInventoryNodes()
+    .filter(node =>
+      canvasAssetCategories.has(inventoryCategory(node)) &&
+      isManagedInfrastructureNode(node)
+    )
+    .map(node => ({ ...node }));
+
   const groups = {};
 
   nodes.forEach(n => {
@@ -495,8 +630,8 @@ function renderCanvas() {
         <g class="infra-node node-${n.type} status-${liveStatus} ${selectedNodeId === n.id ? "selected" : ""} ${highlightedNodeIds.has(n.id) ? "highlighted" : ""} ${selectedNodeId && !highlightedNodeIds.has(n.id) ? "faded" : ""}" data-id="${n.id}">
           <rect x="${n.x}" y="${n.y}" rx="16" ry="16" width="180" height="84"></rect>
           <circle cx="${n.x + 18}" cy="${n.y + 22}" r="6"></circle>
-          <text x="${n.x + 34}" y="${n.y + 26}" class="infra-node-title">${shortLabel(n.label, 20)}</text>
-          <text x="${n.x + 16}" y="${n.y + 54}" class="infra-node-type">${safe(n.type)}</text>
+          <text x="${n.x + 34}" y="${n.y + 26}" class="infra-node-title">${shortLabel(inventoryDisplayName(n), 20)}</text>
+          <text x="${n.x + 16}" y="${n.y + 54}" class="infra-node-type">${inventoryTypeLabel(n)}</text>
           <text x="${n.x + 16}" y="${n.y + 73}" class="infra-node-metric">${h > 0 ? formatHashrate(h) : liveStatus.toUpperCase()}</text>
         </g>
       `}).join("")}
@@ -797,6 +932,23 @@ function inventoryMetric(node) {
   return safe(liveNodeStatus(node), node.status || "unknown").toUpperCase();
 }
 
+function inventoryDisplayName(node) {
+  const category = inventoryCategory(node);
+  const label = String(node?.label || node?.id || "Unknown Asset");
+
+  if (
+    category === "blockchain" &&
+    (
+      label.toLowerCase().includes("unknown") ||
+      label.toLowerCase().includes("system")
+    )
+  ) {
+    return blockchainDisplayName(node);
+  }
+
+  return label;
+}
+
 function renderNodes() {
   const nodes = filteredNodes();
   const target = byId("graphNodes");
@@ -821,12 +973,7 @@ function renderNodes() {
         data-id="${node.id}"
       >
         <div class="inventory-node-main">
-          <strong>${
-            category === "blockchain" &&
-            String(node.label || "").toLowerCase().includes("unknown")
-              ? blockchainDisplayName(node)
-              : safe(node.label, node.id)
-          }</strong>
+          <strong>${inventoryDisplayName(node)}</strong>
           <span>${secondary || node.id}</span>
         </div>
 
@@ -925,54 +1072,675 @@ function formatHashrate(value) {
 }
 
 
-function openInspector(node, impact) {
+function inspectorEdges(nodeId) {
+  return graph.edges.filter(edge =>
+    edge.source === nodeId || edge.target === nodeId
+  );
+}
+
+function inspectorRelatedNodes(nodeId) {
+  return inspectorEdges(nodeId).map(edge => {
+    const otherId =
+      edge.source === nodeId
+        ? edge.target
+        : edge.source;
+
+    return {
+      edge,
+      node: nodeById(otherId),
+      direction:
+        edge.source === nodeId
+          ? "outgoing"
+          : "incoming"
+    };
+  });
+}
+
+function inspectorPortList(node) {
+  const ports = inventoryOpenPorts(node);
+
+  return ports.length
+    ? ports.join(", ")
+    : "Not reported";
+}
+
+function inspectorRpcState(node) {
   const props = node?.properties || {};
+  const ports = inventoryOpenPorts(node);
+
+  if (
+    props.rpcConnected === true ||
+    String(props.rpcStatus || "").toLowerCase() === "connected" ||
+    String(props.rpcStatus || "").toLowerCase() === "online"
+  ) {
+    return "Connected";
+  }
+
+  if (
+    ports.includes(8332) ||
+    ports.includes(9002) ||
+    ports.includes(9332)
+  ) {
+    return "Port detected";
+  }
+
+  return "Not verified";
+}
+
+function inspectorPoolWorkers(node) {
+  if (inventoryCategory(node) !== "pool") {
+    return [];
+  }
+
+  const props = node?.properties || {};
+  const poolId = String(
+    props.id ||
+    props.poolId ||
+    ""
+  ).toLowerCase();
+
+  const poolHost = String(
+    props.host ||
+    props.poolHost ||
+    ""
+  );
+
+  return liveWorkers.filter(worker => {
+    const workerPool = String(
+      worker.poolId ||
+      worker.pool ||
+      ""
+    ).toLowerCase();
+
+    const workerHost = String(
+      worker.poolHost ||
+      worker.host ||
+      ""
+    );
+
+    const poolMatches =
+      !poolId ||
+      workerPool === poolId ||
+      workerPool.includes(poolId) ||
+      poolId.includes(workerPool);
+
+    const hostMatches =
+      !poolHost ||
+      !workerHost ||
+      workerHost === poolHost;
+
+    return poolMatches && hostMatches;
+  });
+}
+
+function inspectorWorkerForAsic(node) {
+  const props = node?.properties || {};
+  const assetIp = inventoryIp(node);
+
+  return liveWorkers.find(worker =>
+    worker.assetName === node.label ||
+    worker.assetIp === assetIp ||
+    shortWorkerId(worker.workerName || worker.name) ===
+      shortWorkerId(props.workerId || props.workerName)
+  ) || null;
+}
+
+function inspectorCoin(node) {
+  const props = node?.properties || {};
+
+  return coinDisplay(
+    props.coin ||
+    props.symbol ||
+    props.coinSymbol ||
+    props.chain ||
+    ""
+  ) || "Unknown";
+}
+
+function inspectorStatusClass(status) {
+  const normalized = String(status || "").toLowerCase();
+
+  if (
+    normalized === "online" ||
+    normalized === "healthy" ||
+    normalized === "mining" ||
+    normalized === "connected"
+  ) {
+    return "good";
+  }
+
+  if (
+    normalized === "warning" ||
+    normalized === "degraded" ||
+    normalized === "idle"
+  ) {
+    return "warning";
+  }
+
+  return "";
+}
+
+function inspectorIdentitySection(node) {
+  const props = node?.properties || {};
+
+  return `
+    <section class="digital-twin-section">
+      <div class="digital-twin-section-head">
+        <h3>Identity</h3>
+        <span>${inventoryTypeLabel(node)}</span>
+      </div>
+
+      <div class="digital-twin-grid">
+        <div class="digital-twin-field">
+          <label>Asset ID</label>
+          <strong>${safe(node?.id)}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>IP Address</label>
+          <strong>${safe(inventoryIp(node), "Not set")}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Canonical Type</label>
+          <strong>${safe(props.assetType || node?.type)}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Lifecycle</label>
+          <strong>${safe(props.lifecycleStatus, "Managed")}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Coin</label>
+          <strong>${inspectorCoin(node)}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Open Ports</label>
+          <strong>${inspectorPortList(node)}</strong>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function inspectorAsicSection(node) {
+  const props = node?.properties || {};
+  const worker = inspectorWorkerForAsic(node);
   const hashrate = liveHashrateForNode(node);
+
+  const workerName = shortWorkerId(
+    worker?.workerName ||
+    worker?.name ||
+    props.workerId ||
+    props.workerName
+  );
+
+  const pool = safe(
+    worker?.poolId ||
+    props.poolId ||
+    props.poolGroup,
+    "Not assigned"
+  );
+
+  const shares = Number(
+    worker?.sharesPerSecond ||
+    worker?.shares_per_second ||
+    0
+  );
+
+  return `
+    <section class="digital-twin-section">
+      <div class="digital-twin-section-head">
+        <h3>ASIC Telemetry</h3>
+        <span class="${hashrate > 0 ? "good" : "warning"}">
+          ${hashrate > 0 ? "MINING" : "IDLE"}
+        </span>
+      </div>
+
+      <div class="digital-twin-grid">
+        <div class="digital-twin-field metric-primary">
+          <label>Hashrate</label>
+          <strong>${formatHashrate(hashrate)}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Worker</label>
+          <strong>${workerName || "Not reported"}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Pool</label>
+          <strong>${pool}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Shares / Second</label>
+          <strong>${shares.toFixed(3)}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Pool Host</label>
+          <strong>${safe(
+            worker?.poolHost ||
+            props.poolHost,
+            "Not reported"
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Live Worker</label>
+          <strong class="${worker ? "good" : "warning"}">
+            ${worker ? "Connected" : "Not matched"}
+          </strong>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function inspectorPoolSection(node) {
+  const props = node?.properties || {};
+  const workers = inspectorPoolWorkers(node);
+  const totalHashrate = workers.reduce(
+    (sum, worker) =>
+      sum + Number(worker.hashrate || worker.hashRate || 0),
+    0
+  );
+
+  return `
+    <section class="digital-twin-section">
+      <div class="digital-twin-section-head">
+        <h3>Pool Operations</h3>
+        <span class="${totalHashrate > 0 ? "good" : "warning"}">
+          ${totalHashrate > 0 ? "ACTIVE" : "IDLE"}
+        </span>
+      </div>
+
+      <div class="digital-twin-grid">
+        <div class="digital-twin-field metric-primary">
+          <label>Pool Hashrate</label>
+          <strong>${formatHashrate(totalHashrate)}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Connected Miners</label>
+          <strong>${workers.length}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Mode</label>
+          <strong>${safe(
+            props.mode ||
+            props.visibility,
+            "Unknown"
+          ).toUpperCase()}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Pool ID</label>
+          <strong>${safe(
+            props.id ||
+            props.poolId,
+            "Not reported"
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Host</label>
+          <strong>${safe(
+            props.host ||
+            props.poolHost,
+            "Not reported"
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Stratum</label>
+          <strong>${safe(
+            Array.isArray(props.stratumPorts)
+              ? props.stratumPorts.join(", ")
+              : props.stratumPort,
+            "Not reported"
+          )}</strong>
+        </div>
+      </div>
+
+      <div class="digital-twin-mini-list">
+        ${
+          workers.map((worker, index) => `
+            <div>
+              <span>
+                ${safe(
+                  worker.assetName ||
+                  worker.displayName ||
+                  `Miner ${index + 1}`
+                )}
+              </span>
+              <b>${formatHashrate(
+                Number(worker.hashrate || worker.hashRate || 0)
+              )}</b>
+            </div>
+          `).join("") ||
+          "<p>No live miners matched to this pool.</p>"
+        }
+      </div>
+    </section>
+  `;
+}
+
+function inspectorBlockchainSection(node) {
+  const props = node?.properties || {};
+  const rpcState = inspectorRpcState(node);
+
+  const syncPercent = Number(
+    props.syncPercent ||
+    props.syncPercentage ||
+    props.verificationProgress ||
+    props.verificationprogress ||
+    0
+  );
+
+  const normalizedSync =
+    syncPercent > 0 && syncPercent <= 1
+      ? syncPercent * 100
+      : syncPercent;
+
+  return `
+    <section class="digital-twin-section">
+      <div class="digital-twin-section-head">
+        <h3>Blockchain Operations</h3>
+        <span class="${inspectorStatusClass(rpcState)}">
+          RPC ${rpcState.toUpperCase()}
+        </span>
+      </div>
+
+      <div class="digital-twin-grid">
+        <div class="digital-twin-field metric-primary">
+          <label>Sync</label>
+          <strong>
+            ${
+              normalizedSync > 0
+                ? `${normalizedSync.toFixed(2)}%`
+                : "Awaiting RPC"
+            }
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>RPC</label>
+          <strong class="${inspectorStatusClass(rpcState)}">
+            ${rpcState}
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Block Height</label>
+          <strong>${safe(
+            props.blocks ||
+            props.blockHeight ||
+            props.height,
+            "Awaiting RPC"
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Headers</label>
+          <strong>${safe(
+            props.headers,
+            "Awaiting RPC"
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Peers</label>
+          <strong>${safe(
+            props.connections ||
+            props.peers ||
+            props.peerCount,
+            "Awaiting RPC"
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Version</label>
+          <strong>${safe(
+            props.version ||
+            props.subversion,
+            "Awaiting RPC"
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Chain</label>
+          <strong>${safe(
+            props.chain,
+            inspectorCoin(node)
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Ports</label>
+          <strong>${inspectorPortList(node)}</strong>
+        </div>
+      </div>
+
+      ${
+        rpcState !== "Connected"
+          ? `
+            <div class="digital-twin-recommendation">
+              <strong>Recommended Action</strong>
+              <span>
+                Verify RPC credentials and run getblockchaininfo
+                to unlock live sync, peer, version, and block telemetry.
+              </span>
+            </div>
+          `
+          : ""
+      }
+    </section>
+  `;
+}
+
+function inspectorServerSection(node) {
+  const props = node?.properties || {};
+
+  return `
+    <section class="digital-twin-section">
+      <div class="digital-twin-section-head">
+        <h3>Server Operations</h3>
+        <span class="${inspectorStatusClass(node?.status)}">
+          ${safe(node?.status, "online").toUpperCase()}
+        </span>
+      </div>
+
+      <div class="digital-twin-grid">
+        <div class="digital-twin-field">
+          <label>Hostname</label>
+          <strong>${safe(
+            props.hostname ||
+            props.profile?.hostname,
+            "Not resolved"
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Primary Role</label>
+          <strong>${safe(
+            props.primaryRole,
+            "Infrastructure Server"
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Open Ports</label>
+          <strong>${inspectorPortList(node)}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Health</label>
+          <strong>${safe(
+            props.health?.label ||
+            props.health?.level ||
+            node?.status,
+            "Unknown"
+          )}</strong>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function inspectorOperationalSection(node, impact) {
+  const related = inspectorRelatedNodes(node.id);
   const affectedTypes = impact?.affectedByType || {};
 
-  byId("inspectorContent").innerHTML = `
-    <h2>${safe(node?.label, "Selected Node")}</h2>
-    <p class="drawer-subtitle">${safe(node?.type).toUpperCase()} • ${safe(node?.status, "online")}</p>
-
-    <div class="asset-drawer-section">
-      <h3>Live Status</h3>
-      <div class="asset-detail-grid">
-        <div class="asset-detail-field"><label>Hashrate</label><strong>${formatHashrate(hashrate)}</strong></div>
-        <div class="asset-detail-field"><label>Status</label><strong>${safe(liveNodeStatus(node)).toUpperCase()}</strong></div>
-        <div class="asset-detail-field"><label>Risk</label><strong>${safe(impact?.risk, "Unknown").toUpperCase()}</strong></div>
-        <div class="asset-detail-field"><label>Affected</label><strong>${impact?.affectedCount ?? 0}</strong></div>
+  return `
+    <section class="digital-twin-section">
+      <div class="digital-twin-section-head">
+        <h3>Operational Impact</h3>
+        <span class="risk-${safe(impact?.risk, "unknown").toLowerCase()}">
+          ${safe(impact?.risk, "Unknown").toUpperCase()}
+        </span>
       </div>
-    </div>
 
-    <div class="asset-drawer-section">
-      <h3>Identity</h3>
-      <div class="asset-detail-grid">
-        <div class="asset-detail-field"><label>Node ID</label><strong>${safe(node?.id)}</strong></div>
-        <div class="asset-detail-field"><label>IP</label><strong>${safe(props.ip || props.host || props.poolHost, "Not set")}</strong></div>
-        <div class="asset-detail-field"><label>Pool</label><strong>${safe(props.poolGroup || props.poolId || props.id, "Not set")}</strong></div>
-        <div class="asset-detail-field"><label>Worker</label><strong>${safe(props.workerName || props.workerId, "Not set")}</strong></div>
+      <div class="digital-twin-grid">
+        <div class="digital-twin-field metric-primary">
+          <label>Estimated Hashrate Impact</label>
+          <strong>${formatHashrate(
+            impact?.estimatedHashrateLoss || 0
+          )}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Affected Objects</label>
+          <strong>${impact?.affectedCount ?? 0}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Direct Relationships</label>
+          <strong>${related.length}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Affected Types</label>
+          <strong>
+            ${
+              Object.entries(affectedTypes)
+                .map(([type, count]) => `${type}: ${count}`)
+                .join(", ") ||
+              "None"
+            }
+          </strong>
+        </div>
       </div>
-    </div>
 
-    <div class="asset-drawer-section">
-      <h3>Blast Radius</h3>
-      <ul class="service-list">
+      <div class="digital-twin-relationships">
         ${
-          Object.entries(affectedTypes).map(([type, count]) =>
-            `<li><span>${type}</span><b>${count}</b></li>`
-          ).join("") || "<li>No downstream impact detected.</li>"
+          related.map(item => `
+            <button
+              type="button"
+              class="digital-twin-related"
+              data-related-node="${item.node?.id || ""}"
+            >
+              <span>
+                ${safe(
+                  item.edge.label ||
+                  item.edge.type
+                )}
+              </span>
+
+              <strong>
+                ${safe(
+                  item.node?.label,
+                  item.node?.id || "Unknown"
+                )}
+              </strong>
+            </button>
+          `).join("") ||
+          "<p>No direct relationships recorded.</p>"
         }
-      </ul>
+      </div>
+    </section>
+  `;
+}
+
+function bindInspectorRelationships() {
+  document
+    .querySelectorAll("[data-related-node]")
+    .forEach(button => {
+      button.addEventListener("click", async () => {
+        const nodeId = button.dataset.relatedNode;
+        const node = nodeById(nodeId);
+
+        if (!node) return;
+
+        selectedNodeId = nodeId;
+        await loadImpactHighlight(nodeId);
+
+        renderCanvas();
+        renderNodes();
+        renderRelationships();
+
+        const impact = await fetchImpact(nodeId);
+        openInspector(node, impact);
+      });
+    });
+}
+
+function openInspector(node, impact) {
+  if (!node) return;
+
+  const category = inventoryCategory(node);
+  const liveStatus = liveNodeStatus(node);
+
+  let operationalSection = "";
+
+  if (category === "asic") {
+    operationalSection = inspectorAsicSection(node);
+  } else if (category === "pool") {
+    operationalSection = inspectorPoolSection(node);
+  } else if (category === "blockchain") {
+    operationalSection = inspectorBlockchainSection(node);
+  } else {
+    operationalSection = inspectorServerSection(node);
+  }
+
+  byId("inspectorContent").innerHTML = `
+    <div class="digital-twin-head">
+      <div>
+        <span class="digital-twin-kicker">Infrastructure Digital Twin</span>
+        <h2>${inventoryDisplayName(node)}</h2>
+        <p>
+          ${inventoryTypeLabel(node)}
+          ·
+          ${safe(inventoryIp(node), "No IP")}
+        </p>
+      </div>
+
+      <div class="digital-twin-state ${inspectorStatusClass(liveStatus)}">
+        <span></span>
+        ${safe(liveStatus).toUpperCase()}
+      </div>
     </div>
 
-    <div class="asset-drawer-section">
-      <h3>Raw Properties</h3>
-      <pre>${JSON.stringify(props, null, 2)}</pre>
-    </div>
+    ${inspectorIdentitySection(node)}
+    ${operationalSection}
+    ${inspectorOperationalSection(node, impact)}
+
+    <section class="digital-twin-section">
+      <details class="digital-twin-raw">
+        <summary>Raw asset data</summary>
+        <pre>${JSON.stringify(node.properties || {}, null, 2)}</pre>
+      </details>
+    </section>
   `;
 
   byId("inspectorPanel")?.classList.add("open");
   byId("inspectorBackdrop")?.classList.add("open");
+
+  bindInspectorRelationships();
 }
 
 function closeInspector() {
@@ -1273,11 +2041,104 @@ window.addEventListener("DOMContentLoaded", () => {
   byId("scanTargetsForm")?.addEventListener("submit", runTargetScan);
 });
 
+function classifyDiscoveredSystem(system) {
+  const role = String(system?.primaryRole || "").toLowerCase();
+  const ports = (system?.openPorts || [])
+    .map(port => Number(port))
+    .filter(Number.isFinite);
+
+  if (
+    role.includes("blockchain") ||
+    role.includes("bitcoin core") ||
+    role.includes("bitcoin node") ||
+    role.includes("btc node") ||
+    role.includes("bch node") ||
+    ports.includes(8332) ||
+    ports.includes(8333)
+  ) {
+    return "blockchain-node";
+  }
+
+  if (
+    role.includes("asic") ||
+    role.includes("miner")
+  ) {
+    return "asic";
+  }
+
+  if (
+    role.includes("pool") ||
+    role.includes("mining backend") ||
+    role.includes("stratum")
+  ) {
+    return "pool";
+  }
+
+  if (
+    ports.includes(22) ||
+    role.includes("server") ||
+    role.includes("host")
+  ) {
+    return "server";
+  }
+
+  return "unknown";
+}
+
+function defaultDiscoveredName(system, assetType) {
+  const role = String(system?.primaryRole || "");
+
+  if (assetType === "blockchain-node") {
+    const lower = role.toLowerCase();
+
+    if (
+      lower.includes("bitcoin cash") ||
+      lower.includes("bch")
+    ) {
+      return "Bitcoin Cash Node";
+    }
+
+    return "Bitcoin Core";
+  }
+
+  if (role && !role.toLowerCase().includes("unknown")) {
+    return role;
+  }
+
+  return system?.ip || "Managed Infrastructure Asset";
+}
+
 async function addDiscoveredSystem(system) {
-  const name = prompt("Name this discovered system:", system.primaryRole || system.ip);
+  const assetType = classifyDiscoveredSystem(system);
+  const suggestedName = defaultDiscoveredName(system, assetType);
+
+  const name = prompt(
+    "Name this discovered system:",
+    suggestedName
+  );
+
   if (!name) return;
 
-  const payload = {...system, friendlyName: name};
+  const payload = {
+    ...system,
+
+    /*
+     * Canonical backend identity.
+     */
+    assetType,
+    canonicalType: assetType,
+
+    /*
+     * Lifecycle fields establish that the operator explicitly chose
+     * to manage this discovery result.
+     */
+    managed: true,
+    lifecycleStatus: "managed",
+    addedAt: new Date().toISOString(),
+
+    friendlyName: name,
+    displayName: name
+  };
 
   const res = await fetch("/api/discovery/add-system", {
     method: "POST",
