@@ -103,15 +103,289 @@ async function loadImpactHighlight(nodeId) {
   } catch {}
 }
 
+function propertyText(value) {
+  if (value === undefined || value === null) return "";
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(propertyText).filter(Boolean).join(" ");
+  }
+
+  if (typeof value === "object") {
+    return Object.values(value)
+      .map(propertyText)
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  return "";
+}
+
+function inventoryOpenPorts(node) {
+  const props = node?.properties || {};
+
+  const candidates = [
+    props.openPorts,
+    props.ports,
+    props.port,
+    props.rpcPort,
+    props.p2pPort,
+    props.services
+  ];
+
+  const ports = [];
+
+  candidates.forEach(candidate => {
+    if (Array.isArray(candidate)) {
+      candidate.forEach(item => {
+        if (typeof item === "object" && item !== null) {
+          const port = Number(item.port);
+          if (Number.isFinite(port)) ports.push(port);
+        } else {
+          const port = Number(item);
+          if (Number.isFinite(port)) ports.push(port);
+        }
+      });
+    } else {
+      const port = Number(candidate);
+      if (Number.isFinite(port)) ports.push(port);
+    }
+  });
+
+  return [...new Set(ports)];
+}
+
+function inventoryCategory(node) {
+  const type = String(node?.type || "").toLowerCase();
+  const props = node?.properties || {};
+  const ports = inventoryOpenPorts(node);
+
+  const text = [
+    type,
+    node?.id,
+    node?.label,
+    propertyText(props)
+  ].join(" ").toLowerCase();
+
+  if (
+    type === "blockchain-node" ||
+    type === "coin-node-rpc" ||
+    ports.includes(8332) ||
+    ports.includes(8333) ||
+    ports.includes(8334) ||
+    text.includes("blockchain") ||
+    text.includes("bitcoin core") ||
+    text.includes("bitcoin node") ||
+    text.includes("btc node") ||
+    text.includes("bitcoin cash") ||
+    text.includes("bch node")
+  ) {
+    return "blockchain";
+  }
+
+  if (
+    type === "pool" ||
+    text.includes("mining pool") ||
+    text.includes("solo pool") ||
+    text.includes("public pool")
+  ) {
+    return "pool";
+  }
+
+  if (
+    type === "asic" ||
+    text.includes("asic miner") ||
+    text.includes("nano 3") ||
+    text.includes("mining system")
+  ) {
+    return "asic";
+  }
+
+  if (
+    type === "server" ||
+    type === "infrastructure-node" ||
+    type === "host"
+  ) {
+    return "server";
+  }
+
+  return "unknown";
+}
+
+function blockchainDisplayName(node) {
+  const props = node?.properties || {};
+  const text = [
+    node?.label,
+    node?.id,
+    propertyText(props)
+  ].join(" ").toLowerCase();
+
+  if (
+    text.includes("bitcoin cash") ||
+    text.includes("bch") ||
+    inventoryOpenPorts(node).includes(8334)
+  ) {
+    return "Bitcoin Cash Node";
+  }
+
+  if (
+    text.includes("bitcoin") ||
+    text.includes("btc") ||
+    inventoryOpenPorts(node).includes(8332) ||
+    inventoryOpenPorts(node).includes(8333)
+  ) {
+    return "Bitcoin Core";
+  }
+
+  return "Blockchain Node";
+}
+
+function inventoryTypeLabel(node) {
+  const category = inventoryCategory(node);
+
+  if (category === "blockchain") return blockchainDisplayName(node);
+  if (category === "pool") return "Mining Pool";
+  if (category === "asic") return "ASIC Miner";
+  if (category === "server") return "Server";
+
+  return "Unknown Asset";
+}
+
+function inventoryIdentity(node) {
+  const props = node?.properties || {};
+  const category = inventoryCategory(node);
+
+  const ip = String(
+    props.ip ||
+    props.assetIp ||
+    props.host ||
+    props.poolHost ||
+    ""
+  ).trim().toLowerCase();
+
+  const label = String(node?.label || node?.id || "")
+    .trim()
+    .toLowerCase();
+
+  /*
+   * Pools are logical services and must remain separate from physical
+   * devices even when they share a host IP.
+   *
+   * Blockchain RPC/P2P graph objects on the same IP should collapse into
+   * one blockchain asset.
+   */
+  if (category === "pool") {
+    return `pool:${node?.id || label}`;
+  }
+
+  if (category === "blockchain" && ip) {
+    return `blockchain:${ip}`;
+  }
+
+  if (category === "asic" && ip) {
+    return `asic:${ip}`;
+  }
+
+  if (category === "server" && ip) {
+    return `server:${ip}`;
+  }
+
+  return `${category}:${label}`;
+}
+
+function inventoryPriority(node) {
+  const type = String(node?.type || "").toLowerCase();
+
+  if (type === "asic") return 100;
+  if (type === "blockchain-node") return 95;
+  if (type === "coin-node-rpc") return 90;
+  if (type === "pool") return 85;
+  if (type === "infrastructure-node") return 80;
+  if (type === "server") return 75;
+  if (type === "host") return 20;
+  if (type === "worker") return 0;
+
+  return 40;
+}
+
+function normalizedInventoryNodes() {
+  const inventory = new Map();
+
+  /*
+   * Workers are operational records, not separate infrastructure assets.
+   * Host nodes representing known ASICs are also suppressed because the
+   * real ASIC graph node is preferred below.
+   */
+  graph.nodes.forEach(node => {
+    const type = String(node?.type || "").toLowerCase();
+
+    if (type === "worker") {
+      return;
+    }
+
+    const category = inventoryCategory(node);
+    const key = inventoryIdentity(node);
+    const existing = inventory.get(key);
+
+    if (!existing || inventoryPriority(node) > inventoryPriority(existing)) {
+      inventory.set(key, node);
+    }
+  });
+
+  return Array.from(inventory.values()).sort((a, b) => {
+    const order = {
+      blockchain: 1,
+      pool: 2,
+      asic: 3,
+      server: 4,
+      unknown: 5
+    };
+
+    const categoryDifference =
+      (order[inventoryCategory(a)] || 99) -
+      (order[inventoryCategory(b)] || 99);
+
+    if (categoryDifference !== 0) {
+      return categoryDifference;
+    }
+
+    return String(a.label || a.id).localeCompare(
+      String(b.label || b.id),
+      undefined,
+      { numeric: true }
+    );
+  });
+}
+
 function filteredNodes() {
   const q = searchQuery.trim().toLowerCase();
-  if (!q) return graph.nodes;
-  return graph.nodes.filter(n =>
-    [n.id, n.type, n.label, n.status, JSON.stringify(n.properties || {})]
+
+  return normalizedInventoryNodes().filter(node => {
+    const category = inventoryCategory(node);
+
+    if (activeNodeType !== "all" && category !== activeNodeType) {
+      return false;
+    }
+
+    if (!q) {
+      return true;
+    }
+
+    return [
+      node.id,
+      node.type,
+      inventoryTypeLabel(node),
+      node.label,
+      node.status,
+      JSON.stringify(node.properties || {})
+    ]
       .join(" ")
       .toLowerCase()
-      .includes(q)
-  );
+      .includes(q);
+  });
 }
 
 function renderMissionStatus() {
@@ -321,23 +595,254 @@ function enableDrag(nodes) {
   };
 }
 
+function inventoryIp(node) {
+  const props = node?.properties || {};
+
+  return (
+    props.ip ||
+    props.assetIp ||
+    props.host ||
+    props.poolHost ||
+    ""
+  );
+}
+
+function inventoryWorker(node) {
+  if (inventoryCategory(node) !== "asic") {
+    return null;
+  }
+
+  const props = node?.properties || {};
+  const ip = inventoryIp(node);
+
+  return liveWorkers.find(worker =>
+    worker.assetName === node.label ||
+    worker.assetIp === ip ||
+    worker.workerId === props.workerId ||
+    worker.workerName === props.workerName ||
+    worker.name === props.workerName
+  ) || null;
+}
+
+function scalarValue(value, preferredKeys = []) {
+  if (value === undefined || value === null || value === "") return "";
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "object") {
+    for (const key of preferredKeys) {
+      if (value[key] !== undefined && value[key] !== null) {
+        return scalarValue(value[key], preferredKeys);
+      }
+    }
+
+    for (const key of ["symbol", "name", "id", "label", "value"]) {
+      if (value[key] !== undefined && value[key] !== null) {
+        return scalarValue(value[key], preferredKeys);
+      }
+    }
+  }
+
+  return "";
+}
+
+function coinDisplay(value) {
+  const raw = scalarValue(value, ["symbol", "ticker", "code", "name"])
+    .trim();
+
+  if (!raw) return "";
+
+  const lower = raw.toLowerCase();
+
+  if (lower === "bch" || lower.includes("bitcoin cash")) {
+    return "Bitcoin Cash";
+  }
+
+  if (lower === "btc" || lower === "bitcoin") {
+    return "Bitcoin";
+  }
+
+  return raw.toUpperCase();
+}
+
+function shortWorkerId(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  /*
+   * MiningCore workers commonly arrive as wallet.001 or a long wallet
+   * followed by .001. The operator-facing inventory only needs the suffix.
+   */
+  const dotParts = raw.split(".");
+  const suffix = dotParts[dotParts.length - 1];
+
+  if (/^[a-z0-9_-]{1,16}$/i.test(suffix)) {
+    return suffix;
+  }
+
+  const trailingNumber = raw.match(/(?:worker[-_ ]?)?(\d{1,6})$/i);
+  if (trailingNumber) {
+    return trailingNumber[1].padStart(3, "0");
+  }
+
+  return raw.length > 16
+    ? `${raw.slice(0, 8)}…`
+    : raw;
+}
+
+function inventorySecondaryText(node) {
+  const category = inventoryCategory(node);
+  const props = node?.properties || {};
+  const ip = inventoryIp(node);
+  const worker = inventoryWorker(node);
+
+  if (category === "asic") {
+    const workerValue =
+      worker?.workerId ||
+      worker?.workerName ||
+      worker?.name ||
+      props.workerId ||
+      props.workerName ||
+      "";
+
+    const workerId = shortWorkerId(workerValue);
+
+    const pool = scalarValue(
+      worker?.poolId ||
+      worker?.pool ||
+      props.poolGroup ||
+      props.poolId ||
+      "",
+      ["id", "name"]
+    );
+
+    return [
+      ip,
+      workerId ? `Worker ${workerId}` : "",
+      pool ? `Pool ${pool.toUpperCase()}` : ""
+    ].filter(Boolean).join(" · ");
+  }
+
+  if (category === "pool") {
+    const mode = scalarValue(
+      props.mode ||
+      props.visibility ||
+      props.poolMode ||
+      ""
+    );
+
+    const coin = coinDisplay(
+      props.coin ||
+      props.symbol ||
+      props.coinSymbol ||
+      props.id ||
+      ""
+    );
+
+    return [
+      coin,
+      mode ? mode.toUpperCase() : "",
+      ip
+    ].filter(Boolean).join(" · ");
+  }
+
+  if (category === "blockchain") {
+    const ports = inventoryOpenPorts(node);
+    const chain = coinDisplay(
+      props.chain ||
+      props.coin ||
+      props.symbol ||
+      props.coinSymbol ||
+      ""
+    );
+
+    const rpcPort =
+      Number(props.rpcPort) ||
+      (ports.includes(8332) ? 8332 : "");
+
+    const p2pPort =
+      Number(props.p2pPort) ||
+      (ports.includes(8333) ? 8333 : "");
+
+    const rpcConnected =
+      props.rpcConnected === true ||
+      String(props.rpcStatus || "").toLowerCase() === "connected" ||
+      String(props.rpcStatus || "").toLowerCase() === "online";
+
+    return [
+      ip,
+      chain || "Bitcoin",
+      rpcPort ? `RPC ${rpcPort}` : "",
+      p2pPort ? `P2P ${p2pPort}` : "",
+      rpcConnected ? "RPC Connected" : ""
+    ].filter(Boolean).join(" · ");
+  }
+
+  return [
+    ip,
+    scalarValue(props.hostname || props.hostName || "")
+  ].filter(Boolean).join(" · ");
+}
+
+function inventoryMetric(node) {
+  const category = inventoryCategory(node);
+  const hashrate = liveHashrateForNode(node);
+
+  if ((category === "asic" || category === "pool") && hashrate > 0) {
+    return formatHashrate(hashrate);
+  }
+
+  return safe(liveNodeStatus(node), node.status || "unknown").toUpperCase();
+}
+
 function renderNodes() {
   const nodes = filteredNodes();
+  const target = byId("graphNodes");
 
-  byId("graphNodes").innerHTML = nodes.map(node => `
-    <button class="graph-node ${selectedNodeId === node.id ? "active" : ""}" data-id="${node.id}">
-      <div>
-        <strong>${safe(node.label, node.id)}</strong>
-        <span>${node.id}</span>
+  if (!nodes.length) {
+    target.innerHTML = `
+      <div class="empty-state">
+        <h3>No infrastructure assets match.</h3>
+        <p>Try another filter or clear the graph search.</p>
       </div>
-      <b>${safe(node.type)}</b>
-    </button>
-  `).join("");
+    `;
+    return;
+  }
+
+  target.innerHTML = nodes.map(node => {
+    const category = inventoryCategory(node);
+    const secondary = inventorySecondaryText(node);
+
+    return `
+      <button
+        class="graph-node inventory-node inventory-${category} ${selectedNodeId === node.id ? "active" : ""}"
+        data-id="${node.id}"
+      >
+        <div class="inventory-node-main">
+          <strong>${
+            category === "blockchain" &&
+            String(node.label || "").toLowerCase().includes("unknown")
+              ? blockchainDisplayName(node)
+              : safe(node.label, node.id)
+          }</strong>
+          <span>${secondary || node.id}</span>
+        </div>
+
+        <div class="inventory-node-status">
+          <b>${inventoryTypeLabel(node)}</b>
+          <small>${inventoryMetric(node)}</small>
+        </div>
+      </button>
+    `;
+  }).join("");
 
   document.querySelectorAll(".graph-node").forEach(btn => {
     btn.addEventListener("click", async () => {
       selectedNodeId = btn.dataset.id;
       await loadImpactHighlight(selectedNodeId);
+
       renderNodes();
       renderCanvas();
       renderRelationships();
