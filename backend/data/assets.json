@@ -1,64 +1,31 @@
-{
-  "192.168.1.154": {
-    "name": "Nano 3s",
-    "purpose": "Mining",
-    "favorite": false,
-    "notes": "",
-    "tags": [],
-    "createdAutomatically": true,
-    "poolGroup": "BCH Solo Pool",
-    "workerId": "001",
-    "poolId": "bch",
-    "poolHost": "192.168.1.154",
-    "id": "asset-28a5a306",
-    "ip": "192.168.1.154",
-    "friendlyName": "Nano 3s",
-    "type": "asic",
-    "location": "",
-    "rack": "",
-    "position": "",
-    "manufacturer": "",
-    "model": "",
-    "serialNumber": "",
-    "macAddress": "",
-    "hostname": "",
-    "createdAt": "2026-07-07T14:14:36.678735+00:00",
-    "updatedAt": "2026-07-09T03:37:17.089416+00:00"
-  },
-  "192.168.1.156": {
-    "name": "Mining System 2",
-    "purpose": "Mining",
-    "favorite": false,
-    "notes": "",
-    "tags": [],
-    "createdAutomatically": true,
-    "workerId": "002",
-    "poolId": "bch",
-    "poolHost": "192.168.1.154",
-    "poolGroup": "BCH Solo Pool",
-    "id": "asset-b63808dd",
-    "ip": "192.168.1.156",
-    "friendlyName": "Mining System 2",
-    "type": "asic",
-    "location": "",
-    "rack": "",
-    "position": "",
-    "manufacturer": "",
-    "model": "",
-    "serialNumber": "",
-    "macAddress": "",
-    "hostname": "",
-    "createdAt": "2026-07-07T14:14:36.678788+00:00",
-    "updatedAt": "2026-07-09T03:37:17.089422+00:00"
-  },
-  "192.168.1.169": {
-    "name": "Unknown System 3",
-    "friendlyName": "Unknown System 3",
-    "purpose": "Unknown",
-    "createdAutomatically": true,
-    "id": "asset-6626af42",
+[
+  {
+    "id": "asset-82ac3c36",
+    "name": "Bitcoin Core",
+    "friendlyName": "Bitcoin Core",
     "ip": "192.168.1.169",
-    "type": "unknown",
+    "type": "blockchain-node",
+    "purpose": "Blockchain",
+    "coin": "BTC",
+    "primaryRole": "BTC Blockchain Node",
+    "openPorts": [
+      8332,
+      8333
+    ],
+    "services": [
+      {
+        "name": "BTC Blockchain Node",
+        "port": 8333
+      }
+    ],
+    "createdAutomatically": false,
+    "createdAt": "2026-07-12T02:34:52.370455+00:00",
+    "updatedAt": "2026-07-12T02:34:52.370469+00:00",
+    "displayName": "Bitcoin Core",
+    "assetType": "blockchain-node",
+    "canonicalType": "blockchain-node",
+    "managed": true,
+    "lifecycleStatus": "managed",
     "favorite": false,
     "notes": "",
     "tags": [],
@@ -73,8 +40,6 @@
     "workerId": "",
     "poolId": "",
     "poolHost": "",
-    "poolGroup": "",
-    "createdAt": "2026-07-08T22:24:22.988507+00:00",
-    "updatedAt": "2026-07-09T03:37:17.089427+00:00"
+    "poolGroup": ""
   }
-}
+]

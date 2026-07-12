@@ -1,9 +1,7 @@
-from backend.core.graph import build_graph, relationships_for
+from backend.core.asset_classifier import classify_graph_payload
+from backend.core.graph import build_graph
 
 
 def graph():
-    return build_graph()
-
-
-def relationships(node_id):
-    return relationships_for(node_id)
+    payload = build_graph()
+    return classify_graph_payload(payload)

@@ -1,11 +1,12 @@
 import json
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
-from backend.core import discovery as discovery_core
 
-ASSETS = Path("backend/data/assets.json")
+from backend.core import discovery as discovery_core
+from backend.core.asset_manager import upsert_managed_asset
+
+
 LAST_SCAN = Path("backend/data/discovery/last_scan.json")
+
 
 PORT_MAP = {
     8333: ("BTC Blockchain Node", "blockchain-node", "BTC"),
@@ -19,75 +20,74 @@ PORT_MAP = {
 
 
 def classify(system):
-    ports = set(system.get("openPorts", []))
+    result = dict(system or {})
+    ports = {
+        int(port)
+        for port in result.get("openPorts", [])
+        if str(port).isdigit()
+    }
 
-    for port, (role, asset_type, coin) in PORT_MAP.items():
+    matched = []
+
+    for port, classification in PORT_MAP.items():
         if port in ports:
-            system["primaryRole"] = role
-            system["type"] = asset_type
-            system["coin"] = coin
-            system["purpose"] = "Blockchain"
-            system["services"] = system.get("services", [])
-            system["services"].append({"name": role, "port": port})
-            return system
+            matched.append((port, classification))
 
-    return system
+    if not matched:
+        return result
+
+    # Prefer P2P identity over RPC-only identity for display purposes.
+    matched.sort(
+        key=lambda item: (
+            0 if "Blockchain Node" in item[1][0] else 1,
+            item[0],
+        )
+    )
+
+    _, (role, asset_type, coin) = matched[0]
+
+    result["primaryRole"] = role
+    result["type"] = asset_type
+    result["assetType"] = asset_type
+    result["canonicalType"] = asset_type
+    result["coin"] = coin
+    result["purpose"] = "Blockchain"
+
+    services = list(result.get("services") or [])
+    existing = {
+        (str(item.get("name")), int(item.get("port") or 0))
+        for item in services
+        if isinstance(item, dict)
+    }
+
+    for port, (service_role, _, _) in matched:
+        key = (service_role, port)
+
+        if key not in existing:
+            services.append({
+                "name": service_role,
+                "port": port,
+            })
+
+    result["services"] = services
+    return result
 
 
 def scan_targets(targets):
     result = discovery_core.scan_targets(targets)
-    result["systems"] = [classify(s) for s in result.get("systems", [])]
+    result["systems"] = [
+        classify(system)
+        for system in result.get("systems", [])
+    ]
 
     LAST_SCAN.parent.mkdir(parents=True, exist_ok=True)
-    LAST_SCAN.write_text(json.dumps(result, indent=2) + "\n")
+    LAST_SCAN.write_text(
+        json.dumps(result, indent=2) + "\n"
+    )
 
     return result
 
 
-def _load_assets():
-    if not ASSETS.exists():
-        return []
-
-    data = json.loads(ASSETS.read_text() or "[]")
-    if isinstance(data, dict):
-        return data.get("assets", [])
-    return data
-
-
-def _save_assets(assets):
-    ASSETS.write_text(json.dumps(assets, indent=2) + "\n")
-
-
 def add_system(system):
-    assets = _load_assets()
-    ip = system.get("ip")
-
-    existing = next((a for a in assets if a.get("ip") == ip and a.get("type") == system.get("type")), None)
-    if existing:
-        existing.update({
-            "friendlyName": system.get("friendlyName") or existing.get("friendlyName") or system.get("primaryRole"),
-            "name": system.get("friendlyName") or existing.get("name") or system.get("primaryRole"),
-            "updatedAt": datetime.now(timezone.utc).isoformat()
-        })
-        _save_assets(assets)
-        return existing
-
-    asset = {
-        "id": f"asset-{uuid.uuid4().hex[:8]}",
-        "name": system.get("friendlyName") or system.get("primaryRole") or f"Node {ip}",
-        "friendlyName": system.get("friendlyName") or system.get("primaryRole") or f"Node {ip}",
-        "ip": ip,
-        "type": system.get("type") or "infrastructure-node",
-        "purpose": system.get("purpose") or "Infrastructure",
-        "coin": system.get("coin"),
-        "primaryRole": system.get("primaryRole"),
-        "openPorts": system.get("openPorts", []),
-        "services": system.get("services", []),
-        "createdAutomatically": False,
-        "createdAt": datetime.now(timezone.utc).isoformat(),
-        "updatedAt": datetime.now(timezone.utc).isoformat(),
-    }
-
-    assets.append(asset)
-    _save_assets(assets)
-    return asset
+    classified = classify(system)
+    return upsert_managed_asset(classified)

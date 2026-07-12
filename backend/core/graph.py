@@ -1,12 +1,16 @@
 import json
 from pathlib import Path
+
 from backend.core.assets import get_assets_list
 from backend.modules import discovery
 from backend.modules import mining
 
 
 def pool_node_id(pool):
-    return f"pool-{pool.get('id', 'unknown')}-{pool.get('host', 'unknown').replace('.', '-')}"
+    return (
+        f"pool-{pool.get('id', 'unknown')}-"
+        f"{str(pool.get('host', 'unknown')).replace('.', '-')}"
+    )
 
 
 def host_node_id(host):
@@ -14,7 +18,14 @@ def host_node_id(host):
 
 
 def worker_node_id(worker):
-    return f"worker-{worker.get('workerName') or worker.get('name') or worker.get('workerId')}"
+    value = (
+        worker.get("workerName")
+        or worker.get("name")
+        or worker.get("workerId")
+        or "unknown"
+    )
+
+    return f"worker-{value}"
 
 
 def add_node(nodes, node):
@@ -29,7 +40,7 @@ def add_edge(edges, source, target, rel_type, label=None):
         "source": source,
         "target": target,
         "type": rel_type,
-        "label": label or rel_type.replace("_", " ").title()
+        "label": label or rel_type.replace("_", " ").title(),
     }
 
     if edge not in edges:
@@ -58,6 +69,7 @@ def merge_external_graphs(nodes, edges):
 
         for node in graph.get("nodes", []):
             node_id = f"{source}:{node.get('id')}"
+
             nodes[node_id] = {
                 "id": node_id,
                 "type": node.get("type", "external"),
@@ -66,8 +78,8 @@ def merge_external_graphs(nodes, edges):
                 "properties": {
                     **node.get("metadata", {}),
                     "source": source,
-                    "externalId": node.get("id")
-                }
+                    "externalId": node.get("id"),
+                },
             }
 
         for edge in graph.get("edges", []):
@@ -75,15 +87,90 @@ def merge_external_graphs(nodes, edges):
                 "source": f"{source}:{edge.get('source')}",
                 "target": f"{source}:{edge.get('target')}",
                 "type": edge.get("type", "RELATED_TO"),
-                "label": edge.get("type", "RELATED_TO").replace("_", " ").title()
+                "label": (
+                    edge.get("type", "RELATED_TO")
+                    .replace("_", " ")
+                    .title()
+                ),
             })
+
+
+def _managed_assets():
+    return [
+        asset
+        for asset in get_assets_list()
+        if asset.get("managed") is True
+        and asset.get("lifecycleStatus") == "managed"
+    ]
+
+
+def _asset_by_ip(assets):
+    return {
+        str(asset.get("ip")): asset
+        for asset in assets
+        if asset.get("ip")
+    }
+
+
+def _pool_hosts(pools):
+    return {
+        str(pool.get("host"))
+        for pool in pools
+        if pool.get("host")
+    }
+
+
+def _system_by_ip(systems):
+    return {
+        str(system.get("ip")): system
+        for system in systems
+        if system.get("ip")
+    }
+
+
+def _host_properties(system, managed_asset=None):
+    system = system or {}
+    managed_asset = managed_asset or {}
+
+    return {
+        "ip": system.get("ip") or managed_asset.get("ip"),
+        "primaryRole": (
+            managed_asset.get("primaryRole")
+            or system.get("primaryRole")
+        ),
+        "openPorts": (
+            managed_asset.get("openPorts")
+            or system.get("openPorts", [])
+        ),
+        "services": (
+            managed_asset.get("services")
+            or system.get("services", [])
+        ),
+        "health": system.get("health", {}),
+        "profile": system.get("profile", {}),
+        "managed": bool(managed_asset),
+        "lifecycleStatus": (
+            managed_asset.get("lifecycleStatus")
+            if managed_asset
+            else "discovered"
+        ),
+        "assetType": (
+            managed_asset.get("assetType")
+            or managed_asset.get("type")
+            or "server"
+        ),
+        "friendlyName": managed_asset.get("friendlyName"),
+        "addedAt": managed_asset.get("addedAt"),
+    }
+
 
 def build_graph():
     topo_payload = discovery.topology()
     topo = topo_payload.get("topology", {})
     discovery_data = topo_payload.get("discovery", {})
 
-    assets = get_assets_list()
+    assets = _managed_assets()
+    assets_by_ip = _asset_by_ip(assets)
 
     try:
         mining_data = mining.workers()
@@ -93,106 +180,197 @@ def build_graph():
 
     pools = topo.get("pools", [])
     systems = discovery_data.get("systems", [])
+    systems_by_ip = _system_by_ip(systems)
+    pool_hosts = _pool_hosts(pools)
 
     nodes = {}
     edges = []
 
-    # Hosts
-    for system in systems:
-        ip = system.get("ip")
-        asset = system.get("asset", {})
+    # Internal host nodes are only created when:
+    # 1. the operator manages the system, or
+    # 2. a live pool needs the host for a graph relationship.
+    candidate_host_ips = set(assets_by_ip) | pool_hosts
+
+    for ip in sorted(candidate_host_ips):
+        system = systems_by_ip.get(ip, {"ip": ip})
+        managed_asset = assets_by_ip.get(ip)
+
+        label = (
+            managed_asset.get("friendlyName")
+            if managed_asset
+            else None
+        ) or (
+            managed_asset.get("name")
+            if managed_asset
+            else None
+        ) or (
+            system.get("asset", {}).get("friendlyName")
+            or system.get("asset", {}).get("name")
+            or ip
+        )
+
+        host_type = (
+            managed_asset.get("assetType")
+            or managed_asset.get("type")
+            if managed_asset
+            else "host"
+        )
 
         add_node(nodes, {
             "id": host_node_id(ip),
-            "type": "host",
-            "label": asset.get("friendlyName") or asset.get("name") or ip,
-            "status": system.get("health", {}).get("level", "unknown"),
-            "properties": {
-                "ip": ip,
-                "primaryRole": system.get("primaryRole"),
-                "openPorts": system.get("openPorts", []),
-                "health": system.get("health", {}),
-                "profile": system.get("profile", {})
-            }
+            "type": host_type,
+            "label": label,
+            "status": (
+                system.get("health", {}).get("level")
+                or "online"
+            ),
+            "properties": _host_properties(
+                system,
+                managed_asset,
+            ),
         })
 
-    # Pools
+    # Logical mining pool nodes.
     for pool in pools:
         pid = pool_node_id(pool)
-        host_id = host_node_id(pool.get("host"))
+        host = str(pool.get("host") or "")
+        host_id = host_node_id(host)
 
         add_node(nodes, {
             "id": pid,
             "type": "pool",
             "label": pool.get("name") or pool.get("id"),
             "status": "online",
-            "properties": pool
+            "properties": {
+                **pool,
+                "assetType": "pool",
+                "managed": True,
+                "lifecycleStatus": "managed",
+            },
         })
 
-        add_edge(edges, pid, host_id, "HOSTED_ON")
+        if host:
+            add_edge(
+                edges,
+                pid,
+                host_id,
+                "HOSTED_ON",
+            )
 
-    # Assets
+    # Managed infrastructure assets.
     for asset in assets:
         aid = asset.get("id")
+        ip = str(asset.get("ip") or "")
 
         add_node(nodes, {
             "id": aid,
-            "type": asset.get("type", "asset"),
-            "label": asset.get("friendlyName") or asset.get("name") or asset.get("ip"),
+            "type": asset.get("assetType")
+            or asset.get("type")
+            or "unknown",
+            "label": (
+                asset.get("friendlyName")
+                or asset.get("name")
+                or ip
+            ),
             "status": "online",
-            "properties": asset
+            "properties": {
+                **asset,
+                "managed": True,
+                "lifecycleStatus": "managed",
+            },
         })
 
-        if asset.get("ip"):
-            add_edge(edges, aid, host_node_id(asset.get("ip")), "HAS_NETWORK_IDENTITY")
+        if ip:
+            add_edge(
+                edges,
+                aid,
+                host_node_id(ip),
+                "HAS_NETWORK_IDENTITY",
+            )
 
         if asset.get("poolId") and asset.get("poolHost"):
             matching_pool = next(
                 (
-                    p for p in pools
-                    if p.get("id") == asset.get("poolId")
-                    and p.get("host") == asset.get("poolHost")
+                    pool
+                    for pool in pools
+                    if pool.get("id") == asset.get("poolId")
+                    and pool.get("host") == asset.get("poolHost")
                 ),
-                None
+                None,
             )
 
             if matching_pool:
-                add_edge(edges, aid, pool_node_id(matching_pool), "MINES_ON")
+                add_edge(
+                    edges,
+                    aid,
+                    pool_node_id(matching_pool),
+                    "MINES_ON",
+                )
 
-    # Workers
+    # Worker nodes remain in the relationship graph, but the frontend
+    # Inventory intentionally treats them as ASIC metadata.
     for worker in workers:
         wid = worker_node_id(worker)
 
         add_node(nodes, {
             "id": wid,
             "type": "worker",
-            "label": worker.get("displayName") or worker.get("workerName") or worker.get("name"),
+            "label": (
+                worker.get("displayName")
+                or worker.get("workerName")
+                or worker.get("name")
+            ),
             "status": "online",
-            "properties": worker
+            "properties": worker,
         })
+
+        worker_name = str(
+            worker.get("workerName")
+            or worker.get("name")
+            or ""
+        )
 
         asset = next(
             (
-                a for a in assets
-                if str(a.get("workerId", "")).zfill(3) == str(worker.get("workerName") or worker.get("name") or "").zfill(3)
+                item
+                for item in assets
+                if str(item.get("workerId", "")).zfill(3)
+                == worker_name.zfill(3)
             ),
-            None
+            None,
         )
 
         if asset:
-            add_edge(edges, asset.get("id"), wid, "RUNS_WORKER")
+            add_edge(
+                edges,
+                asset.get("id"),
+                wid,
+                "RUNS_WORKER",
+            )
 
         matching_pool = next(
             (
-                p for p in pools
-                if p.get("id") == worker.get("poolId")
-                and p.get("host") == (worker.get("poolHost") or worker.get("host"))
+                pool
+                for pool in pools
+                if pool.get("id") == worker.get("poolId")
+                and pool.get("host")
+                == (
+                    worker.get("poolHost")
+                    or worker.get("host")
+                )
             ),
-            None
+            None,
         )
 
         if matching_pool:
-            add_edge(edges, wid, pool_node_id(matching_pool), "MINES_ON")
+            add_edge(
+                edges,
+                wid,
+                pool_node_id(matching_pool),
+                "MINES_ON",
+            )
+
+    merge_external_graphs(nodes, edges)
 
     return {
         "nodes": list(nodes.values()),
@@ -203,20 +381,23 @@ def build_graph():
             "assets": len(assets),
             "pools": len(pools),
             "workers": len(workers),
-            "hosts": len(systems)
-        }
+            "hosts": len(candidate_host_ips),
+        },
     }
 
 
 def relationships_for(node_id):
     graph = build_graph()
+
     edges = [
-        edge for edge in graph["edges"]
-        if edge["source"] == node_id or edge["target"] == node_id
+        edge
+        for edge in graph["edges"]
+        if edge["source"] == node_id
+        or edge["target"] == node_id
     ]
 
     return {
         "nodeId": node_id,
         "relationships": edges,
-        "graph": graph
+        "graph": graph,
     }

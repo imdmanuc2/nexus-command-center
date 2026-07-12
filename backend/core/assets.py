@@ -1,142 +1,71 @@
-import json
-from datetime import datetime, timezone
-from pathlib import Path
-from uuid import uuid4
+"""Compatibility wrapper for the canonical Nexus Asset Manager."""
 
-DB = Path("backend/data/assets.json")
-
-
-def now_iso():
-    return datetime.now(timezone.utc).isoformat()
+from backend.core.asset_manager import (
+    ASSETS_DB as DB,
+    discovery_asset,
+    get_asset,
+    get_assets_list,
+    load_assets as _load_assets_list,
+    migrate_assets as _migrate_assets_list,
+    normalize_asset,
+    now_iso,
+    save_assets as _save_assets_list,
+    update_asset,
+)
 
 
 def load_assets():
-    if not DB.exists():
-        return {}
-    return json.loads(DB.read_text())
+    """Return assets keyed by IP for legacy callers."""
+
+    return {
+        asset["ip"]: asset
+        for asset in _load_assets_list()
+    }
 
 
 def save_assets(data):
-    DB.write_text(json.dumps(data, indent=2) + "\n")
+    """Accept either the legacy IP dictionary or canonical list."""
 
+    if isinstance(data, dict):
+        assets = []
 
-def asset_type_from_purpose(purpose):
-    p = (purpose or "").lower()
-    if "mining" in p or "asic" in p or "miner" in p:
-        return "asic"
-    if "node" in p:
-        return "blockchain-node"
-    if "pool" in p:
-        return "pool-host"
-    return "unknown"
+        for ip, asset in data.items():
+            if isinstance(asset, dict):
+                assets.append({
+                    **asset,
+                    "ip": asset.get("ip") or ip,
+                })
 
+        _save_assets_list(assets)
+        return
 
-def normalize_asset(ip, asset):
-    asset = dict(asset or {})
-
-    asset.setdefault("id", f"asset-{str(uuid4())[:8]}")
-    asset.setdefault("ip", ip)
-    asset.setdefault("name", ip)
-    asset.setdefault("friendlyName", asset.get("name", ip))
-    asset.setdefault("type", asset_type_from_purpose(asset.get("purpose")))
-    asset.setdefault("purpose", "Unknown")
-    asset.setdefault("favorite", False)
-    asset.setdefault("notes", "")
-    asset.setdefault("tags", [])
-    asset.setdefault("location", "")
-    asset.setdefault("rack", "")
-    asset.setdefault("position", "")
-    asset.setdefault("manufacturer", "")
-    asset.setdefault("model", "")
-    asset.setdefault("serialNumber", "")
-    asset.setdefault("macAddress", "")
-    asset.setdefault("hostname", "")
-    asset.setdefault("workerId", "")
-    asset.setdefault("poolId", "")
-    asset.setdefault("poolHost", "")
-    asset.setdefault("poolGroup", "")
-    asset.setdefault("createdAutomatically", False)
-    asset.setdefault("createdAt", now_iso())
-    asset["updatedAt"] = now_iso()
-
-    return asset
+    _save_assets_list(data if isinstance(data, list) else [])
 
 
 def migrate_assets():
-    db = load_assets()
-    changed = False
-
-    for ip, asset in list(db.items()):
-        normalized = normalize_asset(ip, asset)
-        if normalized != asset:
-            db[ip] = normalized
-            changed = True
-
-    if changed:
-        save_assets(db)
-
-    return db
-
-
-def get_asset(ip):
-    return migrate_assets().get(ip)
-
-
-def get_assets_list():
-    db = migrate_assets()
-    return list(db.values())
+    return {
+        asset["ip"]: asset
+        for asset in _migrate_assets_list()
+    }
 
 
 def discover_asset(system):
-    db = migrate_assets()
-    ip = system["ip"]
-
-    if ip not in db:
-        role = system.get("primaryRole", "")
-
-        if role == "Full Mining Stack":
-            name = f"Mining System {len(db)+1}"
-            purpose = "Mining"
-        elif "Blockchain" in role:
-            name = f"Blockchain Node {len(db)+1}"
-            purpose = "Node"
-        else:
-            name = f"Unknown System {len(db)+1}"
-            purpose = "Unknown"
-
-        db[ip] = normalize_asset(ip, {
-            "name": name,
-            "friendlyName": name,
-            "purpose": purpose,
-            "createdAutomatically": True
-        })
-
-        save_assets(db)
-
-    return db[ip]
+    return discovery_asset(system)
 
 
-def update_asset(ip, updates):
-    db = migrate_assets()
+def asset_type_from_purpose(purpose):
+    text = str(purpose or "").lower()
 
-    if ip not in db:
-        db[ip] = normalize_asset(ip, {
-            "name": ip,
-            "friendlyName": ip,
-            "purpose": "Unknown",
-            "createdAutomatically": False
-        })
+    if "mining" in text or "asic" in text or "miner" in text:
+        return "asic"
 
-    allowed = [
-        "name", "friendlyName", "type", "purpose", "favorite", "notes", "tags",
-        "poolGroup", "location", "rack", "position", "manufacturer", "model",
-        "serialNumber", "macAddress", "hostname", "workerId", "poolId", "poolHost"
-    ]
+    if "node" in text or "blockchain" in text:
+        return "blockchain-node"
 
-    for key, value in updates.items():
-        if key in allowed:
-            db[ip][key] = value
+    if "pool" in text:
+        return "pool"
 
-    db[ip] = normalize_asset(ip, db[ip])
-    save_assets(db)
-    return db[ip]
+    if "server" in text or "host" in text:
+        return "server"
+
+    return "unknown"
