@@ -1,0 +1,45 @@
+[
+  {
+    "id": "asset-82ac3c36",
+    "name": "Bitcoin Core",
+    "friendlyName": "Bitcoin Core",
+    "ip": "192.168.1.169",
+    "type": "blockchain-node",
+    "purpose": "Blockchain",
+    "coin": "BTC",
+    "primaryRole": "BTC Blockchain Node",
+    "openPorts": [
+      8332,
+      8333
+    ],
+    "services": [
+      {
+        "name": "BTC Blockchain Node",
+        "port": 8333
+      }
+    ],
+    "createdAutomatically": false,
+    "createdAt": "2026-07-12T02:34:52.370455+00:00",
+    "updatedAt": "2026-07-12T02:34:52.370469+00:00",
+    "displayName": "Bitcoin Core",
+    "assetType": "blockchain-node",
+    "canonicalType": "blockchain-node",
+    "managed": true,
+    "lifecycleStatus": "managed",
+    "favorite": false,
+    "notes": "",
+    "tags": [],
+    "location": "",
+    "rack": "",
+    "position": "",
+    "manufacturer": "",
+    "model": "",
+    "serialNumber": "",
+    "macAddress": "",
+    "hostname": "",
+    "workerId": "",
+    "poolId": "",
+    "poolHost": "",
+    "poolGroup": ""
+  }
+]

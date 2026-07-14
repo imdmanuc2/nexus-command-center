@@ -1,0 +1,160 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Nexus Infrastructure Explorer</title>
+<link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+
+<main class="wrap">
+  <div class="nexus-page-shell">
+
+<header>
+<div>
+<h1>Infrastructure Explorer</h1>
+<p>Live digital twin of pools, hosts, workers, and assets</p>
+</div>
+
+<div id="graphHealth" class="status healthy">
+Loading...
+</div>
+
+</header>
+
+<nav id="topNav" class="nav"></nav>
+
+<section class="scan-target-panel">
+  <div>
+    <h2>Scan Infrastructure</h2>
+    <p>Enter IPs or ranges to discover blockchain nodes, pools, miners, and services.</p>
+  </div>
+  <form id="scanTargetsForm">
+    <input id="scanTargetsInput" type="text" placeholder="192.168.1.169, 192.168.1.154, 192.168.1.156">
+    <button class="btn" type="submit">Run Scan</button>
+  </form>
+  <div id="scanTargetsResult"></div>
+</section>
+
+<section class="explorer-controls">
+  <button id="rebuildGraph" class="btn">Rebuild Graph</button>
+  <button id="clearGraphSelection" class="btn">Clear Highlight</button>
+  <button id="showAllNodes" class="btn">Show All</button>
+  <button id="saveGraphLayout" class="btn">Save Layout</button>
+  <button id="resetGraphLayout" class="btn">Reset Layout</button>
+  <button id="tvModeToggle" class="btn">TV Mode</button>
+  <label class="auto-refresh-toggle">
+    <input id="autoRefreshGraph" type="checkbox" checked>
+    Auto refresh
+  </label>
+</section>
+
+<section id="nodeTypeFilters" class="explorer-type-filters">
+  <button class="type-filter active" data-type="all">All</button>
+  <button class="type-filter" data-type="host">Hosts</button>
+  <button class="type-filter" data-type="pool">Pools</button>
+  <button class="type-filter" data-type="worker">Workers</button>
+  <button class="type-filter" data-type="asic">ASICs</button>
+</section>
+
+<section class="asset-summary-grid" id="graphSummary"></section>
+
+<section id="timeMachinePanel" class="time-machine-panel info-card">
+  <span class="info-dot" data-tip="Replay saved graph snapshots to see how infrastructure changed over time.">i</span>
+  <div>
+    <h2>Infrastructure Time Machine</h2>
+    <p>Replay saved graph snapshots.</p>
+  </div>
+  <div class="time-machine-controls">
+    <input id="snapshotSlider" type="range" min="0" max="0" value="0">
+    <span id="snapshotLabel">Live</span>
+    <button id="returnToLive" class="btn">Return Live</button>
+  </div>
+</section>
+
+<section id="missionStatusBanner" class="mission-status-banner">
+  <strong>Mission Control</strong>
+  <span id="missionStatusText">Analyzing live infrastructure...</span>
+</section>
+
+<section class="flow-legend">
+  <span><b class="legend-dot mining"></b> Mining / shares</span>
+  <span><b class="legend-dot rpc"></b> RPC / API</span>
+  <span><b class="legend-dot health"></b> Health checks</span>
+  <span><b class="legend-dot fault"></b> Fault / idle</span>
+</section>
+
+<section class="infra-canvas-panel info-card">
+<span class="info-dot" data-tip="Live digital twin canvas. Drag nodes, click to highlight impact, and watch live mining metrics.">i</span>
+<h2>Live Infrastructure Canvas</h2>
+<div id="graphCanvas" class="infra-canvas">Loading digital twin...</div>
+</section>
+
+<section class="graph-layout">
+
+<div class="graph-list-panel">
+
+<h2>Infrastructure Inventory</h2>
+
+<section id="nodeListTypeFilters" class="explorer-type-filters node-list-filters">
+  <button class="type-filter active" data-type="all">All</button>
+  <button class="type-filter" data-type="blockchain">Blockchain</button>
+  <button class="type-filter" data-type="pool">Pools</button>
+  <button class="type-filter" data-type="asic">ASICs</button>
+  <button class="type-filter" data-type="server">Servers</button>
+  <button class="type-filter" data-type="unknown">Unknown</button>
+</section>
+
+<input
+id="graphSearch"
+class="asset-search"
+placeholder="Search graph..."
+autocomplete="off">
+
+<div id="graphNodes"></div>
+
+</div>
+
+<div class="graph-detail-panel">
+
+<h2>Relationships</h2>
+
+<div id="graphRelationships">
+
+Select a node.
+
+</div>
+
+</div>
+
+</section>
+
+<aside id="inspectorPanel" class="inspector-panel">
+  <button id="closeInspector" class="drawer-close">×</button>
+  <div id="inspectorContent">
+    <h2>Inspector</h2>
+    <p>Select any node on the canvas.</p>
+  </div>
+</aside>
+<div id="inspectorBackdrop" class="drawer-backdrop"></div>
+
+<aside id="eventFeedPanel" class="mission-log-panel">
+  <h3>Mission Log</h3>
+  <div id="eventFeed">Loading events...</div>
+</aside>
+
+<button id="tvExitFloating" class="tv-exit-floating">Exit TV Mode</button>
+  </div>
+</main>
+
+<script src="/js/nav.js"></script>
+<script src="/js/graph.js"></script>
+
+<script>
+renderNav("Infrastructure Explorer");
+</script>
+
+<script src="/js/mission.js"></script>
+</body>
+</html>

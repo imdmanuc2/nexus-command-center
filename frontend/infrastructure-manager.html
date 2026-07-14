@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexus Infrastructure Manager</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .card {
+      background: rgba(15, 23, 42, 0.86);
+      border: 1px solid #1e293b;
+      border-radius: 20px;
+      padding: 22px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      color: #22d3ee;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+    }
+
+    h1, h2 {
+      margin: 8px 0;
+      color: #fff;
+    }
+
+    p {
+      color: #94a3b8;
+    }
+
+    .scan-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    input {
+      flex: 1;
+      background: #020617;
+      border: 1px solid #334155;
+      color: #fff;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 14px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 15px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: #22d3ee;
+      color: #020617;
+    }
+
+    .btn-green {
+      margin-left: auto;
+      background: #10b981;
+      color: #020617;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.35fr 0.85fr;
+      gap: 22px;
+    }
+
+    .result,
+    .asset,
+    .event {
+      background: rgba(2, 6, 23, 0.75);
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 16px;
+      margin-top: 12px;
+    }
+
+    .result {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .title {
+      font-weight: 900;
+      color: #fff;
+    }
+
+    .muted {
+      color: #94a3b8;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 10px;
+    }
+
+    .badge {
+      border: 1px solid #334155;
+      background: #020617;
+      color: #cbd5e1;
+      border-radius: 999px;
+      padding: 5px 9px;
+      font-size: 12px;
+    }
+
+    .status {
+      background: rgba(16, 185, 129, 0.12);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.28);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      border-top: 1px solid #1e293b;
+      padding-top: 14px;
+    }
+
+    .canvas {
+      min-height: 340px;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(34, 211, 238, .14), transparent 32%),
+        radial-gradient(circle at 80% 70%, rgba(16, 185, 129, .10), transparent 32%),
+        #020617;
+    }
+
+    .node {
+      display: inline-block;
+      min-width: 170px;
+      margin: 12px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid #334155;
+      background: rgba(15, 23, 42, 0.95);
+      box-shadow: 0 20px 50px rgba(0,0,0,.3);
+    }
+
+    .empty {
+      border: 1px dashed #334155;
+      border-radius: 16px;
+      padding: 20px;
+      color: #64748b;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .result,
+      .scan-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn-green {
+        margin-left: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="card">
+      <div class="eyebrow">Nexus Command Center</div>
+      <h1>Infrastructure Manager</h1>
+      <p>
+        Discover servers, review detected services, add devices to infrastructure,
+        and track everything in the Mission Timeline.
+      </p>
+    </section>
+
+    <section class="card">
+      <h2>Discovery</h2>
+      <p>Scan target network, then add discovered machines into Nexus.</p>
+
+      <div class="scan-row">
+        <input id="scanTarget" value="192.168.1.0/24" />
+        <button class="btn-primary" onclick="runDiscovery()">Run Discovery</button>
+      </div>
+
+      <div id="scanResults"></div>
+    </section>
+
+    <section class="card canvas">
+      <h2>Topology Canvas</h2>
+      <p>Assets added to Infrastructure Manager appear here automatically.</p>
+      <div id="topologyCanvas"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Infrastructure Inventory</h2>
+        <p>Servers, blockchain nodes, MiningCore instances, ASICs, and unknown devices.</p>
+        <div id="assetList"></div>
+      </section>
+
+      <section class="card">
+        <h2>Mission Timeline</h2>
+        <p>Live operational history for discovery, adds, installs, and rescans.</p>
+        <div id="missionTimeline"></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const state = {
+      assets: JSON.parse(localStorage.getItem("nexus.assets") || "[]"),
+      events: JSON.parse(localStorage.getItem("nexus.events") || "[]"),
+      scanResults: []
+    };
+
+    const demoResults = [
+      {
+        ip: "192.168.1.154",
+        hostname: "seymour-miningcore",
+        os: "Ubuntu/Debian",
+        ports: [22, 3333, 8332, 8333],
+        services: ["SSH", "Bitcoin P2P", "Bitcoin RPC", "MiningCore candidate"]
+      },
+      {
+        ip: "192.168.1.156",
+        hostname: "umbrel-node",
+        os: "Umbrel / Debian",
+        ports: [22, 8333],
+        services: ["SSH", "Bitcoin P2P"]
+      }
+    ];
+
+    function save() {
+      localStorage.setItem("nexus.assets", JSON.stringify(state.assets));
+      localStorage.setItem("nexus.events", JSON.stringify(state.events));
+    }
+
+    function event(title, message, severity = "info") {
+      state.events.unshift({
+        id: crypto.randomUUID(),
+        title,
+        message,
+        severity,
+        createdAt: new Date().toISOString()
+      });
+
+      save();
+      render();
+    }
+
+    function detectType(result) {
+      if ((result.ports || []).includes(8333) || (result.ports || []).includes(8332)) return "blockchain-node";
+      if ((result.services || []).some(s => s.toLowerCase().includes("miningcore"))) return "miningcore";
+      if ((result.ports || []).includes(22)) return "server";
+      return "unknown";
+    }
+
+    function runDiscovery() {
+      const target = document.getElementById("scanTarget").value;
+      state.scanResults = demoResults;
+
+      event(
+        "Discovery scan completed",
+        `Scanned ${target} and found ${demoResults.length} candidate devices.`,
+        "success"
+      );
+
+      render();
+    }
+
+    function addToInfrastructure(ip) {
+      const result = state.scanResults.find(r => r.ip === ip);
+      if (!result) return;
+
+      const existing = state.assets.find(a => a.ip === result.ip);
+
+      if (existing) {
+        Object.assign(existing, {
+          hostname: result.hostname,
+          os: result.os,
+          ports: result.ports,
+          services: result.services,
+          lastSeenAt: new Date().toISOString()
+        });
+
+        event("Infrastructure asset updated", `${existing.name} was refreshed from discovery data.`);
+      } else {
+        const asset = {
+          id: crypto.randomUUID(),
+          name: result.hostname || `Server ${result.ip}`,
+          ip: result.ip,
+          hostname: result.hostname,
+          os: result.os,
+          ports: result.ports || [],
+          services: result.services || [],
+          type: detectType(result),
+          status: "discovered",
+          createdAt: new Date().toISOString(),
+          lastSeenAt: new Date().toISOString()
+        };
+
+        state.assets.push(asset);
+        event("Asset added to infrastructure", `${asset.name} was added to Infrastructure Manager.`, "success");
+      }
+
+      save();
+      render();
+    }
+
+    function softwareAction(assetId, action) {
+      const asset = state.assets.find(a => a.id === assetId);
+      event(action, `${action} requested for ${asset ? asset.name : "asset"}.`);
+    }
+
+    function renderBadges(items) {
+      return (items || []).map(item => `<span class="badge">${item}</span>`).join("");
+    }
+
+    function render() {
+      const scanResults = document.getElementById("scanResults");
+      const assetList = document.getElementById("assetList");
+      const timeline = document.getElementById("missionTimeline");
+      const canvas = document.getElementById("topologyCanvas");
+
+      scanResults.innerHTML = state.scanResults.length
+        ? state.scanResults.map(result => `
+          <div class="result">
+            <div>
+              <div class="title">${result.hostname || "Unknown Device"}</div>
+              <div class="muted">${result.ip} ${result.os ? "• " + result.os : ""}</div>
+              <div class="badges">${renderBadges(result.services)}</div>
+            </div>
+            <button class="btn-green" onclick="addToInfrastructure('${result.ip}')">
+              Add to Infrastructure
+            </button>
+          </div>
+        `).join("")
+        : "";
+
+      assetList.innerHTML = state.assets.length
+        ? state.assets.map(asset => `
+          <div class="asset">
+            <div class="title">${asset.name}</div>
+            <div class="muted">${asset.ip} ${asset.hostname ? "• " + asset.hostname : ""}</div>
+
+            <div class="badges">
+              <span class="badge status">${asset.status}</span>
+              <span class="badge">${asset.type}</span>
+              ${asset.os ? `<span class="badge">${asset.os}</span>` : ""}
+              ${(asset.ports || []).includes(22) ? `<span class="badge">SSH</span>` : ""}
+              ${(asset.ports || []).includes(8333) ? `<span class="badge">BTC P2P</span>` : ""}
+              ${(asset.ports || []).includes(8332) ? `<span class="badge">BTC RPC</span>` : ""}
+            </div>
+
+            <div class="actions">
+              <button class="btn-ghost" onclick="softwareAction('${asset.id}', 'Install Bitcoin Core')">Install Bitcoin Core</button>
+              <button class="btn-ghost" onclick="softwareAction('${asset.id}', 'Enable Bitcoin RPC')">Enable Bitcoin RPC</button>
+              <button class="btn-ghost" onclick="softwareAction('${asset.id}', 'Install Seymour MiningCore')">Install MiningCore</button>
+              <button class="btn-ghost" onclick="softwareAction('${asset.id}', 'Rescan Asset')">Rescan</button>
+            </div>
+          </div>
+        `).join("")
+        : `<div class="empty">No infrastructure assets added yet.</div>`;
+
+      canvas.innerHTML = state.assets.length
+        ? state.assets.map(asset => `
+          <div class="node">
+            <div class="title">${asset.name}</div>
+            <div class="muted">${asset.ip}</div>
+            <div class="badges">
+              <span class="badge status">${asset.status}</span>
+              ${(asset.ports || []).includes(8333) ? `<span class="badge">BTC</span>` : ""}
+              ${(asset.services || []).some(s => s.toLowerCase().includes("miningcore")) ? `<span class="badge">POOL</span>` : ""}
+              ${(asset.ports || []).includes(22) ? `<span class="badge">SSH</span>` : ""}
+            </div>
+          </div>
+        `).join("")
+        : `<div class="empty">Canvas waiting for infrastructure assets.</div>`;
+
+      timeline.innerHTML = state.events.length
+        ? state.events.map(item => `
+          <div class="event">
+            <div class="title">${item.title}</div>
+            <div class="muted">${item.message || ""}</div>
+            <div class="muted">${new Date(item.createdAt).toLocaleString()} • ${item.severity}</div>
+          </div>
+        `).join("")
+        : `<div class="empty">No mission events yet.</div>`;
+    }
+
+    render();
+  </script>
+</body>
+</html>

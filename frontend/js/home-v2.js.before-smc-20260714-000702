@@ -1,0 +1,1521 @@
+"use strict";
+
+const HOME_V2_REFRESH_MS = 10000;
+const HOME_V2_MAX_HISTORY = 40;
+
+const homeV2State = {
+  fleet: null,
+  poolHistories: {},
+  poolLabels: {},
+  poolColors: {},
+  refreshTimer: null,
+  loading: false,
+};
+
+const HOME_V2_COLORS = [
+  "#60a5fa",
+  "#39ff88",
+  "#f7931a",
+  "#facc15",
+  "#a78bfa",
+  "#22d3ee",
+  "#fb7185",
+  "#34d399",
+  "#f472b6",
+  "#c084fc",
+];
+
+
+function byId(id) {
+  return document.getElementById(id);
+}
+
+
+function numberValue(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+
+function integerValue(value, fallback = 0) {
+  return Math.round(numberValue(value, fallback));
+}
+
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+function fmtHashrate(value) {
+  const number = numberValue(value);
+
+  if (number >= 1e18) {
+    return `${(number / 1e18).toFixed(2)} EH/s`;
+  }
+
+  if (number >= 1e15) {
+    return `${(number / 1e15).toFixed(2)} PH/s`;
+  }
+
+  if (number >= 1e12) {
+    return `${(number / 1e12).toFixed(2)} TH/s`;
+  }
+
+  if (number >= 1e9) {
+    return `${(number / 1e9).toFixed(2)} GH/s`;
+  }
+
+  if (number >= 1e6) {
+    return `${(number / 1e6).toFixed(2)} MH/s`;
+  }
+
+  if (number >= 1e3) {
+    return `${(number / 1e3).toFixed(2)} KH/s`;
+  }
+
+  return `${number.toFixed(2)} H/s`;
+}
+
+
+function fmtNumber(value) {
+  return new Intl.NumberFormat().format(
+    integerValue(value)
+  );
+}
+
+
+function fmtPercent(value) {
+  const number = numberValue(value);
+
+  return `${number.toFixed(
+    number % 1 === 0 ? 0 : 2
+  )}%`;
+}
+
+
+function fmtBytes(value) {
+  const number = numberValue(value);
+
+  if (!number) {
+    return "—";
+  }
+
+  const units = [
+    "B",
+    "KB",
+    "MB",
+    "GB",
+    "TB",
+    "PB",
+  ];
+
+  let current = number;
+  let index = 0;
+
+  while (
+    current >= 1024
+    && index < units.length - 1
+  ) {
+    current /= 1024;
+    index += 1;
+  }
+
+  return `${current.toFixed(
+    index >= 3 ? 1 : 2
+  )} ${units[index]}`;
+}
+
+
+function fmtTime(dateValue) {
+  const date = dateValue
+    ? new Date(dateValue)
+    : new Date();
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown";
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+
+function relativeTime(dateValue) {
+  const date = new Date(dateValue);
+  const difference = Date.now() - date.getTime();
+
+  if (Number.isNaN(difference)) {
+    return "Updated recently";
+  }
+
+  const seconds = Math.max(
+    0,
+    Math.round(difference / 1000)
+  );
+
+  if (seconds < 5) {
+    return "Updated just now";
+  }
+
+  if (seconds < 60) {
+    return `Updated ${seconds}s ago`;
+  }
+
+  const minutes = Math.round(seconds / 60);
+
+  return `Updated ${minutes}m ago`;
+}
+
+
+function statusLabel(status) {
+  const normalized = String(
+    status || "unknown"
+  ).toLowerCase();
+
+  const labels = {
+    mining: "Mining",
+    "node-online": "Node Online",
+    online: "Online",
+    active: "Active",
+    warning: "Warning",
+    critical: "Critical",
+    offline: "Offline",
+    idle: "Idle",
+    partial: "Partial",
+  };
+
+  return labels[normalized]
+    || normalized.replaceAll("-", " ");
+}
+
+
+function coinDisplayName(coin) {
+  if (coin?.name && coin.name !== coin.symbol) {
+    return coin.name;
+  }
+
+  const names = {
+    BTC: "Bitcoin",
+    BCH: "Bitcoin Cash",
+    LTC: "Litecoin",
+    DOGE: "Dogecoin",
+    DGB: "DigiByte",
+    ZEC: "Zcash",
+    KAS: "Kaspa",
+  };
+
+  return names[coin?.symbol]
+    || coin?.symbol
+    || "Unknown Blockchain";
+}
+
+
+function poolCoinSymbol(pool) {
+  if (
+    pool?.coin
+    && typeof pool.coin === "object"
+  ) {
+    return pool.coin.symbol
+      || pool.coin.type
+      || "POOL";
+  }
+
+  return pool?.coin || "POOL";
+}
+
+
+function stableColor(id, index = 0) {
+  if (homeV2State.poolColors[id]) {
+    return homeV2State.poolColors[id];
+  }
+
+  let hash = 0;
+
+  for (const character of String(id)) {
+    hash = (
+      (hash << 5)
+      - hash
+      + character.charCodeAt(0)
+    ) | 0;
+  }
+
+  const colorIndex = Math.abs(
+    hash + index
+  ) % HOME_V2_COLORS.length;
+
+  const color = HOME_V2_COLORS[colorIndex];
+
+  homeV2State.poolColors[id] = color;
+
+  return color;
+}
+
+
+function setText(id, value) {
+  const element = byId(id);
+
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+
+function renderStatus(fleet) {
+  const summary = fleet.summary || {};
+  const status = String(
+    fleet.status || "offline"
+  ).toLowerCase();
+
+  const badge = byId("fleetStatusBadge");
+
+  badge.textContent = statusLabel(status).toUpperCase();
+  badge.className = "live-badge";
+
+  if (status === "critical") {
+    badge.classList.add("critical");
+  } else if (
+    status === "warning"
+    || status === "partial"
+  ) {
+    badge.classList.add("warning");
+  }
+
+  setText(
+    "lastUpdated",
+    relativeTime(fleet.generatedAt)
+  );
+
+  const chips = [
+    {
+      label: "FLEET",
+      state: status,
+    },
+    {
+      label: `${integerValue(
+        summary.activePoolCount
+      )} POOLS`,
+      state: integerValue(
+        summary.activePoolCount
+      ) > 0
+        ? "online"
+        : "warning",
+    },
+    {
+      label: `${integerValue(
+        summary.onlineMinerCount
+      )} MINERS`,
+      state: integerValue(
+        summary.onlineMinerCount
+      ) > 0
+        ? "online"
+        : "warning",
+    },
+    {
+      label: `${integerValue(
+        summary.onlineNodeCount
+      )} NODES`,
+      state: integerValue(
+        summary.onlineNodeCount
+      ) > 0
+        ? "online"
+        : "warning",
+    },
+    {
+      label: "API",
+      state: "online",
+    },
+  ];
+
+  byId("fleetStatusStrip").innerHTML = chips
+    .map((chip) => {
+      const state = chip.state === "online"
+        ? ""
+        : escapeHtml(chip.state);
+
+      return `
+        <div class="status-chip ${state}">
+          <span></span>
+          ${escapeHtml(chip.label)}
+        </div>
+      `;
+    })
+    .join("");
+}
+
+
+function renderFleetSummary(fleet) {
+  const summary = fleet.summary || {};
+  const health = Math.max(
+    0,
+    Math.min(
+      100,
+      numberValue(summary.fleetHealth)
+    )
+  );
+
+  setText(
+    "fleetHashrate",
+    fmtHashrate(summary.fleetHashrate)
+  );
+
+  setText(
+    "fleetHashrateSubtitle",
+    [
+      `${fmtNumber(
+        summary.onlineMinerCount
+      )} online miners`,
+      `${fmtNumber(
+        summary.activePoolCount
+      )} active pools`,
+      `${fmtNumber(
+        summary.coinCount
+      )} blockchain operations`,
+    ].join(" • ")
+  );
+
+  byId(
+    "fleetHashrateBar"
+  ).firstElementChild.style.width = `${health}%`;
+
+  setText(
+    "fleetHealth",
+    fmtPercent(health)
+  );
+
+  setText(
+    "fleetHealthRingText",
+    fmtPercent(health)
+  );
+
+  let healthLabel = "Healthy";
+
+  if (health < 60) {
+    healthLabel = "Critical";
+  } else if (health < 90) {
+    healthLabel = "Degraded";
+  }
+
+  setText(
+    "fleetHealthLabel",
+    healthLabel
+  );
+
+  const ring = byId("fleetHealthRing");
+  const circumference = 2 * Math.PI * 50;
+
+  ring.style.strokeDasharray = `${circumference}`;
+  ring.style.strokeDashoffset = `${
+    circumference
+    - (health / 100) * circumference
+  }`;
+
+  if (health < 60) {
+    ring.style.stroke = "#fb7185";
+  } else if (health < 90) {
+    ring.style.stroke = "#facc15";
+  } else {
+    ring.style.stroke = "#39ff88";
+  }
+
+  setText(
+    "metricCoins",
+    fmtNumber(summary.coinCount)
+  );
+
+  setText(
+    "metricPools",
+    fmtNumber(summary.activePoolCount)
+  );
+
+  setText(
+    "metricMiners",
+    fmtNumber(summary.onlineMinerCount)
+  );
+
+  setText(
+    "metricNodes",
+    `${fmtNumber(
+      summary.onlineNodeCount
+    )}/${fmtNumber(summary.nodeCount)}`
+  );
+
+  setText(
+    "metricWarnings",
+    fmtNumber(summary.warningCount)
+  );
+
+  setText(
+    "metricCritical",
+    fmtNumber(summary.criticalCount)
+  );
+
+  const critical = byId("metricCritical");
+
+  critical.classList.toggle(
+    "green",
+    integerValue(summary.criticalCount) === 0
+  );
+
+  critical.classList.toggle(
+    "critical",
+    integerValue(summary.criticalCount) > 0
+  );
+}
+
+
+function renderCoins(coins) {
+  const container = byId("coinOperations");
+
+  setText(
+    "coinOperationCount",
+    `${coins.length} operation${
+      coins.length === 1 ? "" : "s"
+    }`
+  );
+
+  if (!coins.length) {
+    container.innerHTML = `
+      <div class="home-v2-empty">
+        No blockchain operations discovered.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = coins
+    .map((coin) => {
+      const status = String(
+        coin.status || "offline"
+      ).toLowerCase();
+
+      const hashrate = numberValue(
+        coin.hashrate
+      );
+
+      const primaryValue = hashrate > 0
+        ? fmtHashrate(hashrate)
+        : (
+          integerValue(coin.onlineNodeCount) > 0
+            ? "Node Ready"
+            : "No Telemetry"
+        );
+
+      const primaryLabel = hashrate > 0
+        ? "Combined active pool hashrate"
+        : (
+          integerValue(coin.onlineNodeCount) > 0
+            ? "Ready for mining pool"
+            : "No active mining or node telemetry"
+        );
+
+      return `
+        <article
+          class="home-v2-coin-card ${escapeHtml(status)}"
+          data-symbol="${escapeHtml(
+            coin.symbol || "?"
+          )}"
+        >
+          <div class="home-v2-coin-header">
+            <div>
+              <div class="home-v2-coin-symbol">
+                ${escapeHtml(coin.symbol)}
+              </div>
+
+              <div class="home-v2-coin-name">
+                ${escapeHtml(
+                  coinDisplayName(coin)
+                )}
+              </div>
+            </div>
+
+            <span class="home-v2-state-badge ${escapeHtml(status)}">
+              ${escapeHtml(
+                statusLabel(status)
+              )}
+            </span>
+          </div>
+
+          <div class="home-v2-coin-hashrate">
+            ${escapeHtml(primaryValue)}
+
+            <small>
+              ${escapeHtml(primaryLabel)}
+            </small>
+          </div>
+
+          <div class="home-v2-coin-stats">
+            <div class="home-v2-mini-stat">
+              <strong>
+                ${fmtNumber(
+                  coin.activePoolCount
+                )}
+              </strong>
+              <span>Active Pools</span>
+            </div>
+
+            <div class="home-v2-mini-stat">
+              <strong>
+                ${fmtNumber(
+                  coin.workerCount
+                )}
+              </strong>
+              <span>Miners</span>
+            </div>
+
+            <div class="home-v2-mini-stat">
+              <strong>
+                ${fmtNumber(
+                  coin.onlineNodeCount
+                )}/${fmtNumber(
+                  coin.nodeCount
+                )}
+              </strong>
+              <span>Nodes</span>
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+function renderPools(pools) {
+  const container = byId("activePools");
+  const maxHashrate = Math.max(
+    ...pools.map(
+      (pool) => numberValue(pool.hashrate)
+    ),
+    1
+  );
+
+  setText(
+    "activePoolCount",
+    `${pools.length} active`
+  );
+
+  if (!pools.length) {
+    container.innerHTML = `
+      <div class="home-v2-empty">
+        No active mining pools.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = pools
+    .map((pool) => {
+      const hashrate = numberValue(
+        pool.hashrate
+      );
+
+      const width = Math.max(
+        4,
+        (hashrate / maxHashrate) * 100
+      );
+
+      const symbol = poolCoinSymbol(pool);
+
+      const stratumPorts = Array.isArray(
+        pool.stratumPorts
+      )
+        ? pool.stratumPorts.join(", ")
+        : "—";
+
+      return `
+        <article class="home-v2-pool-card">
+          <div class="home-v2-pool-card-header">
+            <div>
+              <h3>
+                ${escapeHtml(
+                  pool.name
+                  || `${symbol} Pool`
+                )}
+              </h3>
+
+              <div class="home-v2-pool-endpoint">
+                ${escapeHtml(
+                  pool.host || "Unknown host"
+                )}:${escapeHtml(
+                  pool.apiPort || "—"
+                )}
+              </div>
+            </div>
+
+            <span class="home-v2-state-badge active">
+              ${escapeHtml(
+                statusLabel(
+                  pool.status || "active"
+                )
+              )}
+            </span>
+          </div>
+
+          <div class="home-v2-pool-hashrate">
+            ${escapeHtml(
+              fmtHashrate(hashrate)
+            )}
+          </div>
+
+          <div class="home-v2-pool-stats">
+            <div class="home-v2-mini-stat">
+              <strong>
+                ${fmtNumber(pool.workerCount)}
+              </strong>
+              <span>Miners</span>
+            </div>
+
+            <div class="home-v2-mini-stat">
+              <strong>
+                ${escapeHtml(
+                  numberValue(
+                    pool.sharesPerSecond
+                  ).toFixed(3)
+                )}
+              </strong>
+              <span>Shares/sec</span>
+            </div>
+
+            <div class="home-v2-mini-stat">
+              <strong>
+                ${escapeHtml(stratumPorts)}
+              </strong>
+              <span>Stratum</span>
+            </div>
+          </div>
+
+          <div class="home-v2-pool-progress">
+            <div style="width:${width}%"></div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+function updatePoolHistories(pools) {
+  const activeIds = new Set();
+
+  pools.forEach((pool, index) => {
+    const id = String(
+      pool.id
+      || `${pool.host}-${pool.nativePoolId}`
+    );
+
+    activeIds.add(id);
+
+    if (!homeV2State.poolHistories[id]) {
+      homeV2State.poolHistories[id] = [];
+    }
+
+    homeV2State.poolHistories[id].push(
+      numberValue(pool.hashrate)
+    );
+
+    if (
+      homeV2State.poolHistories[id].length
+      > HOME_V2_MAX_HISTORY
+    ) {
+      homeV2State.poolHistories[id].shift();
+    }
+
+    homeV2State.poolLabels[id] = (
+      pool.name
+      || `${poolCoinSymbol(pool)} Pool`
+    );
+
+    stableColor(id, index);
+  });
+
+  Object.keys(
+    homeV2State.poolHistories
+  ).forEach((id) => {
+    if (!activeIds.has(id)) {
+      delete homeV2State.poolHistories[id];
+      delete homeV2State.poolLabels[id];
+      delete homeV2State.poolColors[id];
+    }
+  });
+}
+
+
+function renderChartLegend() {
+  const legend = byId("poolChartLegend");
+
+  legend.innerHTML = Object.keys(
+    homeV2State.poolHistories
+  )
+    .map((id) => {
+      const color = homeV2State.poolColors[id];
+      const label = homeV2State.poolLabels[id];
+
+      return `
+        <span class="home-v2-chart-legend-item">
+          <span
+            class="home-v2-chart-legend-dot"
+            style="
+              background:${color};
+              color:${color};
+            "
+          ></span>
+
+          ${escapeHtml(label)}
+        </span>
+      `;
+    })
+    .join("");
+}
+
+
+function renderPoolChart() {
+  const canvas = byId("poolHashrateChart");
+
+  if (!canvas) {
+    return;
+  }
+
+  const rect = canvas.getBoundingClientRect();
+
+  if (!rect.width || !rect.height) {
+    return;
+  }
+
+  const pixelRatio = window.devicePixelRatio || 1;
+
+  canvas.width = Math.round(
+    rect.width * pixelRatio
+  );
+
+  canvas.height = Math.round(
+    rect.height * pixelRatio
+  );
+
+  const context = canvas.getContext("2d");
+
+  context.setTransform(
+    pixelRatio,
+    0,
+    0,
+    pixelRatio,
+    0,
+    0
+  );
+
+  const width = rect.width;
+  const height = rect.height;
+
+  context.clearRect(0, 0, width, height);
+
+  const series = Object.entries(
+    homeV2State.poolHistories
+  ).filter(([, values]) => values.length);
+
+  if (!series.length) {
+    context.fillStyle = "#8faac6";
+    context.font = "14px Arial";
+    context.fillText(
+      "Waiting for active pool telemetry...",
+      24,
+      48
+    );
+    return;
+  }
+
+  const padding = {
+    left: 82,
+    right: 25,
+    top: 28,
+    bottom: 42,
+  };
+
+  const plotWidth = (
+    width
+    - padding.left
+    - padding.right
+  );
+
+  const plotHeight = (
+    height
+    - padding.top
+    - padding.bottom
+  );
+
+  const allValues = series.flatMap(
+    ([, values]) => values
+  );
+
+  let maximum = Math.max(...allValues, 1);
+  let minimum = Math.min(...allValues, 0);
+
+  if (maximum === minimum) {
+    minimum = Math.max(0, minimum * 0.9);
+    maximum = maximum * 1.1 || 1;
+  }
+
+  const range = maximum - minimum;
+
+  context.font = "11px Arial";
+  context.lineWidth = 1;
+
+  for (let index = 0; index <= 5; index += 1) {
+    const y = (
+      padding.top
+      + (plotHeight / 5) * index
+    );
+
+    const value = (
+      maximum
+      - (range / 5) * index
+    );
+
+    context.strokeStyle = "rgba(147,197,253,.12)";
+    context.beginPath();
+    context.moveTo(padding.left, y);
+    context.lineTo(
+      width - padding.right,
+      y
+    );
+    context.stroke();
+
+    context.fillStyle = "#8faac6";
+    context.fillText(
+      fmtHashrate(value),
+      8,
+      y + 4
+    );
+  }
+
+  for (let index = 0; index <= 8; index += 1) {
+    const x = (
+      padding.left
+      + (plotWidth / 8) * index
+    );
+
+    context.strokeStyle = "rgba(147,197,253,.07)";
+    context.beginPath();
+    context.moveTo(x, padding.top);
+    context.lineTo(
+      x,
+      height - padding.bottom
+    );
+    context.stroke();
+  }
+
+  series.forEach(([id, values]) => {
+    const color = homeV2State.poolColors[id];
+    const sampleCount = Math.max(
+      ...series.map(
+        ([, samples]) => samples.length
+      ),
+      2
+    );
+
+    const leftPadding = (
+      sampleCount - values.length
+    );
+
+    const points = values.map(
+      (value, index) => {
+        const overallIndex = (
+          leftPadding + index
+        );
+
+        const x = (
+          padding.left
+          + (
+            overallIndex
+            / (sampleCount - 1)
+          ) * plotWidth
+        );
+
+        const y = (
+          padding.top
+          + (
+            1
+            - (
+              (value - minimum)
+              / range
+            )
+          ) * plotHeight
+        );
+
+        return { x, y };
+      }
+    );
+
+    if (!points.length) {
+      return;
+    }
+
+    context.beginPath();
+
+    points.forEach((point, index) => {
+      if (index === 0) {
+        context.moveTo(point.x, point.y);
+      } else {
+        context.lineTo(point.x, point.y);
+      }
+    });
+
+    context.strokeStyle = color;
+    context.lineWidth = 3;
+    context.shadowColor = color;
+    context.shadowBlur = 9;
+    context.stroke();
+    context.shadowBlur = 0;
+
+    points.forEach((point) => {
+      context.beginPath();
+      context.arc(
+        point.x,
+        point.y,
+        3,
+        0,
+        Math.PI * 2
+      );
+
+      context.fillStyle = "#07101f";
+      context.fill();
+
+      context.strokeStyle = color;
+      context.lineWidth = 2;
+      context.stroke();
+    });
+  });
+}
+
+
+function renderMiners(miners) {
+  const container = byId("topMiners");
+
+  setText(
+    "topMinerCount",
+    `${miners.length} ranked`
+  );
+
+  if (!miners.length) {
+    container.innerHTML = `
+      <div class="home-v2-empty">
+        No miners currently online.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = miners
+    .slice(0, 10)
+    .map((miner, index) => {
+      const rank = integerValue(
+        miner.rank,
+        index + 1
+      );
+
+      return `
+        <article class="home-v2-miner-row">
+          <div class="home-v2-miner-rank">
+            #${rank}
+          </div>
+
+          <div>
+            <div class="home-v2-miner-name">
+              ${escapeHtml(
+                miner.name || "Unknown Miner"
+              )}
+            </div>
+
+            <div class="home-v2-miner-pool">
+              ${escapeHtml(
+                miner.coin || "—"
+              )}
+              •
+              ${escapeHtml(
+                miner.poolName
+                || miner.poolHost
+                || "Unknown pool"
+              )}
+            </div>
+          </div>
+
+          <div class="home-v2-miner-values">
+            <strong>
+              ${escapeHtml(
+                fmtHashrate(miner.hashrate)
+              )}
+            </strong>
+
+            <span>
+              ${numberValue(
+                miner.sharesPerSecond
+              ).toFixed(3)}
+              shares/sec
+            </span>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+function renderNodes(nodes) {
+  const container = byId("nodeReadiness");
+
+  setText(
+    "nodeCount",
+    `${nodes.length} node${
+      nodes.length === 1 ? "" : "s"
+    }`
+  );
+
+  if (!nodes.length) {
+    container.innerHTML = `
+      <div class="home-v2-empty">
+        No blockchain nodes are currently exposed
+        through the Fleet API.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = nodes
+    .map((node) => {
+      const online = Boolean(node.online);
+      const status = online
+        ? "online"
+        : "offline";
+
+      const sync = node.syncPercent == null
+        ? "—"
+        : fmtPercent(node.syncPercent);
+
+      return `
+        <article class="home-v2-node-row">
+          <div class="home-v2-node-row-header">
+            <div>
+              <h3>
+                ${escapeHtml(
+                  node.name
+                  || `${node.coin || ""} Node`
+                )}
+              </h3>
+
+              <div class="home-v2-node-host">
+                ${escapeHtml(
+                  node.host || "Unknown host"
+                )}
+              </div>
+            </div>
+
+            <span class="home-v2-state-badge ${status}">
+              ${online ? "Online" : "Offline"}
+            </span>
+          </div>
+
+          <div class="home-v2-node-stats">
+            <div class="home-v2-mini-stat">
+              <strong>
+                ${node.blockHeight == null
+                  ? "—"
+                  : fmtNumber(node.blockHeight)}
+              </strong>
+              <span>Block Height</span>
+            </div>
+
+            <div class="home-v2-mini-stat">
+              <strong>
+                ${node.peers == null
+                  ? "—"
+                  : fmtNumber(node.peers)}
+              </strong>
+              <span>Peers</span>
+            </div>
+
+            <div class="home-v2-mini-stat">
+              <strong>
+                ${escapeHtml(sync)}
+              </strong>
+              <span>Sync</span>
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+function renderAlerts(alerts) {
+  const container = byId("operationsAlerts");
+
+  setText(
+    "alertCount",
+    `${alerts.length} alert${
+      alerts.length === 1 ? "" : "s"
+    }`
+  );
+
+  if (!alerts.length) {
+    container.innerHTML = `
+      <div class="home-v2-all-clear">
+        ✓ No active fleet alerts
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = alerts
+    .map((alert) => {
+      const severity = String(
+        alert.severity || "warning"
+      ).toLowerCase();
+
+      return `
+        <article class="home-v2-alert-row ${escapeHtml(severity)}">
+          <div class="home-v2-alert-row-header">
+            <div>
+              <h3>
+                ${escapeHtml(
+                  alert.title
+                  || "Operations Alert"
+                )}
+              </h3>
+
+              <div class="home-v2-alert-source">
+                ${escapeHtml(
+                  alert.source
+                  || alert.type
+                  || "Nexus"
+                )}
+              </div>
+            </div>
+
+            <span class="home-v2-state-badge ${escapeHtml(severity)}">
+              ${escapeHtml(
+                statusLabel(severity)
+              )}
+            </span>
+          </div>
+
+          <div class="home-v2-alert-message">
+            ${escapeHtml(
+              alert.message
+              || "No additional information."
+            )}
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+
+function buildActivity(fleet) {
+  const summary = fleet.summary || {};
+  const pools = Array.isArray(
+    fleet.activePools
+  )
+    ? fleet.activePools
+    : [];
+
+  const miners = Array.isArray(
+    fleet.topMiners
+  )
+    ? fleet.topMiners
+    : [];
+
+  const nodes = Array.isArray(fleet.nodes)
+    ? fleet.nodes
+    : [];
+
+  const events = [];
+
+  events.push({
+    level: "green",
+    text: (
+      `Fleet API online with `
+      + `${fmtNumber(summary.coinCount)} `
+      + `blockchain operations`
+    ),
+  });
+
+  events.push({
+    level: "blue",
+    text: (
+      `${fmtNumber(summary.activePoolCount)} `
+      + `active pools producing `
+      + `${fmtHashrate(summary.fleetHashrate)}`
+    ),
+  });
+
+  pools.slice(0, 4).forEach((pool) => {
+    events.push({
+      level: "green",
+      text: (
+        `${pool.name} active at `
+        + `${fmtHashrate(pool.hashrate)} `
+        + `with ${fmtNumber(
+          pool.workerCount
+        )} miner${
+          integerValue(pool.workerCount) === 1
+            ? ""
+            : "s"
+        }`
+      ),
+    });
+  });
+
+  if (miners[0]) {
+    events.push({
+      level: "blue",
+      text: (
+        `Top miner ${miners[0].name} `
+        + `is producing `
+        + `${fmtHashrate(
+          miners[0].hashrate
+        )} on ${miners[0].poolName}`
+      ),
+    });
+  }
+
+  nodes
+    .filter((node) => node.online)
+    .slice(0, 3)
+    .forEach((node) => {
+      events.push({
+        level: "green",
+        text: (
+          `${node.name} online`
+          + (
+            node.blockHeight != null
+              ? ` at block ${fmtNumber(
+                node.blockHeight
+              )}`
+              : ""
+          )
+        ),
+      });
+    });
+
+  if (
+    integerValue(summary.warningCount) === 0
+    && integerValue(summary.criticalCount) === 0
+  ) {
+    events.push({
+      level: "green",
+      text: "No warning or critical conditions detected",
+    });
+  }
+
+  return events.slice(0, 10);
+}
+
+
+function renderActivity(fleet) {
+  const events = buildActivity(fleet);
+  const time = fmtTime(fleet.generatedAt);
+
+  setText(
+    "activityTimestamp",
+    time
+  );
+
+  byId("activityFeed").innerHTML = events
+    .map((event) => `
+      <div class="event ${escapeHtml(event.level)}">
+        <b>${escapeHtml(time)}</b>
+        <span>${escapeHtml(event.text)}</span>
+      </div>
+    `)
+    .join("");
+}
+
+
+function renderFleet(fleet) {
+  homeV2State.fleet = fleet;
+
+  const coins = Array.isArray(fleet.coins)
+    ? fleet.coins
+    : [];
+
+  const pools = Array.isArray(
+    fleet.activePools
+  )
+    ? fleet.activePools
+    : [];
+
+  const miners = Array.isArray(
+    fleet.topMiners
+  )
+    ? fleet.topMiners
+    : [];
+
+  const nodes = Array.isArray(fleet.nodes)
+    ? fleet.nodes
+    : [];
+
+  const alerts = Array.isArray(fleet.alerts)
+    ? fleet.alerts
+    : [];
+
+  renderStatus(fleet);
+  renderFleetSummary(fleet);
+  renderCoins(coins);
+  renderPools(pools);
+  renderMiners(miners);
+  renderNodes(nodes);
+  renderAlerts(alerts);
+  renderActivity(fleet);
+
+  updatePoolHistories(pools);
+  renderChartLegend();
+
+  setText(
+    "chartFleetTotal",
+    fmtHashrate(
+      fleet.summary?.fleetHashrate
+    )
+  );
+
+  requestAnimationFrame(
+    renderPoolChart
+  );
+}
+
+
+function renderLoadError(error) {
+  console.error(
+    "Unable to load Fleet API:",
+    error
+  );
+
+  const badge = byId("fleetStatusBadge");
+
+  badge.textContent = "API ERROR";
+  badge.className = "live-badge critical";
+
+  setText(
+    "lastUpdated",
+    "Fleet telemetry unavailable"
+  );
+
+  [
+    "coinOperations",
+    "activePools",
+    "topMiners",
+    "nodeReadiness",
+    "operationsAlerts",
+    "activityFeed",
+  ].forEach((id) => {
+    const element = byId(id);
+
+    if (element) {
+      element.innerHTML = `
+        <div class="home-v2-empty">
+          Unable to load live fleet data.
+          ${escapeHtml(error.message || error)}
+        </div>
+      `;
+    }
+  });
+}
+
+
+async function loadFleet() {
+  if (homeV2State.loading) {
+    return;
+  }
+
+  homeV2State.loading = true;
+
+  try {
+    const response = await fetch(
+      "/api/fleet/home",
+      {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Fleet API returned HTTP ${response.status}`
+      );
+    }
+
+    const fleet = await response.json();
+
+    renderFleet(fleet);
+  } catch (error) {
+    renderLoadError(error);
+  } finally {
+    homeV2State.loading = false;
+  }
+}
+
+
+function startFleetRefresh() {
+  clearInterval(homeV2State.refreshTimer);
+
+  homeV2State.refreshTimer = setInterval(
+    loadFleet,
+    HOME_V2_REFRESH_MS
+  );
+}
+
+
+function setupTvMode() {
+  byId("homeV2TvToggle")?.addEventListener(
+    "click",
+    () => {
+      document.body.classList.add(
+        "command-tv"
+      );
+    }
+  );
+
+  byId("homeV2TvExit")?.addEventListener(
+    "click",
+    () => {
+      document.body.classList.remove(
+        "command-tv"
+      );
+    }
+  );
+}
+
+
+window.addEventListener(
+  "resize",
+  () => {
+    window.clearTimeout(
+      window.homeV2ResizeTimer
+    );
+
+    window.homeV2ResizeTimer = window.setTimeout(
+      renderPoolChart,
+      150
+    );
+  }
+);
+
+
+window.addEventListener(
+  "DOMContentLoaded",
+  () => {
+    setupTvMode();
+    loadFleet();
+    startFleetRefresh();
+  }
+);

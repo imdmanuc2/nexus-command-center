@@ -1,0 +1,106 @@
+{
+  "fleet": {
+    "alerts": {},
+    "miners": {
+      "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001": {
+        "hashrate": 4516273227347.0,
+        "id": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001",
+        "name": "Nano 3s",
+        "online": true,
+        "poolHost": "192.168.1.154",
+        "poolName": "BCH Solo \u00b7 192.168.1.154"
+      },
+      "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002": {
+        "hashrate": 5832889478652.303,
+        "id": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002",
+        "name": "Mining System 2",
+        "online": true,
+        "poolHost": "192.168.1.156",
+        "poolName": "BCH Solo \u00b7 192.168.1.156"
+      }
+    },
+    "nodes": {
+      "node-192.168.1.169": {
+        "blockHeight": 958018,
+        "coin": "BTC",
+        "host": "192.168.1.169",
+        "id": "node-192.168.1.169",
+        "name": "Bitcoin Core",
+        "online": true,
+        "peers": 10,
+        "syncPercent": 99.99987
+      }
+    },
+    "pools": {
+      "pool-192-168-1-154-4000-bch": {
+        "active": true,
+        "hashrate": 4990481989632.0,
+        "host": "192.168.1.154",
+        "id": "pool-192-168-1-154-4000-bch",
+        "name": "BCH Solo \u00b7 192.168.1.154",
+        "status": "active",
+        "workerCount": 1
+      },
+      "pool-192-168-1-156-4000-bch": {
+        "active": true,
+        "hashrate": 5832889478652.303,
+        "host": "192.168.1.156",
+        "id": "pool-192-168-1-156-4000-bch",
+        "name": "BCH Solo \u00b7 192.168.1.156",
+        "status": "active",
+        "workerCount": 1
+      }
+    },
+    "summary": {
+      "activePoolCount": 2,
+      "criticalCount": 0,
+      "fleetHashrate": 10823371468284.303,
+      "onlineMinerCount": 2,
+      "onlineNodeCount": 1,
+      "warningCount": 0
+    }
+  },
+  "smc": {
+    "instances": {
+      "smc-192-168-1-154": {
+        "apiOnline": true,
+        "consoleOnline": true,
+        "healthScore": 100,
+        "host": "192.168.1.154",
+        "id": "smc-192-168-1-154",
+        "name": "Seymour MiningCore .154",
+        "pools": {
+          "smc-192-168-1-154-bch": {
+            "active": true,
+            "connectedMiners": 1,
+            "hashrate": 4990481989632.0,
+            "id": "smc-192-168-1-154-bch",
+            "name": "BCH Solo \u00b7 192.168.1.154",
+            "stratumHealthy": true
+          }
+        },
+        "status": "healthy"
+      },
+      "smc-192-168-1-156": {
+        "apiOnline": true,
+        "consoleOnline": true,
+        "healthScore": 100,
+        "host": "192.168.1.156",
+        "id": "smc-192-168-1-156",
+        "name": "Seymour MiningCore .156",
+        "pools": {
+          "smc-192-168-1-156-bch": {
+            "active": true,
+            "connectedMiners": 1,
+            "hashrate": 5832889478652.303,
+            "id": "smc-192-168-1-156-bch",
+            "name": "BCH Solo \u00b7 192.168.1.156",
+            "stratumHealthy": true
+          }
+        },
+        "status": "healthy"
+      }
+    }
+  },
+  "updatedAt": "2026-07-14T14:35:11.078009+00:00"
+}

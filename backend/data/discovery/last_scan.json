@@ -1,0 +1,123 @@
+{
+  "targets": [
+    "192.168.1.169"
+  ],
+  "summary": {
+    "miningSystems": 1,
+    "blockchainNodes": 0,
+    "miningBackends": 0,
+    "dashboards": 0,
+    "stratumServers": 0,
+    "rpcEndpoints": 1
+  },
+  "systems": [
+    {
+      "ip": "192.168.1.169",
+      "primaryRole": "BTC Blockchain Node",
+      "openPorts": [
+        8332,
+        8333
+      ],
+      "roles": [
+        {
+          "id": "blockchain_node",
+          "label": "Blockchain Node",
+          "ports": [
+            8332
+          ],
+          "confidence": 70
+        }
+      ],
+      "fingerprints": [],
+      "serviceCount": 2,
+      "profile": {
+        "hostname": "Bitcoin-Node",
+        "assetType": "Blockchain Node",
+        "os": "Unknown",
+        "agent": "Not installed"
+      },
+      "health": {
+        "score": 55,
+        "level": "critical",
+        "label": "Critical",
+        "checks": [
+          {
+            "name": "Host reachable",
+            "status": "healthy",
+            "penalty": 0
+          },
+          {
+            "name": "Mining backend detected",
+            "status": "critical",
+            "penalty": 20
+          },
+          {
+            "name": "Blockchain node detected",
+            "status": "healthy",
+            "penalty": 0
+          },
+          {
+            "name": "Confirmed MiningCore API",
+            "status": "critical",
+            "penalty": 15
+          },
+          {
+            "name": "Management dashboard reachable",
+            "status": "critical",
+            "penalty": 10
+          }
+        ]
+      },
+      "asset": {
+        "name": "Unknown System 3",
+        "friendlyName": "Unknown System 3",
+        "purpose": "Unknown",
+        "createdAutomatically": true,
+        "id": "asset-6626af42",
+        "ip": "192.168.1.169",
+        "type": "unknown",
+        "favorite": false,
+        "notes": "",
+        "tags": [],
+        "location": "",
+        "rack": "",
+        "position": "",
+        "manufacturer": "",
+        "model": "",
+        "serialNumber": "",
+        "macAddress": "",
+        "hostname": "",
+        "workerId": "",
+        "poolId": "",
+        "poolHost": "",
+        "poolGroup": "",
+        "createdAt": "2026-07-08T22:24:22.988507+00:00",
+        "updatedAt": "2026-07-12T02:34:44.746977+00:00"
+      },
+      "type": "blockchain-node",
+      "coin": "BTC",
+      "purpose": "Blockchain",
+      "services": [
+        {
+          "name": "BTC Blockchain Node",
+          "port": 8333
+        }
+      ]
+    }
+  ],
+  "found": [
+    {
+      "ip": "192.168.1.169",
+      "port": 8332,
+      "service": "BTC/BCH RPC Common",
+      "status": "open"
+    },
+    {
+      "ip": "192.168.1.169",
+      "port": 8333,
+      "service": "BTC P2P",
+      "status": "open"
+    }
+  ],
+  "count": 2
+}

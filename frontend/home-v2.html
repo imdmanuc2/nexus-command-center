@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Nexus Command Center v2</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/home-v2.css">
+</head>
+
+<body class="home-v2-body">
+  <button
+    id="homeV2TvToggle"
+    class="tv-toggle"
+    type="button"
+  >
+    TV Mode
+  </button>
+
+  <main class="wrap command-wrap home-v2-wrap">
+    <section class="nexus-panel home-v2-panel">
+
+      <header class="nexus-header home-v2-header">
+        <div>
+          <div class="home-v2-title-row">
+            <h1>⛏️ Nexus Command Center</h1>
+
+            <span class="version-pill">
+              HOME V2
+            </span>
+          </div>
+
+          <p>
+            Mining Company Command Center • Live Fleet Operations
+          </p>
+        </div>
+
+        <div class="home-v2-header-status">
+          <div
+            id="fleetStatusBadge"
+            class="live-badge"
+          >
+            CONNECTING
+          </div>
+
+          <div
+            id="lastUpdated"
+            class="home-v2-updated"
+          >
+            Awaiting telemetry
+          </div>
+        </div>
+      </header>
+
+      <nav
+        id="topNav"
+        class="nav"
+      ></nav>
+
+      <section
+        id="fleetStatusStrip"
+        class="nexus-status-strip home-v2-status-strip"
+      >
+        <div class="status-chip pending">
+          <span></span>
+          FLEET
+        </div>
+
+        <div class="status-chip pending">
+          <span></span>
+          POOLS
+        </div>
+
+        <div class="status-chip pending">
+          <span></span>
+          MINERS
+        </div>
+
+        <div class="status-chip pending">
+          <span></span>
+          NODES
+        </div>
+
+        <div class="status-chip pending">
+          <span></span>
+          API
+        </div>
+      </section>
+
+      <section
+        id="attentionPanel"
+        class="nexus-card attention-panel healthy"
+      >
+        <div class="attention-panel-header">
+          <div class="attention-title-wrap">
+            <div
+              id="attentionPulse"
+              class="attention-pulse"
+            ></div>
+
+            <div>
+              <div class="attention-title">
+                Things That Need Attention
+              </div>
+
+              <div
+                id="attentionSubtitle"
+                class="attention-subtitle"
+              >
+                Evaluating fleet health...
+              </div>
+            </div>
+          </div>
+
+          <div class="attention-actions">
+            <span
+              id="attentionCount"
+              class="attention-count"
+            >
+              —
+            </span>
+
+            <button
+              id="attentionToggle"
+              class="attention-toggle"
+              type="button"
+              aria-expanded="false"
+            >
+              Details
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="attentionItems"
+          class="attention-items"
+          hidden
+        ></div>
+      </section>
+
+      <section
+        id="fleetPriorityQueue"
+        class="nexus-card priority-queue healthy"
+      >
+        <div class="priority-queue-header">
+          <div>
+            <div class="priority-queue-title-row">
+              <span class="priority-queue-icon">⚡</span>
+
+              <div>
+                <div class="priority-queue-title">
+                  Fleet Priority Queue
+                </div>
+
+                <div
+                  id="priorityQueueSubtitle"
+                  class="priority-queue-subtitle"
+                >
+                  Ranking current operational priorities...
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="priority-queue-actions">
+            <span
+              id="priorityQueueCount"
+              class="priority-queue-count"
+            >
+              —
+            </span>
+
+            <button
+              id="priorityQueueToggle"
+              class="priority-queue-toggle"
+              type="button"
+              hidden
+            >
+              View all
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="priorityQueueItems"
+          class="priority-queue-items"
+        >
+          <div class="home-v2-loading">
+            Building live priority queue...
+          </div>
+        </div>
+      </section>
+
+
+
+      <section
+        id="fleetMetrics"
+        class="home-v2-metrics"
+      >
+        <article class="metric-card">
+          <span>Coins</span>
+          <strong id="metricCoins">—</strong>
+        </article>
+
+        <article class="metric-card">
+          <span>Active Pools</span>
+          <strong id="metricPools" class="blue">—</strong>
+        </article>
+
+        <article class="metric-card">
+          <span>Online Miners</span>
+          <strong id="metricMiners" class="green">—</strong>
+        </article>
+
+        <article class="metric-card">
+          <span>Online Nodes</span>
+          <strong id="metricNodes">—</strong>
+        </article>
+
+        <article class="metric-card">
+          <span>Warnings</span>
+          <strong id="metricWarnings" class="gold">—</strong>
+        </article>
+
+        <article class="metric-card">
+          <span>Critical</span>
+          <strong id="metricCritical">—</strong>
+        </article>
+      </section>
+
+      <section class="nexus-card home-v2-section smc-workhorse-section">
+        <div class="home-v2-section-heading">
+          <div>
+            <div class="label">
+              Seymour MiningCore Workhorse
+            </div>
+
+            <div class="small">
+              Live health of the software powering pools, Stratum, miners, and APIs.
+            </div>
+          </div>
+
+          <div class="smc-workhorse-summary">
+            <span id="smcHealthBadge" class="home-v2-state-badge">
+              Loading
+            </span>
+
+            <span id="smcInstanceCount" class="home-v2-section-count">
+              —
+            </span>
+          </div>
+        </div>
+
+        <div id="smcFleetSummary" class="smc-fleet-summary">
+          <div class="home-v2-loading">
+            Loading Seymour MiningCore health...
+          </div>
+        </div>
+
+        <div id="smcInstances" class="smc-instance-grid">
+          <div class="home-v2-loading">
+            Discovering MiningCore instances...
+          </div>
+        </div>
+      </section>
+
+      <section class="nexus-card home-v2-section">
+        <div class="home-v2-section-heading">
+          <div>
+            <div class="label">
+              Blockchain Operations
+            </div>
+
+            <div class="small">
+              Dynamically generated from active mining and node telemetry.
+            </div>
+          </div>
+
+          <div
+            id="coinOperationCount"
+            class="home-v2-section-count"
+          >
+            —
+          </div>
+        </div>
+
+        <div
+          id="coinOperations"
+          class="home-v2-coin-grid"
+        >
+          <div class="home-v2-loading">
+            Loading blockchain operations...
+          </div>
+        </div>
+      </section>
+
+      <section class="home-v2-hero-grid">
+        <article class="nexus-card home-v2-hero-card">
+          <div class="home-v2-eyebrow">
+            Total Fleet Hashrate
+          </div>
+
+          <div
+            id="fleetHashrate"
+            class="home-v2-hero-number"
+          >
+            —
+          </div>
+
+          <div
+            id="fleetHashrateSubtitle"
+            class="home-v2-hero-subtitle"
+          >
+            Loading live mining telemetry
+          </div>
+
+          <div
+            id="fleetHashrateBar"
+            class="home-v2-hero-bar"
+          >
+            <div></div>
+          </div>
+        </article>
+
+        <article class="nexus-card home-v2-health-card">
+          <div class="home-v2-health-copy">
+            <div class="home-v2-eyebrow">
+              Fleet Health
+            </div>
+
+            <strong id="fleetHealth">
+              —
+            </strong>
+
+            <span id="fleetHealthLabel">
+              Calculating
+            </span>
+          </div>
+
+          <div class="home-v2-health-ring-wrap">
+            <svg
+              class="home-v2-health-ring"
+              viewBox="0 0 120 120"
+              aria-hidden="true"
+            >
+              <circle
+                class="home-v2-health-ring-track"
+                cx="60"
+                cy="60"
+                r="50"
+              ></circle>
+
+              <circle
+                id="fleetHealthRing"
+                class="home-v2-health-ring-value"
+                cx="60"
+                cy="60"
+                r="50"
+              ></circle>
+            </svg>
+
+            <span id="fleetHealthRingText">
+              —
+            </span>
+          </div>
+        </article>
+      </section>
+
+
+      <section class="nexus-card home-v2-section">
+        <div class="home-v2-section-heading">
+          <div>
+            <div class="label">
+              Active Mining Pools
+            </div>
+
+            <div class="small">
+              Every pool currently receiving miners or shares.
+            </div>
+          </div>
+
+          <div
+            id="activePoolCount"
+            class="home-v2-section-count"
+          >
+            —
+          </div>
+        </div>
+
+        <div
+          id="activePools"
+          class="home-v2-pool-grid"
+        >
+          <div class="home-v2-loading">
+            Loading active pools...
+          </div>
+        </div>
+      </section>
+
+      <section class="home-v2-two-column">
+        <article class="nexus-card chart-card home-v2-chart-card">
+          <div class="home-v2-section-heading">
+            <div>
+              <div class="label">
+                Live Pool Hashrate
+              </div>
+
+              <div class="small">
+                One telemetry series per active pool.
+              </div>
+            </div>
+
+            <div
+              id="chartFleetTotal"
+              class="home-v2-chart-total"
+            >
+              —
+            </div>
+          </div>
+
+          <div
+            id="poolChartLegend"
+            class="home-v2-chart-legend"
+          ></div>
+
+          <canvas
+            id="poolHashrateChart"
+            class="nexus-line-chart home-v2-line-chart"
+          ></canvas>
+        </article>
+
+        <article class="nexus-card home-v2-miners-card">
+          <div class="home-v2-section-heading">
+            <div>
+              <div class="label">
+                Top 10 Miners
+              </div>
+
+              <div class="small">
+                Ranked across the full fleet.
+              </div>
+            </div>
+
+            <div
+              id="topMinerCount"
+              class="home-v2-section-count"
+            >
+              —
+            </div>
+          </div>
+
+          <div
+            id="topMiners"
+            class="home-v2-miner-list"
+          >
+            <div class="home-v2-loading">
+              Loading miner rankings...
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="home-v2-two-column">
+        <article class="nexus-card">
+          <div class="home-v2-section-heading">
+            <div>
+              <div class="label">
+                Infrastructure Readiness
+              </div>
+
+              <div class="small">
+                Blockchain nodes supporting current and future mining.
+              </div>
+            </div>
+
+            <div
+              id="nodeCount"
+              class="home-v2-section-count"
+            >
+              —
+            </div>
+          </div>
+
+          <div
+            id="nodeReadiness"
+            class="home-v2-node-list"
+          >
+            <div class="home-v2-loading">
+              Loading node telemetry...
+            </div>
+          </div>
+        </article>
+
+        <article class="nexus-card">
+          <div class="home-v2-section-heading">
+            <div>
+              <div class="label">
+                Operations Alerts
+              </div>
+
+              <div class="small">
+                Current warnings and critical conditions.
+              </div>
+            </div>
+
+            <div
+              id="alertCount"
+              class="home-v2-section-count"
+            >
+              —
+            </div>
+          </div>
+
+          <div
+            id="operationsAlerts"
+            class="home-v2-alert-list"
+          >
+            <div class="home-v2-loading">
+              Loading alert state...
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="nexus-card home-v2-section">
+        <div class="home-v2-section-heading">
+          <div>
+            <div class="label">
+              Live Operations Feed
+            </div>
+
+            <div class="small">
+              Current fleet observations generated from live telemetry.
+            </div>
+          </div>
+
+          <div
+            id="activityTimestamp"
+            class="home-v2-section-count"
+          >
+            —
+          </div>
+        </div>
+
+        <div
+          id="activityFeed"
+          class="activity-feed home-v2-activity-feed"
+        >
+          <div class="home-v2-loading">
+            Loading fleet activity...
+          </div>
+        </div>
+      </section>
+
+      <footer class="home-v2-footer">
+        <span>
+          Nexus Command Center Home v2 Preview
+        </span>
+
+        <a href="/">
+          Return to Home v1
+        </a>
+      </footer>
+    </section>
+
+    <button
+      id="homeV2TvExit"
+      class="command-tv-exit"
+      type="button"
+    >
+      Exit TV Mode
+    </button>
+  </main>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/home-v2.js"></script>
+
+  <script>
+    renderNav("Command Center");
+  </script>
+</body>
+</html>
