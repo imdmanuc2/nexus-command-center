@@ -15,6 +15,7 @@ from backend.modules import mining
 from backend.modules import fleet
 from backend.modules import smc_health
 from backend.modules import operations_events
+from backend.modules import operations
 from backend.modules import assets
 from backend.modules import graph
 from backend.modules import graph_engine
@@ -25,6 +26,7 @@ from backend.modules import snapshots
 from backend.modules import event_engine
 from backend.modules import mission
 from backend.modules import scan_registry
+from backend.modules import cmdb
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -95,6 +97,8 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/mining/pools": mining.pools,
             "/api/mining/coins": mining.coins,
             "/api/assets/relationships": assets.relationships,
+            "/api/cmdb/assets": cmdb.assets,
+            "/api/cmdb/summary": cmdb.summary,
             "/api/graph": graph.graph,
             "/api/blockchain/nodes": blockchain.nodes,
             "/api/operations/mining-readiness": mining_readiness.pools,
@@ -105,12 +109,38 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/graph/diff": graph_diff.latest,
             "/api/events/live": event_engine.live,
             "/api/events/operations": operations_events.events,
+            "/api/operations": operations.available,
             "/api/mission/status": mission.status,
             "/api/timeline/latest": timeline.latest,
         }
 
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
+
+        if parsed.path == "/api/cmdb/audit":
+            asset_id = query.get("assetId", [None])[0]
+            action = query.get("action", [None])[0]
+            source = query.get("source", [None])[0]
+            correlation_id = query.get(
+                "correlationId",
+                [None],
+            )[0]
+
+            try:
+                limit = int(query.get("limit", ["200"])[0])
+            except (TypeError, ValueError):
+                limit = 200
+
+            status, payload = json_response(
+                cmdb.audit_events(
+                    asset_id=asset_id,
+                    action=action,
+                    source=source,
+                    correlation_id=correlation_id,
+                    limit=limit,
+                )
+            )
+            return self._send_json(payload, status)
 
         if parsed.path == "/api/snapshots":
             status, payload = json_response(snapshots.list_snapshots())
@@ -164,6 +194,63 @@ class NexusHandler(BaseHTTPRequestHandler):
         return self._send_json(payload, status)
 
     def do_POST(self):
+
+        if self.path == "/api/operations/run":
+            try:
+                length = int(
+                    self.headers.get("Content-Length", 0)
+                )
+                body = self.rfile.read(length).decode("utf-8")
+                data = json.loads(body or "{}")
+
+                action = str(data.get("action", "")).strip()
+                target = data.get("target", {})
+
+                if not action:
+                    status, payload = json_response(
+                        {"error": "Missing action"},
+                        400,
+                    )
+                    return self._send_json(payload, status)
+
+                if not isinstance(target, dict):
+                    status, payload = json_response(
+                        {"error": "Target must be an object"},
+                        400,
+                    )
+                    return self._send_json(payload, status)
+
+                result = operations.run(action, target)
+
+                response_status = (
+                    404
+                    if result.get("status") == "error"
+                    and result.get("message", "").startswith(
+                        "Unknown operation:"
+                    )
+                    else 200
+                )
+
+                status, payload = json_response(
+                    result,
+                    response_status,
+                )
+                return self._send_json(payload, status)
+
+            except json.JSONDecodeError:
+                status, payload = json_response(
+                    {"error": "Invalid JSON request body"},
+                    400,
+                )
+                return self._send_json(payload, status)
+
+            except Exception as e:
+                status, payload = json_response(
+                    {"error": str(e)},
+                    500,
+                )
+                return self._send_json(payload, status)
+
         if self.path == "/api/graph/layout/save":
             try:
                 length = int(self.headers.get("Content-Length", 0))

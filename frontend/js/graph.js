@@ -3329,6 +3329,7 @@ function infrastructureActionCatalog(node) {
     return [
       {
         id: "test-rpc",
+        operationAction: "bitcoin.rpc.test",
         label: "Test RPC",
         icon: "↔",
         tone: rpcConnected ? "healthy" : "warning",
@@ -3427,6 +3428,7 @@ function infrastructureActionCatalog(node) {
     return [
       {
         id: "test-pool",
+        operationAction: "miningcore.pool.readiness",
         label: "Run Readiness Test",
         icon: "✓",
         tone: "healthy",
@@ -3721,6 +3723,581 @@ function infrastructureActionSection(node) {
   `;
 }
 
+
+function escapeOperationHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function operationTargetForNode(node) {
+  const props = node?.properties || {};
+
+  const assetId = String(
+    props.assetId ||
+    node?.assetId ||
+    node?.id ||
+    ""
+  ).trim();
+
+  const host = String(
+    inventoryIp(node) ||
+    props.host ||
+    props.ip ||
+    ""
+  ).trim();
+
+  const coin = String(
+    props.coin ||
+    props.symbol ||
+    ""
+  ).trim().toUpperCase();
+
+  const poolId = String(
+    props.poolId ||
+    props.nativePoolId ||
+    node?.poolId ||
+    ""
+  ).trim();
+
+  const poolNodeId = String(
+    props.poolNodeId ||
+    node?.poolNodeId ||
+    (
+      inventoryCategory(node) === "pool"
+        ? node?.id || ""
+        : ""
+    )
+  ).trim();
+
+  const target = {};
+
+  if (assetId) target.assetId = assetId;
+  if (host) target.host = host;
+  if (coin) target.coin = coin;
+  if (poolId) target.poolId = poolId;
+  if (poolNodeId) target.poolNodeId = poolNodeId;
+
+  return target;
+}
+
+function operationStatusClass(status) {
+  switch (String(status || "").toLowerCase()) {
+    case "pass":
+      return "operation-status-pass";
+    case "warn":
+      return "operation-status-warn";
+    case "fail":
+    case "error":
+      return "operation-status-fail";
+    case "running":
+      return "operation-status-running";
+    default:
+      return "operation-status-unknown";
+  }
+}
+
+function operationStatusIcon(status) {
+  switch (String(status || "").toLowerCase()) {
+    case "pass":
+      return "✓";
+    case "warn":
+      return "!";
+    case "fail":
+    case "error":
+      return "×";
+    case "running":
+      return "…";
+    default:
+      return "?";
+  }
+}
+
+function operationStatusLabel(status) {
+  if (window.NexusOperations?.statusLabel) {
+    return window.NexusOperations.statusLabel(status);
+  }
+
+  return String(status || "unknown");
+}
+
+function formatOperationTimestamp(value) {
+  if (!value) return "Not available";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return date.toLocaleString();
+}
+
+function formatOperationDetails(details) {
+  if (
+    details === null ||
+    details === undefined ||
+    details === ""
+  ) {
+    return "";
+  }
+
+  if (typeof details === "string") {
+    return escapeOperationHtml(details);
+  }
+
+  return escapeOperationHtml(
+    JSON.stringify(details, null, 2)
+  );
+}
+
+function renderOperationRunning(node, action) {
+  const content = byId("infrastructureActionPreviewContent");
+
+  if (!content) return;
+
+  content.innerHTML = `
+    <div class="action-preview-header">
+      <span class="digital-twin-kicker">
+        Nexus Operational Playbook
+      </span>
+
+      <h2>${escapeOperationHtml(action.label)}</h2>
+
+      <p>
+        ${escapeOperationHtml(inventoryDisplayName(node))}
+        ·
+        ${escapeOperationHtml(inventoryTypeLabel(node))}
+        ·
+        ${escapeOperationHtml(
+          safe(inventoryIp(node), "No IP")
+        )}
+      </p>
+    </div>
+
+    <div class="
+      action-preview-summary
+      operation-run-summary
+      operation-status-running
+    ">
+      <span class="operation-run-icon">…</span>
+
+      <div>
+        <strong>Running live playbook</strong>
+        <small>
+          Nexus is executing read-only checks against the selected asset.
+        </small>
+      </div>
+    </div>
+
+    <section class="operation-running-panel">
+      <div class="operation-running-spinner"></div>
+
+      <div>
+        <strong>Testing RPC connectivity and health</strong>
+        <small>
+          Credentials remain server-side. No configuration will be changed.
+        </small>
+      </div>
+    </section>
+
+    <div class="action-preview-buttons">
+      <button
+        type="button"
+        class="btn"
+        data-close-action-preview
+      >
+        Close
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-primary"
+        disabled
+      >
+        Running…
+      </button>
+    </div>
+  `;
+
+  content
+    .querySelectorAll("[data-close-action-preview]")
+    .forEach(button => {
+      button.addEventListener(
+        "click",
+        closeInfrastructureActionPreview
+      );
+    });
+}
+
+function renderOperationResult(node, action, result) {
+  const content = byId("infrastructureActionPreviewContent");
+
+  if (!content) return;
+
+  const steps = Array.isArray(result?.steps)
+    ? result.steps
+    : [];
+
+  const status = String(result?.status || "unknown");
+  const statusClass = operationStatusClass(status);
+  const statusIcon = operationStatusIcon(status);
+
+  content.innerHTML = `
+    <div class="action-preview-header">
+      <span class="digital-twin-kicker">
+        Nexus Operational Playbook
+      </span>
+
+      <h2>${escapeOperationHtml(
+        result?.label || action.label
+      )}</h2>
+
+      <p>
+        ${escapeOperationHtml(inventoryDisplayName(node))}
+        ·
+        ${escapeOperationHtml(inventoryTypeLabel(node))}
+        ·
+        ${escapeOperationHtml(
+          safe(inventoryIp(node), "No IP")
+        )}
+      </p>
+    </div>
+
+    <div class="
+      action-preview-summary
+      operation-run-summary
+      ${statusClass}
+    ">
+      <span class="operation-run-icon">
+        ${statusIcon}
+      </span>
+
+      <div>
+        <strong>
+          ${escapeOperationHtml(
+            operationStatusLabel(status)
+          )}
+        </strong>
+
+        <small>
+          ${escapeOperationHtml(
+            result?.summary ||
+            "The operational playbook completed."
+          )}
+        </small>
+      </div>
+    </div>
+
+    <section class="operation-run-metadata">
+      <div>
+        <span>Started</span>
+        <strong>
+          ${escapeOperationHtml(
+            formatOperationTimestamp(result?.startedAt)
+          )}
+        </strong>
+      </div>
+
+      <div>
+        <span>Completed</span>
+        <strong>
+          ${escapeOperationHtml(
+            formatOperationTimestamp(result?.completedAt)
+          )}
+        </strong>
+      </div>
+
+      <div>
+        <span>Duration</span>
+        <strong>
+          ${escapeOperationHtml(
+            `${result?.durationMs ?? 0} ms`
+          )}
+        </strong>
+      </div>
+
+      <div>
+        <span>Mode</span>
+        <strong>
+          ${result?.readOnly === true
+            ? "Read-only"
+            : "Controlled action"}
+        </strong>
+      </div>
+    </section>
+
+    <section class="action-preview-plan operation-result-plan">
+      <div class="operation-section-heading">
+        <h3>Playbook Results</h3>
+
+        <span>
+          ${steps.length}
+          ${steps.length === 1 ? "check" : "checks"}
+        </span>
+      </div>
+
+      <ol class="operation-result-steps">
+        ${steps.map((step, index) => {
+          const stepStatus = String(
+            step?.status || "unknown"
+          );
+
+          const stepClass =
+            operationStatusClass(stepStatus);
+
+          const details = formatOperationDetails(
+            step?.details
+          );
+
+          return `
+            <li class="operation-result-step ${stepClass}">
+              <span class="operation-step-icon">
+                ${operationStatusIcon(stepStatus)}
+              </span>
+
+              <div class="operation-step-copy">
+                <div class="operation-step-title">
+                  <strong>
+                    ${escapeOperationHtml(
+                      step?.name || `Check ${index + 1}`
+                    )}
+                  </strong>
+
+                  <small>
+                    ${escapeOperationHtml(
+                      operationStatusLabel(stepStatus)
+                    )}
+                  </small>
+                </div>
+
+                ${
+                  step?.summary
+                    ? `
+                      <p>
+                        ${escapeOperationHtml(step.summary)}
+                      </p>
+                    `
+                    : ""
+                }
+
+                ${
+                  details
+                    ? `
+                      <details class="operation-step-details">
+                        <summary>Technical details</summary>
+                        <pre>${details}</pre>
+                      </details>
+                    `
+                    : ""
+                }
+              </div>
+            </li>
+          `;
+        }).join("")}
+      </ol>
+    </section>
+
+    <section class="action-preview-safety">
+      <h3>Execution Record</h3>
+
+      <div>
+        <span>✓</span>
+        <p>
+          Run ID:
+          <code>${escapeOperationHtml(
+            result?.runId || "Not available"
+          )}</code>
+        </p>
+      </div>
+
+      <div>
+        <span>✓</span>
+        <p>
+          Credentials remained server-side and were never exposed
+          to the browser.
+        </p>
+      </div>
+
+      <div>
+        <span>✓</span>
+        <p>
+          This playbook performed read-only checks and did not change
+          node configuration.
+        </p>
+      </div>
+    </section>
+
+    <div class="action-preview-buttons">
+      <button
+        type="button"
+        class="btn"
+        data-close-action-preview
+      >
+        Close
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-primary"
+        data-operation-run-again
+      >
+        Run Again
+      </button>
+    </div>
+  `;
+
+  content
+    .querySelectorAll("[data-close-action-preview]")
+    .forEach(button => {
+      button.addEventListener(
+        "click",
+        closeInfrastructureActionPreview
+      );
+    });
+
+  content
+    .querySelector("[data-operation-run-again]")
+    ?.addEventListener("click", () => {
+      executeInfrastructureOperation(node, action);
+    });
+}
+
+function renderOperationFailure(node, action, error) {
+  const content = byId("infrastructureActionPreviewContent");
+
+  if (!content) return;
+
+  content.innerHTML = `
+    <div class="action-preview-header">
+      <span class="digital-twin-kicker">
+        Nexus Operational Playbook
+      </span>
+
+      <h2>${escapeOperationHtml(action.label)}</h2>
+
+      <p>
+        ${escapeOperationHtml(inventoryDisplayName(node))}
+        ·
+        ${escapeOperationHtml(inventoryTypeLabel(node))}
+        ·
+        ${escapeOperationHtml(
+          safe(inventoryIp(node), "No IP")
+        )}
+      </p>
+    </div>
+
+    <div class="
+      action-preview-summary
+      operation-run-summary
+      operation-status-fail
+    ">
+      <span class="operation-run-icon">×</span>
+
+      <div>
+        <strong>Playbook request failed</strong>
+        <small>
+          ${escapeOperationHtml(
+            error?.message ||
+            "Nexus could not execute this operation."
+          )}
+        </small>
+      </div>
+    </div>
+
+    <section class="action-preview-safety">
+      <h3>What Happened</h3>
+
+      <div>
+        <span>!</span>
+        <p>
+          The operation did not complete. No infrastructure changes
+          were made.
+        </p>
+      </div>
+
+      <div>
+        <span>✓</span>
+        <p>
+          Verify that the Nexus API is online and that the selected
+          asset still exists.
+        </p>
+      </div>
+    </section>
+
+    <div class="action-preview-buttons">
+      <button
+        type="button"
+        class="btn"
+        data-close-action-preview
+      >
+        Close
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-primary"
+        data-operation-retry
+      >
+        Retry
+      </button>
+    </div>
+  `;
+
+  content
+    .querySelectorAll("[data-close-action-preview]")
+    .forEach(button => {
+      button.addEventListener(
+        "click",
+        closeInfrastructureActionPreview
+      );
+    });
+
+  content
+    .querySelector("[data-operation-retry]")
+    ?.addEventListener("click", () => {
+      executeInfrastructureOperation(node, action);
+    });
+}
+
+async function executeInfrastructureOperation(node, action) {
+  if (!window.NexusOperations) {
+    renderOperationFailure(
+      node,
+      action,
+      new Error(
+        "The shared Nexus operations client is unavailable."
+      )
+    );
+    return;
+  }
+
+  if (!action?.operationAction) {
+    return;
+  }
+
+  renderOperationRunning(node, action);
+
+  try {
+    const result = await window.NexusOperations.run(
+      action.operationAction,
+      operationTargetForNode(node)
+    );
+
+    renderOperationResult(node, action, result);
+  } catch (error) {
+    console.error(
+      "Infrastructure operation failed:",
+      error
+    );
+
+    renderOperationFailure(node, action, error);
+  }
+}
+
 function openInfrastructureActionPreview(node, actionId) {
   const action = infrastructureActionCatalog(node)
     .find(item => item.id === actionId);
@@ -3729,33 +4306,55 @@ function openInfrastructureActionPreview(node, actionId) {
 
   const panel = byId("infrastructureActionPreview");
   const backdrop = byId("infrastructureActionBackdrop");
+  const content = byId("infrastructureActionPreviewContent");
 
-  if (!panel || !backdrop) return;
+  if (!panel || !backdrop || !content) return;
 
-  byId("infrastructureActionPreviewContent").innerHTML = `
+  panel.classList.add("open");
+  backdrop.classList.add("open");
+
+  /*
+   * Actions with a registered shared backend operation run live.
+   * All actions without one remain safe preview-only playbooks.
+   */
+  if (action.operationAction) {
+    executeInfrastructureOperation(node, action);
+    return;
+  }
+
+  const plannedSteps = Array.isArray(action.steps)
+    ? action.steps
+    : [];
+
+  content.innerHTML = `
     <div class="action-preview-header">
       <span class="digital-twin-kicker">
         Nexus Operational Playbook
       </span>
 
-      <h2>${action.label}</h2>
+      <h2>${escapeOperationHtml(action.label)}</h2>
 
       <p>
-        ${inventoryDisplayName(node)}
+        ${escapeOperationHtml(inventoryDisplayName(node))}
         ·
-        ${inventoryTypeLabel(node)}
+        ${escapeOperationHtml(inventoryTypeLabel(node))}
         ·
-        ${safe(inventoryIp(node), "No IP")}
+        ${escapeOperationHtml(
+          safe(inventoryIp(node), "No IP")
+        )}
       </p>
     </div>
 
     <div class="action-preview-summary">
       <span class="infrastructure-action-icon">
-        ${action.icon}
+        ${escapeOperationHtml(action.icon)}
       </span>
 
       <div>
-        <strong>${action.description}</strong>
+        <strong>
+          ${escapeOperationHtml(action.description)}
+        </strong>
+
         <small>
           Review the planned checks and changes before execution.
         </small>
@@ -3766,10 +4365,10 @@ function openInfrastructureActionPreview(node, actionId) {
       <h3>Execution Plan</h3>
 
       <ol>
-        ${action.steps.map((step, index) => `
+        ${plannedSteps.map((step, index) => `
           <li>
             <span>${index + 1}</span>
-            <strong>${step}</strong>
+            <strong>${escapeOperationHtml(step)}</strong>
           </li>
         `).join("")}
       </ol>
@@ -3780,22 +4379,30 @@ function openInfrastructureActionPreview(node, actionId) {
 
       <div>
         <span>✓</span>
-        <p>Secrets remain server-side and are never shown in browser URLs.</p>
+        <p>
+          Secrets remain server-side and are never shown in browser URLs.
+        </p>
       </div>
 
       <div>
         <span>✓</span>
-        <p>Configuration changes require a backup before modification.</p>
+        <p>
+          Configuration changes require a backup before modification.
+        </p>
       </div>
 
       <div>
         <span>✓</span>
-        <p>Disruptive actions require impact analysis and confirmation.</p>
+        <p>
+          Disruptive actions require impact analysis and confirmation.
+        </p>
       </div>
 
       <div>
         <span>✓</span>
-        <p>Every action will be recorded in Mission Timeline.</p>
+        <p>
+          Every action will be recorded in Mission Timeline.
+        </p>
       </div>
     </section>
 
@@ -3818,10 +4425,7 @@ function openInfrastructureActionPreview(node, actionId) {
     </div>
   `;
 
-  panel.classList.add("open");
-  backdrop.classList.add("open");
-
-  document
+  content
     .querySelectorAll("[data-close-action-preview]")
     .forEach(button => {
       button.addEventListener(
@@ -3830,8 +4434,8 @@ function openInfrastructureActionPreview(node, actionId) {
       );
     });
 
-  byId("infrastructureActionPreviewContent")
-    ?.querySelector("[data-action-preview-demo]")
+  content
+    .querySelector("[data-action-preview-demo]")
     ?.addEventListener("click", event => {
       const button = event.currentTarget;
 
@@ -3846,6 +4450,7 @@ function openInfrastructureActionPreview(node, actionId) {
 }
 
 function closeInfrastructureActionPreview() {
+
   byId("infrastructureActionPreview")
     ?.classList.remove("open");
 
