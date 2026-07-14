@@ -15,6 +15,9 @@ from typing import Any
 from uuid import uuid4
 
 from backend.core.asset_classifier import classify_asset
+from backend.core.cmdb_audit import append_event
+from backend.db.repositories import asset_repository
+from backend.db.repositories.asset_repository_extensions import find_by_ip
 
 
 ASSETS_DB = Path("backend/data/assets.json")
@@ -246,6 +249,48 @@ def normalize_asset(
         "poolId": item.get("poolId") or "",
         "poolHost": item.get("poolHost") or "",
         "poolGroup": item.get("poolGroup") or "",
+
+        # Compute inventory
+        "computeProfile": (
+            item.get("computeProfile")
+            if isinstance(item.get("computeProfile"), dict)
+            else {}
+        ),
+        "components": (
+            item.get("components")
+            if isinstance(item.get("components"), list)
+            else []
+        ),
+        "capabilities": sorted({
+            str(value).strip()
+            for value in (item.get("capabilities") or [])
+            if str(value).strip()
+        }),
+        "allocation": (
+            item.get("allocation")
+            if isinstance(item.get("allocation"), dict)
+            else {
+                "state": "unallocated",
+                "activeWorkloadType": "",
+                "activeWorkloadId": "",
+            }
+        ),
+        "workloads": (
+            item.get("workloads")
+            if isinstance(item.get("workloads"), list)
+            else []
+        ),
+
+        # Runtime and virtualization identity
+        "operatingSystem": item.get("operatingSystem") or "",
+        "architecture": item.get("architecture") or "",
+        "hypervisor": item.get("hypervisor") or "",
+        "containerRuntime": item.get("containerRuntime") or "",
+
+        # Financial and operational intent
+        "criticality": item.get("criticality") or "normal",
+        "owner": item.get("owner") or "",
+        "businessService": item.get("businessService") or "",
     }
 
     return normalized
@@ -253,8 +298,14 @@ def normalize_asset(
 
 def _default_purpose(asset_type: str) -> str:
     return {
-        "asic": "Mining",
+        "asic": "Dedicated Mining",
         "pool": "Mining Pool",
+        "compute-host": "Compute",
+        "cpu-device": "Compute Component",
+        "gpu-device": "Compute Accelerator",
+        "virtual-machine": "Virtual Compute",
+        "container": "Container Workload",
+        "workload": "Workload",
         "blockchain-node": "Blockchain",
         "server": "Infrastructure",
         "unknown": "Unknown",
@@ -323,8 +374,71 @@ def asset_identity(asset: dict[str, Any]) -> str:
         coin = _string(asset.get("coin")).upper() or "UNKNOWN"
         return f"blockchain-node:{coin}:{ip}"
 
-    if asset_type == "server":
-        return f"server:{ip}"
+    if asset_type == "gpu-device":
+        gpu_uuid = _string(
+            asset.get("gpuUuid")
+            or asset.get("uuid")
+            or asset.get("serialNumber")
+        )
+
+        if gpu_uuid:
+            return f"gpu-device:{gpu_uuid.lower()}"
+
+        pci_address = _string(asset.get("pciAddress"))
+
+        if pci_address:
+            return f"gpu-device:{ip}:{pci_address.lower()}"
+
+    if asset_type == "cpu-device":
+        component_id = _string(
+            asset.get("componentId")
+            or asset.get("serialNumber")
+            or asset.get("model")
+        )
+
+        if component_id:
+            return f"cpu-device:{ip}:{component_id.lower()}"
+
+    if asset_type == "virtual-machine":
+        machine_uuid = _string(
+            asset.get("machineUuid")
+            or asset.get("vmUuid")
+            or asset.get("uuid")
+        )
+
+        if machine_uuid:
+            return f"virtual-machine:{machine_uuid.lower()}"
+
+    if asset_type == "container":
+        container_id = _string(
+            asset.get("containerId")
+            or asset.get("runtimeId")
+        )
+
+        if container_id:
+            return f"container:{container_id.lower()}"
+
+    if asset_type == "workload":
+        workload_id = _string(
+            asset.get("workloadId")
+            or asset.get("id")
+        )
+
+        if workload_id:
+            return f"workload:{workload_id.lower()}"
+
+    if asset_type in {"compute-host", "server"}:
+        host_uuid = _string(
+            asset.get("machineUuid")
+            or asset.get("systemUuid")
+            or asset.get("serialNumber")
+            or asset.get("macAddress")
+        )
+
+        if host_uuid:
+            return f"{asset_type}:{host_uuid.lower()}"
+
+        return f"{asset_type}:{ip}"
 
     if asset_id:
         return f"{asset_type}:id:{asset_id}"
@@ -412,63 +526,30 @@ def load_assets() -> list[dict[str, Any]]:
 
 
 def save_assets(assets: list[dict[str, Any]]) -> None:
-    ASSETS_DB.parent.mkdir(parents=True, exist_ok=True)
+    """Persist normalized assets to PostgreSQL.
 
-    normalized_by_identity: dict[str, dict[str, Any]] = {}
+    This compatibility function intentionally does not delete database rows
+    missing from the supplied list. Deletion must be an explicit CMDB action.
+    """
+    for asset in assets:
+        asset_repository.upsert_asset(normalize_asset(asset))
 
-    for raw_asset in assets:
-        try:
-            asset = normalize_asset(
-                raw_asset,
-                default_ip=raw_asset.get("ip"),
-            )
-        except ValueError:
-            continue
-
-        identity = asset_identity(asset)
-
-        if identity in normalized_by_identity:
-            normalized_by_identity[identity] = _merge_assets(
-                normalized_by_identity[identity],
-                asset,
-            )
-        else:
-            normalized_by_identity[identity] = asset
-
-    payload = sorted(
-        normalized_by_identity.values(),
-        key=lambda item: (
-            item.get("assetType") or "unknown",
-            item.get("friendlyName") or item.get("ip"),
-        ),
-    )
-
-    ASSETS_DB.write_text(
-        json.dumps(payload, indent=2) + "\n"
-    )
 
 
 def migrate_assets() -> list[dict[str, Any]]:
-    assets = load_assets()
-    save_assets(assets)
-    return assets
+    """Return canonical assets from PostgreSQL.
+
+    The historical function name is retained for connector compatibility.
+    No runtime JSON migration or rewrite occurs here.
+    """
+    return asset_repository.list_assets(limit=5000)
 
 
-def get_assets_list(
-    *,
-    managed_only: bool = False,
-) -> list[dict[str, Any]]:
-    assets = migrate_assets()
 
-    if managed_only:
-        return [
-            asset
-            for asset in assets
-            if asset.get("managed") is True
-            and asset.get("lifecycleStatus") == "managed"
-        ]
+def get_assets_list() -> list[dict[str, Any]]:
+    """Return all canonical CMDB assets from PostgreSQL."""
+    return asset_repository.list_assets(limit=5000)
 
-    return assets
 
 
 def get_assets_by_ip(ip: str) -> list[dict[str, Any]]:
@@ -557,132 +638,120 @@ def discovery_asset(system: dict[str, Any]) -> dict[str, Any]:
 def upsert_managed_asset(
     system: dict[str, Any],
 ) -> dict[str, Any]:
-    ip = _string(system.get("ip"))
+    """Normalize, reconcile, audit, and persist one managed CMDB asset."""
+    if not isinstance(system, dict):
+        raise ValueError("Managed asset payload must be an object.")
 
-    if not ip:
-        raise ValueError("Cannot add system without an IP address.")
+    audit_context = {
+        "actor_type": system.get("_actorType", "system"),
+        "actor_id": system.get("_actorId", "nexus"),
+        "source": system.get("_source", "asset-manager"),
+        "reason": system.get("_reason", ""),
+        "correlation_id": system.get("_correlationId"),
+        "confidence": system.get("_confidence"),
+    }
 
-    assets = get_assets_list()
+    clean = {
+        key: value
+        for key, value in system.items()
+        if key not in {
+            "_actorType", "_actorId", "_source", "_reason",
+            "_correlationId", "_confidence",
+        }
+    }
 
-    requested_type = classify_asset(
-        object_type=system.get("type"),
-        asset_type=(
-            system.get("assetType")
-            or system.get("canonicalType")
-        ),
-        name=(
-            system.get("friendlyName")
-            or system.get("displayName")
-            or system.get("name")
-            or system.get("primaryRole")
-            or ip
-        ),
-        primary_role=system.get("primaryRole"),
-        open_ports=system.get("openPorts"),
-        services=system.get("services"),
-        properties=system,
-    )
-
-    incoming_worker_id = _string(system.get("workerId"))
+    incoming = normalize_asset(clean)
+    assets = asset_repository.list_assets(limit=5000)
+    incoming_identity = asset_identity(incoming)
 
     existing = next(
-        (
-            asset
-            for asset in assets
-            if asset.get("ip") == ip
-            and _string(
-                asset.get("assetType")
-                or asset.get("type")
-            ).lower() == requested_type
-            and (
-                requested_type != "asic"
-                or not incoming_worker_id
-                or _string(asset.get("workerId")) == incoming_worker_id
-            )
-        ),
+        (asset for asset in assets if asset.get("id") == incoming.get("id")),
         None,
     )
 
-    now = now_iso()
+    if existing is None:
+        existing = next(
+            (
+                asset
+                for asset in assets
+                if asset_identity(asset) == incoming_identity
+            ),
+            None,
+        )
 
-    incoming = {
+    if existing is None and incoming.get("ip"):
+        same_ip = find_by_ip(incoming["ip"])
+        same_type = [
+            asset
+            for asset in same_ip
+            if asset.get("assetType") == incoming.get("assetType")
+        ]
+        if same_type:
+            existing = max(same_type, key=_asset_quality)
+
+    before = dict(existing) if existing else None
+    merged = {
         **(existing or {}),
-        **system,
-        "ip": ip,
-        "friendlyName": (
-            system.get("friendlyName")
-            or system.get("displayName")
-            or system.get("name")
-            or system.get("primaryRole")
-            or existing and existing.get("friendlyName")
-            or ip
-        ),
-        "name": (
-            system.get("friendlyName")
-            or system.get("displayName")
-            or system.get("name")
-            or system.get("primaryRole")
-            or existing and existing.get("name")
-            or ip
-        ),
-        "type": (
-            system.get("assetType")
-            or system.get("canonicalType")
-            or system.get("type")
-            or existing and existing.get("type")
-        ),
-        "assetType": (
-            system.get("assetType")
-            or system.get("canonicalType")
-            or system.get("type")
-            or existing and existing.get("assetType")
-        ),
-        "managed": True,
-        "lifecycleStatus": "managed",
-        "createdAutomatically": False,
-        "addedAt": (
-            existing and existing.get("addedAt")
-        ) or system.get("addedAt") or now,
-        "createdAt": (
-            existing and existing.get("createdAt")
-        ) or now,
-        "updatedAt": now,
+        **incoming,
+        "id": (existing or {}).get("id") or incoming.get("id"),
+        "createdAt": (existing or {}).get("createdAt") or incoming.get("createdAt"),
+        "updatedAt": now_iso(),
     }
 
-    managed_asset = normalize_asset(incoming)
+    managed_asset = normalize_asset(merged)
+    persisted = asset_repository.upsert_asset(managed_asset)
 
-    managed_identity = asset_identity(managed_asset)
+    append_event(
+        action="asset.updated" if existing else "asset.created",
+        asset_id=persisted.get("id"),
+        asset_type=persisted.get("assetType"),
+        asset_name=(
+            persisted.get("friendlyName")
+            or persisted.get("name")
+            or persisted.get("ip")
+        ),
+        actor_type=audit_context["actor_type"],
+        actor_id=audit_context["actor_id"],
+        source=audit_context["source"],
+        reason=audit_context["reason"],
+        correlation_id=audit_context["correlation_id"],
+        confidence=audit_context["confidence"],
+        before=before,
+        after=persisted,
+        metadata={
+            "ip": persisted.get("ip"),
+            "workerId": persisted.get("workerId"),
+            "poolId": persisted.get("poolId"),
+            "storage": "postgresql",
+        },
+    )
 
-    next_assets = [
-        asset
-        for asset in assets
-        if asset_identity(asset) != managed_identity
-    ]
+    return persisted
 
-    next_assets.append(managed_asset)
-    save_assets(next_assets)
-
-    return managed_asset
 
 
 def update_asset(
     ip: str,
     updates: dict[str, Any],
 ) -> dict[str, Any]:
-    current = get_asset(ip)
+    """Update the highest-quality CMDB asset currently using an IP address."""
+    matches = find_by_ip(ip)
+    if not matches:
+        raise KeyError(f"No managed asset found for IP {ip}")
 
-    if not current:
-        current = {
-            "ip": ip,
-            "name": ip,
-            "friendlyName": ip,
-            "managed": True,
-            "lifecycleStatus": "managed",
-            "createdAutomatically": False,
-        }
+    existing = max(matches, key=_asset_quality)
+    payload = {
+        **existing,
+        **dict(updates or {}),
+        "id": existing.get("id"),
+        "ip": existing.get("ip") or ip,
+        "createdAt": existing.get("createdAt"),
+        "_actorType": (updates or {}).get("_actorType", "user"),
+        "_actorId": (updates or {}).get("_actorId", "operator"),
+        "_source": (updates or {}).get("_source", "assets-api"),
+        "_reason": (updates or {}).get("_reason", "Update CMDB asset"),
+        "_correlationId": (updates or {}).get("_correlationId"),
+        "_confidence": (updates or {}).get("_confidence"),
+    }
+    return upsert_managed_asset(payload)
 
-    return upsert_managed_asset({
-        **current,
-        **updates,
-        "ip": ip,
-    })
