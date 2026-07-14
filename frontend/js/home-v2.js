@@ -1380,6 +1380,7 @@ function renderFleet(fleet) {
   renderActivity(fleet);
   renderAttentionPanel();
   renderPriorityQueue();
+  renderFleetInsights();
 
   updatePoolHistories(pools);
   renderChartLegend();
@@ -1522,6 +1523,7 @@ window.addEventListener(
     setupTvMode();
     setupAttentionPanel();
     setupPriorityQueue();
+    setupFleetInsights();
     loadFleet();
     loadSmcHealth();
     loadOperationsEvents();
@@ -2054,6 +2056,7 @@ function renderSmcHealth(payload) {
 
   renderAttentionPanel();
   renderPriorityQueue();
+  renderFleetInsights();
 }
 
 
@@ -2914,9 +2917,52 @@ function collectPriorityItems() {
         event.severity
       );
 
+      const type = String(
+        event.type || ""
+      ).toLowerCase();
+
+      const metadata = event.metadata || {};
+
+      /*
+      * Hashrate variation is normal.
+      * Keep it in the operations feed, not the priority queue.
+      */
+      if (type === "miner-hashrate-shift") {
+        return false;
+      }
+
+      if (type === "pool-hashrate-shift") {
+        const change = Number(
+          metadata.changePercent || 0
+        );
+
+        return change <= -50;
+      }
+
+      const actionableTypes = [
+        "miner-offline",
+        "miner-missing",
+        "pool-idle",
+        "pool-missing",
+        "node-offline",
+        "node-missing",
+        "stratum-offline",
+        "smc-api-offline",
+        "smc-console-offline",
+        "smc-missing",
+        "alert-opened",
+        "alert-resolved",
+        "node-online",
+        "stratum-restored",
+        "smc-api-restored",
+        "smc-console-restored",
+        "miner-online",
+        "pool-active",
+      ];
+
       return (
-        severity === "critical"
-        || severity === "warning"
+        actionableTypes.includes(type)
+        || severity === "critical"
         || severity === "recovery"
       );
     })
@@ -3142,6 +3188,492 @@ function setupPriorityQueue() {
       );
 
       renderPriorityQueue();
+    }
+  );
+}
+
+/* =========================================================
+   Fleet Insights
+   ========================================================= */
+
+function insightItem({
+  type = "observation",
+  title,
+  message,
+  source = "Nexus",
+  value = "",
+  symbol = "✦",
+}) {
+  return {
+    type,
+    title,
+    message,
+    source,
+    value,
+    symbol,
+  };
+}
+
+
+function buildFleetInsights() {
+  const fleet = homeV2State.fleet || {};
+  const smc = homeV2State.smcHealth || {};
+
+  const summary = fleet.summary || {};
+  const smcSummary = smc.summary || {};
+
+  const coins = Array.isArray(fleet.coins)
+    ? fleet.coins
+    : [];
+
+  const pools = Array.isArray(
+    fleet.activePools
+  )
+    ? fleet.activePools
+    : [];
+
+  const miners = Array.isArray(
+    fleet.topMiners
+  )
+    ? fleet.topMiners
+    : [];
+
+  const nodes = Array.isArray(fleet.nodes)
+    ? fleet.nodes
+    : [];
+
+  const instances = Array.isArray(
+    smc.instances
+  )
+    ? smc.instances
+    : [];
+
+  const insights = [];
+
+  const warningCount = integerValue(
+    summary.warningCount
+  );
+
+  const criticalCount = integerValue(
+    summary.criticalCount
+  );
+
+  if (
+    warningCount === 0
+    && criticalCount === 0
+  ) {
+    insights.push(
+      insightItem({
+        type: "positive",
+        title: "Fleet operating without active alerts",
+        message:
+          "Nexus currently detects no warning or critical conditions across the monitored fleet.",
+        source: "Fleet API",
+        value: "All clear",
+        symbol: "✓",
+      })
+    );
+  }
+
+  const healthiestSmc = instances.every(
+    (instance) => (
+      integerValue(instance.healthScore) >= 90
+    )
+  );
+
+  if (instances.length && healthiestSmc) {
+    insights.push(
+      insightItem({
+        type: "positive",
+        title: "Seymour MiningCore fleet is healthy",
+        message:
+          `${instances.length} monitored MiningCore instance${
+            instances.length === 1 ? " is" : "s are"
+          } online with healthy API, Stratum, and service telemetry.`,
+        source: "Seymour MiningCore",
+        value: fmtPercent(
+          smcSummary.healthScore
+        ),
+        symbol: "⚙",
+      })
+    );
+  }
+
+  if (pools.length) {
+    const strongestPool = [...pools].sort(
+      (left, right) => (
+        numberValue(right.hashrate)
+        - numberValue(left.hashrate)
+      )
+    )[0];
+
+    insights.push(
+      insightItem({
+        type: "observation",
+        title: "Highest-producing active pool",
+        message:
+          `${strongestPool.name} currently leads the fleet with ${
+            fmtNumber(strongestPool.workerCount)
+          } connected miner${
+            integerValue(
+              strongestPool.workerCount
+            ) === 1 ? "" : "s"
+          }.`,
+        source:
+          strongestPool.host
+          || strongestPool.name,
+        value: fmtHashrate(
+          strongestPool.hashrate
+        ),
+        symbol: "◈",
+      })
+    );
+  }
+
+  if (miners.length) {
+    const strongestMiner = [...miners].sort(
+      (left, right) => (
+        numberValue(right.hashrate)
+        - numberValue(left.hashrate)
+      )
+    )[0];
+
+    insights.push(
+      insightItem({
+        type: "observation",
+        title: "Current top-performing miner",
+        message:
+          `${strongestMiner.name} is the fleet leader and is mining through ${strongestMiner.poolName || strongestMiner.poolHost || "its assigned pool"}.`,
+        source:
+          strongestMiner.assetIp
+          || strongestMiner.poolHost
+          || "Mining fleet",
+        value: fmtHashrate(
+          strongestMiner.hashrate
+        ),
+        symbol: "⛏",
+      })
+    );
+  }
+
+  const btcOperation = coins.find(
+    (coin) => coin.symbol === "BTC"
+  );
+
+  if (
+    btcOperation
+    && integerValue(
+      btcOperation.onlineNodeCount
+    ) > 0
+    && integerValue(
+      btcOperation.activePoolCount
+    ) === 0
+  ) {
+    insights.push(
+      insightItem({
+        type: "recommendation",
+        title: "Bitcoin infrastructure is ready for a pool",
+        message:
+          "Bitcoin Core is online and synchronized, but Nexus does not currently see an active BTC mining pool.",
+        source: "BTC operation",
+        value: "Pool ready",
+        symbol: "₿",
+      })
+    );
+  }
+
+  coins.forEach((coin) => {
+    if (
+      integerValue(coin.activePoolCount) > 0
+      && integerValue(coin.nodeCount) === 0
+    ) {
+      insights.push(
+        insightItem({
+          type: "infrastructure",
+          title: `${coin.symbol} node telemetry is not linked`,
+          message:
+            `${coin.symbol} mining is active, but no blockchain node is currently represented in the Fleet API for that coin.`,
+          source: `${coin.symbol} operation`,
+          value: `${fmtNumber(
+            coin.activePoolCount
+          )} pools`,
+          symbol: "⬡",
+        })
+      );
+    }
+  });
+
+  if (nodes.length === 1) {
+    insights.push(
+      insightItem({
+        type: "recommendation",
+        title: "Consider blockchain-node redundancy",
+        message:
+          "The current fleet has one monitored blockchain node. A second node can reduce dependency on a single RPC and storage host.",
+        source:
+          nodes[0].host
+          || nodes[0].name
+          || "Blockchain fleet",
+        value: "1 node",
+        symbol: "⛓",
+      })
+    );
+  }
+
+  nodes.forEach((node) => {
+    if (
+      node.online
+      && node.peers != null
+      && integerValue(node.peers) >= 8
+    ) {
+      insights.push(
+        insightItem({
+          type: "positive",
+          title: `${node.name} has healthy peer connectivity`,
+          message:
+            `The node is online with ${fmtNumber(
+              node.peers
+            )} connected peers and is available to support dependent services.`,
+          source:
+            node.host
+            || node.coin
+            || "Blockchain node",
+          value: `${fmtNumber(
+            node.peers
+          )} peers`,
+          symbol: "⬡",
+        })
+      );
+    }
+  });
+
+  const apiLatencies = instances
+    .map((instance) => (
+      numberValue(
+        instance.api?.latencyMs,
+        -1
+      )
+    ))
+    .filter((value) => value >= 0);
+
+  if (apiLatencies.length) {
+    const averageLatency = (
+      apiLatencies.reduce(
+        (sum, value) => sum + value,
+        0
+      )
+      / apiLatencies.length
+    );
+
+    insights.push(
+      insightItem({
+        type:
+          averageLatency <= 100
+            ? "positive"
+            : "recommendation",
+        title: "MiningCore API responsiveness",
+        message:
+          averageLatency <= 100
+            ? "Average MiningCore API latency is currently within a healthy operating range."
+            : "MiningCore API latency is elevated and may affect dashboard refresh and operational automation.",
+        source: "SMC health telemetry",
+        value: `${averageLatency.toFixed(0)} ms`,
+        symbol: "↯",
+      })
+    );
+  }
+
+  const totalStratumPorts = instances.reduce(
+    (total, instance) => (
+      total
+      + (instance.pools || []).reduce(
+        (poolTotal, pool) => (
+          poolTotal
+          + (
+            Array.isArray(pool.stratumPorts)
+              ? pool.stratumPorts.length
+              : 0
+          )
+        ),
+        0
+      )
+    ),
+    0
+  );
+
+  const tlsPorts = instances.reduce(
+    (total, instance) => (
+      total
+      + (instance.pools || []).reduce(
+        (poolTotal, pool) => (
+          poolTotal
+          + (
+            Array.isArray(pool.tlsPorts)
+              ? pool.tlsPorts.length
+              : 0
+          )
+        ),
+        0
+      )
+    ),
+    0
+  );
+
+  if (
+    totalStratumPorts > 0
+    && tlsPorts === 0
+  ) {
+    insights.push(
+      insightItem({
+        type: "security",
+        title: "Stratum connections are not using TLS",
+        message:
+          "All currently monitored Stratum ports appear to be unencrypted. TLS should be considered for remote or public-facing pool traffic.",
+        source: "Seymour MiningCore",
+        value: `${totalStratumPorts} ports`,
+        symbol: "🔒",
+      })
+    );
+  }
+
+  if (
+    integerValue(summary.onlineMinerCount) > 0
+    && integerValue(summary.activePoolCount) > 0
+  ) {
+    const minersPerPool = (
+      numberValue(
+        summary.onlineMinerCount
+      )
+      / Math.max(
+        1,
+        numberValue(
+          summary.activePoolCount
+        )
+      )
+    );
+
+    insights.push(
+      insightItem({
+        type: "capacity",
+        title: "Current fleet distribution",
+        message:
+          `The fleet is averaging ${minersPerPool.toFixed(
+            1
+          )} online miners per active pool across ${fmtNumber(
+            summary.coinCount
+          )} blockchain operation${
+            integerValue(summary.coinCount) === 1
+              ? ""
+              : "s"
+          }.`,
+        source: "Fleet topology",
+        value: `${minersPerPool.toFixed(1)} / pool`,
+        symbol: "▦",
+      })
+    );
+  }
+
+  return insights.slice(0, 8);
+}
+
+
+function renderFleetInsights() {
+  const container = byId(
+    "fleetInsightsGrid"
+  );
+
+  const count = byId(
+    "fleetInsightsCount"
+  );
+
+  const subtitle = byId(
+    "fleetInsightsSubtitle"
+  );
+
+  if (!container || !count || !subtitle) {
+    return;
+  }
+
+  const insights = buildFleetInsights();
+
+  count.textContent = (
+    `${insights.length} insight${
+      insights.length === 1 ? "" : "s"
+    }`
+  );
+
+  subtitle.textContent = (
+    "Live observations and recommendations "
+    + "derived from current telemetry."
+  );
+
+  if (!insights.length) {
+    container.innerHTML = `
+      <div class="home-v2-empty">
+        More telemetry is needed before Nexus can
+        produce useful fleet insights.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = insights
+    .map((insight) => `
+      <article class="fleet-insight-card ${escapeHtml(
+        insight.type
+      )}">
+        <div class="fleet-insight-top">
+          <span class="fleet-insight-type">
+            ${escapeHtml(
+              insight.type
+            )}
+          </span>
+
+          <span class="fleet-insight-symbol">
+            ${escapeHtml(
+              insight.symbol
+            )}
+          </span>
+        </div>
+
+        <div class="fleet-insight-title">
+          ${escapeHtml(
+            insight.title
+          )}
+        </div>
+
+        <div class="fleet-insight-message">
+          ${escapeHtml(
+            insight.message
+          )}
+        </div>
+
+        <div class="fleet-insight-footer">
+          <span class="fleet-insight-source">
+            ${escapeHtml(
+              insight.source
+            )}
+          </span>
+
+          <span class="fleet-insight-value">
+            ${escapeHtml(
+              insight.value
+            )}
+          </span>
+        </div>
+      </article>
+    `)
+    .join("");
+}
+
+
+function setupFleetInsights() {
+  byId(
+    "fleetInsightsRefresh"
+  )?.addEventListener(
+    "click",
+    () => {
+      renderFleetInsights();
     }
   );
 }

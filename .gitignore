@@ -9,3 +9,17 @@ build/
 config/install/install-state.json
 config/database/postgresql.json
 backend/data/private/
+
+# Nexus runtime and private data
+backend/data/private/
+backend/data/events/*.json
+backend/data/telemetry/
+*.db
+*.db-shm
+*.db-wal
+
+# Local page backups
+frontend/*.before-*
+frontend/css/*.before-*
+frontend/js/*.before-*
+backups/
