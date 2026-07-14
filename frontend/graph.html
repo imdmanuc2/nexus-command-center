@@ -95,14 +95,15 @@ Loading...
 
 <div class="graph-list-panel">
 
-<h2>Nodes</h2>
+<h2>Infrastructure Inventory</h2>
 
 <section id="nodeListTypeFilters" class="explorer-type-filters node-list-filters">
   <button class="type-filter active" data-type="all">All</button>
-  <button class="type-filter" data-type="host">Hosts</button>
+  <button class="type-filter" data-type="blockchain">Blockchain</button>
   <button class="type-filter" data-type="pool">Pools</button>
-  <button class="type-filter" data-type="worker">Workers</button>
   <button class="type-filter" data-type="asic">ASICs</button>
+  <button class="type-filter" data-type="server">Servers</button>
+  <button class="type-filter" data-type="unknown">Unknown</button>
 </section>
 
 <input
@@ -155,5 +156,35 @@ renderNav("Infrastructure Explorer");
 </script>
 
 <script src="/js/mission.js"></script>
+
+<div
+  id="infrastructureActionBackdrop"
+  class="action-preview-backdrop"
+></div>
+
+<aside
+  id="infrastructureActionPreview"
+  class="action-preview-panel"
+  aria-label="Operational Playbook Preview"
+>
+  <div class="action-preview-toolbar">
+    <strong>Operational Playbook</strong>
+
+    <button
+      type="button"
+      class="drawer-close"
+      onclick="closeInfrastructureActionPreview()"
+      aria-label="Close playbook preview"
+    >
+      ×
+    </button>
+  </div>
+
+  <div
+    id="infrastructureActionPreviewContent"
+    class="action-preview-content"
+  ></div>
+</aside>
+
 </body>
 </html>

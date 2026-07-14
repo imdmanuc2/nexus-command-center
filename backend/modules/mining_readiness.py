@@ -1,0 +1,631 @@
+"""Nexus Mining Operations Readiness Engine.
+
+Builds an operational view of each mining pool and its dependencies without
+returning secrets or forcing the frontend to reverse-engineer graph data.
+"""
+
+from __future__ import annotations
+
+import threading
+import time
+from typing import Any
+
+from backend.core.graph import build_graph
+from backend.modules import blockchain
+from backend.modules import mining
+
+
+CACHE_SECONDS = 10
+
+_cache_lock = threading.Lock()
+_cache: dict[str, Any] = {
+    "expires_at": 0.0,
+    "payload": None,
+}
+
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)
+
+
+def _string(value: Any) -> str:
+    if value is None:
+        return ""
+
+    return str(value).strip()
+
+
+def _coin_symbol(value: Any) -> str:
+    if isinstance(value, dict):
+        value = (
+            value.get("symbol")
+            or value.get("type")
+            or value.get("code")
+            or value.get("name")
+        )
+
+    raw = _string(value).upper()
+
+    aliases = {
+        "BITCOIN": "BTC",
+        "BITCOIN CORE": "BTC",
+        "BITCOIN CASH": "BCH",
+        "LITECOIN": "LTC",
+        "DOGECOIN": "DOGE",
+    }
+
+    return aliases.get(raw, raw)
+
+
+def _pool_id(node: dict[str, Any]) -> str:
+    props = node.get("properties") or {}
+
+    return _string(
+        props.get("id")
+        or props.get("poolId")
+        or props.get("externalId")
+        or node.get("id")
+    )
+
+
+def _pool_host(node: dict[str, Any]) -> str:
+    props = node.get("properties") or {}
+
+    return _string(
+        props.get("host")
+        or props.get("poolHost")
+    )
+
+
+def _pool_coin(node: dict[str, Any]) -> str:
+    props = node.get("properties") or {}
+
+    return _coin_symbol(
+        props.get("coin")
+        or props.get("symbol")
+        or props.get("coinSymbol")
+    )
+
+
+def _pool_mode(node: dict[str, Any]) -> str:
+    props = node.get("properties") or {}
+
+    return _string(
+        props.get("mode")
+        or props.get("payoutScheme")
+        or "unknown"
+    ).lower()
+
+
+def _pool_stratum_ports(node: dict[str, Any]) -> list[int]:
+    props = node.get("properties") or {}
+
+    values: list[Any] = []
+
+    if isinstance(props.get("stratumPorts"), list):
+        values.extend(props["stratumPorts"])
+
+    if props.get("stratumPort") is not None:
+        values.append(props["stratumPort"])
+
+    raw = props.get("raw") or {}
+    raw_ports = raw.get("ports") if isinstance(raw, dict) else None
+
+    if isinstance(raw_ports, dict):
+        values.extend(raw_ports.keys())
+
+    result: set[int] = set()
+
+    for value in values:
+        try:
+            port = int(value)
+
+            if port > 0:
+                result.add(port)
+        except (TypeError, ValueError):
+            pass
+
+    return sorted(result)
+
+
+def _worker_pool_id(worker: dict[str, Any]) -> str:
+    return _string(
+        worker.get("poolId")
+        or worker.get("pool")
+    ).lower()
+
+
+def _worker_pool_host(worker: dict[str, Any]) -> str:
+    return _string(
+        worker.get("poolHost")
+        or worker.get("host")
+    )
+
+
+def _workers_for_pool(
+    pool_node: dict[str, Any],
+    workers: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    props = pool_node.get("properties") or {}
+
+    pool_id = _string(
+        props.get("id")
+        or props.get("poolId")
+    ).lower()
+
+    pool_host = _pool_host(pool_node)
+
+    matches = []
+
+    for worker in workers:
+        worker_pool = _worker_pool_id(worker)
+        worker_host = _worker_pool_host(worker)
+
+        worker_pool_suffix = (
+            worker_pool.rsplit("-", 1)[-1]
+            if worker_pool
+            else ""
+        )
+
+        id_matches = bool(
+            pool_id
+            and worker_pool
+            and (
+                worker_pool == pool_id
+                or worker_pool.endswith(f"-{pool_id}")
+                or worker_pool_suffix == pool_id
+                or pool_id.endswith(worker_pool)
+            )
+        )
+
+        host_matches = bool(
+            not pool_host
+            or not worker_host
+            or worker_host == pool_host
+        )
+
+        if id_matches and host_matches:
+            matches.append(worker)
+
+    return matches
+
+
+def _node_index(graph: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    return {
+        node["id"]: node
+        for node in graph.get("nodes", [])
+        if node.get("id")
+    }
+
+
+def _related_nodes(
+    graph: dict[str, Any],
+    node_id: str,
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    index = _node_index(graph)
+    result = []
+
+    for edge in graph.get("edges", []):
+        if edge.get("source") == node_id:
+            other = index.get(edge.get("target"))
+
+            if other:
+                result.append((edge, other))
+
+        elif edge.get("target") == node_id:
+            other = index.get(edge.get("source"))
+
+            if other:
+                result.append((edge, other))
+
+    return result
+
+
+def _blockchain_for_coin(
+    coin: str,
+    blockchain_items: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    canonical_coin = _coin_symbol(coin)
+
+    for item in blockchain_items:
+        if _coin_symbol(item.get("coin")) == canonical_coin:
+            return item
+
+    return None
+
+
+def _check(
+    key: str,
+    label: str,
+    status: str,
+    detail: str,
+    *,
+    required: bool = True,
+) -> dict[str, Any]:
+    return {
+        "key": key,
+        "label": label,
+        "status": status,
+        "detail": detail,
+        "required": required,
+    }
+
+
+def _score_checks(checks: list[dict[str, Any]]) -> int:
+    required = [
+        check
+        for check in checks
+        if check.get("required", True)
+    ]
+
+    if not required:
+        return 0
+
+    points = {
+        "healthy": 100,
+        "warning": 50,
+        "unknown": 25,
+        "failed": 0,
+    }
+
+    total = sum(
+        points.get(check.get("status"), 0)
+        for check in required
+    )
+
+    return round(total / len(required))
+
+
+def _overall_status(
+    checks: list[dict[str, Any]],
+    hashrate: float,
+) -> str:
+    required = [
+        check
+        for check in checks
+        if check.get("required", True)
+    ]
+
+    if any(check["status"] == "failed" for check in required):
+        return "blocked"
+
+    if any(check["status"] in {"warning", "unknown"} for check in required):
+        return "degraded"
+
+    if hashrate > 0:
+        return "ready"
+
+    return "idle-ready"
+
+
+def _recommendation(
+    status: str,
+    checks: list[dict[str, Any]],
+) -> str:
+    failed = [
+        check
+        for check in checks
+        if check.get("required", True)
+        and check.get("status") == "failed"
+    ]
+
+    warnings = [
+        check
+        for check in checks
+        if check.get("required", True)
+        and check.get("status") in {"warning", "unknown"}
+    ]
+
+    if failed:
+        return failed[0]["detail"]
+
+    if warnings:
+        return warnings[0]["detail"]
+
+    if status == "idle-ready":
+        return (
+            "Pool dependencies are healthy, but no live hashrate is currently "
+            "submitting work."
+        )
+
+    return (
+        "MiningCore, blockchain RPC, stratum, and miner telemetry indicate "
+        "this pool is ready to mine."
+    )
+
+
+def _pool_readiness(
+    pool_node: dict[str, Any],
+    graph: dict[str, Any],
+    workers: list[dict[str, Any]],
+    blockchain_items: list[dict[str, Any]],
+) -> dict[str, Any]:
+    props = pool_node.get("properties") or {}
+
+    pool_workers = _workers_for_pool(pool_node, workers)
+
+    hashrate = sum(
+        float(
+            worker.get("hashrate")
+            or worker.get("hashRate")
+            or 0
+        )
+        for worker in pool_workers
+    )
+
+    shares_per_second = sum(
+        float(
+            worker.get("sharesPerSecond")
+            or worker.get("shares_per_second")
+            or 0
+        )
+        for worker in pool_workers
+    )
+
+    coin = _pool_coin(pool_node)
+    mode = _pool_mode(pool_node)
+    stratum_ports = _pool_stratum_ports(pool_node)
+
+    blockchain_node = _blockchain_for_coin(
+        coin,
+        blockchain_items,
+    )
+
+    pool_api_online = bool(
+        props.get("apiBase")
+        or props.get("endpoint")
+        or props.get("source") == "seymour-miningcore"
+    )
+
+    rpc_connected = bool(
+        blockchain_node
+        and blockchain_node.get("rpcConnected") is True
+    )
+
+    synchronized = bool(
+        blockchain_node
+        and blockchain_node.get("initialBlockDownload") is False
+        and float(blockchain_node.get("syncPercent") or 0) >= 99.99
+        and int(blockchain_node.get("blocks") or 0)
+        == int(blockchain_node.get("headers") or 0)
+    )
+
+    network_active = bool(
+        blockchain_node
+        and blockchain_node.get("networkActive") is not False
+    )
+
+    related = _related_nodes(
+        graph,
+        pool_node["id"],
+    )
+
+    related_types: dict[str, int] = {}
+
+    for _, node in related:
+        node_type = _string(
+            (node.get("properties") or {}).get("assetType")
+            or node.get("type")
+            or "unknown"
+        )
+
+        related_types[node_type] = (
+            related_types.get(node_type, 0) + 1
+        )
+
+    checks = [
+        _check(
+            "pool-api",
+            "MiningCore Pool API",
+            "healthy" if pool_api_online else "failed",
+            (
+                "MiningCore pool API is responding."
+                if pool_api_online
+                else "Verify MiningCore is running and its API is reachable."
+            ),
+        ),
+        _check(
+            "blockchain-rpc",
+            "Blockchain RPC",
+            "healthy" if rpc_connected else "failed",
+            (
+                f"{coin or 'Blockchain'} RPC is connected."
+                if rpc_connected
+                else (
+                    f"No connected {coin or 'blockchain'} RPC node is "
+                    "available to this pool."
+                )
+            ),
+        ),
+        _check(
+            "blockchain-sync",
+            "Blockchain Synchronized",
+            (
+                "healthy"
+                if synchronized
+                else "warning"
+                if blockchain_node
+                else "failed"
+            ),
+            (
+                "Blockchain is synchronized."
+                if synchronized
+                else (
+                    "Blockchain RPC is connected but synchronization is incomplete."
+                    if blockchain_node
+                    else "Add or connect a blockchain node for this pool."
+                )
+            ),
+        ),
+        _check(
+            "network-active",
+            "Blockchain Network",
+            "healthy" if network_active else "failed",
+            (
+                "Blockchain networking is active."
+                if network_active
+                else "Blockchain networking is inactive or unavailable."
+            ),
+        ),
+        _check(
+            "stratum",
+            "Stratum Listener",
+            "healthy" if stratum_ports else "warning",
+            (
+                f"Configured on port(s): {', '.join(map(str, stratum_ports))}."
+                if stratum_ports
+                else "No stratum listener port was found in pool configuration."
+            ),
+        ),
+        _check(
+            "miners",
+            "Connected Miners",
+            "healthy" if pool_workers else "warning",
+            (
+                f"{len(pool_workers)} live miner(s) matched."
+                if pool_workers
+                else "No live miners are currently matched to this pool."
+            ),
+            required=False,
+        ),
+        _check(
+            "hashrate",
+            "Live Hashrate",
+            "healthy" if hashrate > 0 else "warning",
+            (
+                "Live hashrate is being reported."
+                if hashrate > 0
+                else "No live hashrate is currently being reported."
+            ),
+            required=False,
+        ),
+        _check(
+            "share-flow",
+            "Share Processing",
+            "healthy" if shares_per_second > 0 else "warning",
+            (
+                "Workers are actively submitting shares."
+                if shares_per_second > 0
+                else "No recent share flow is currently visible."
+            ),
+            required=False,
+        ),
+    ]
+
+    score = _score_checks(checks)
+    status = _overall_status(checks, hashrate)
+
+    return {
+        "poolNodeId": pool_node["id"],
+        "poolId": _pool_id(pool_node),
+        "name": pool_node.get("label") or _pool_id(pool_node),
+        "host": _pool_host(pool_node),
+        "coin": coin,
+        "mode": mode,
+        "status": status,
+        "readinessScore": score,
+        "readyToMine": status in {"ready", "idle-ready"},
+        "activeMining": hashrate > 0,
+        "connectedMiners": len(pool_workers),
+        "hashrate": hashrate,
+        "sharesPerSecond": shares_per_second,
+        "stratumPorts": stratum_ports,
+        "blockchainAssetId": (
+            blockchain_node.get("assetId")
+            if blockchain_node
+            else None
+        ),
+        "blockchainName": (
+            blockchain_node.get("name")
+            if blockchain_node
+            else None
+        ),
+        "blockchainRpcConnected": rpc_connected,
+        "blockchainSynchronized": synchronized,
+        "blockHeight": (
+            blockchain_node.get("blocks")
+            if blockchain_node
+            else None
+        ),
+        "peerCount": (
+            blockchain_node.get("peers")
+            if blockchain_node
+            else None
+        ),
+        "checks": checks,
+        "recommendation": _recommendation(status, checks),
+        "relatedTypes": related_types,
+        "checkedAt": _now_ms(),
+    }
+
+
+def _fresh_payload() -> dict[str, Any]:
+    graph = build_graph()
+
+    try:
+        workers_payload = mining.workers()
+        workers = workers_payload.get("workers", [])
+    except Exception:
+        workers = []
+
+    try:
+        blockchain_payload = blockchain.nodes()
+        blockchain_items = blockchain_payload.get("items", [])
+    except Exception:
+        blockchain_items = []
+
+    pools = [
+        node
+        for node in graph.get("nodes", [])
+        if node.get("type") == "pool"
+    ]
+
+    items = [
+        _pool_readiness(
+            pool,
+            graph,
+            workers,
+            blockchain_items,
+        )
+        for pool in pools
+    ]
+
+    return {
+        "status": "online",
+        "timestamp": _now_ms(),
+        "count": len(items),
+        "ready": sum(
+            1
+            for item in items
+            if item["readyToMine"]
+        ),
+        "active": sum(
+            1
+            for item in items
+            if item["activeMining"]
+        ),
+        "items": items,
+    }
+
+
+def pools() -> dict[str, Any]:
+    now = time.monotonic()
+
+    with _cache_lock:
+        payload = _cache.get("payload")
+
+        if (
+            payload is not None
+            and now < float(_cache.get("expires_at") or 0)
+        ):
+            return payload
+
+    payload = _fresh_payload()
+
+    with _cache_lock:
+        _cache["payload"] = payload
+        _cache["expires_at"] = (
+            time.monotonic() + CACHE_SECONDS
+        )
+
+    return payload

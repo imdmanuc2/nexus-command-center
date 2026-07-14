@@ -287,11 +287,56 @@ def _raw_asset_list(raw: Any) -> list[dict[str, Any]]:
     return []
 
 
+def asset_identity(asset: dict[str, Any]) -> str:
+    """Return the canonical identity for one managed object.
+
+    Multiple logical or physical objects may share an IP address. For
+    example, a mining host, an ASIC identity, and a pool can all be
+    associated with the same address. They must not be merged by IP alone.
+    """
+
+    ip = _string(asset.get("ip"))
+    asset_type = _string(
+        asset.get("assetType")
+        or asset.get("canonicalType")
+        or asset.get("type")
+        or "unknown"
+    ).lower()
+
+    asset_id = _string(asset.get("id"))
+    worker_id = _string(asset.get("workerId"))
+    pool_id = _string(asset.get("poolId"))
+    pool_host = _string(asset.get("poolHost"))
+    name = _display_name(asset, ip).lower()
+
+    if asset_type == "asic":
+        if worker_id:
+            return f"asic:{ip}:{worker_id.zfill(3)}"
+        if asset_id:
+            return f"asic-id:{asset_id}"
+        return f"asic:{ip}:{name}"
+
+    if asset_type == "pool":
+        return f"pool:{pool_id or name}:{pool_host or ip}"
+
+    if asset_type == "blockchain-node":
+        coin = _string(asset.get("coin")).upper() or "UNKNOWN"
+        return f"blockchain-node:{coin}:{ip}"
+
+    if asset_type == "server":
+        return f"server:{ip}"
+
+    if asset_id:
+        return f"{asset_type}:id:{asset_id}"
+
+    return f"{asset_type}:{ip}:{name}"
+
+
 def _merge_assets(
     first: dict[str, Any],
     second: dict[str, Any],
 ) -> dict[str, Any]:
-    """Merge duplicate records while preserving the better identity."""
+    """Merge records only when they represent the same asset identity."""
 
     if _asset_quality(second) > _asset_quality(first):
         preferred = dict(second)
@@ -347,12 +392,15 @@ def load_assets() -> list[dict[str, Any]]:
         except ValueError:
             continue
 
-        ip = asset["ip"]
+        identity = asset_identity(asset)
 
-        if ip in grouped:
-            grouped[ip] = _merge_assets(grouped[ip], asset)
+        if identity in grouped:
+            grouped[identity] = _merge_assets(
+                grouped[identity],
+                asset,
+            )
         else:
-            grouped[ip] = asset
+            grouped[identity] = asset
 
     return sorted(
         grouped.values(),
@@ -366,7 +414,7 @@ def load_assets() -> list[dict[str, Any]]:
 def save_assets(assets: list[dict[str, Any]]) -> None:
     ASSETS_DB.parent.mkdir(parents=True, exist_ok=True)
 
-    normalized_by_ip: dict[str, dict[str, Any]] = {}
+    normalized_by_identity: dict[str, dict[str, Any]] = {}
 
     for raw_asset in assets:
         try:
@@ -377,18 +425,18 @@ def save_assets(assets: list[dict[str, Any]]) -> None:
         except ValueError:
             continue
 
-        ip = asset["ip"]
+        identity = asset_identity(asset)
 
-        if ip in normalized_by_ip:
-            normalized_by_ip[ip] = _merge_assets(
-                normalized_by_ip[ip],
+        if identity in normalized_by_identity:
+            normalized_by_identity[identity] = _merge_assets(
+                normalized_by_identity[identity],
                 asset,
             )
         else:
-            normalized_by_ip[ip] = asset
+            normalized_by_identity[identity] = asset
 
     payload = sorted(
-        normalized_by_ip.values(),
+        normalized_by_identity.values(),
         key=lambda item: (
             item.get("assetType") or "unknown",
             item.get("friendlyName") or item.get("ip"),
@@ -423,17 +471,39 @@ def get_assets_list(
     return assets
 
 
-def get_asset(ip: str) -> dict[str, Any] | None:
+def get_assets_by_ip(ip: str) -> list[dict[str, Any]]:
     target = _string(ip)
 
-    return next(
-        (
+    return [
+        asset
+        for asset in get_assets_list()
+        if asset.get("ip") == target
+    ]
+
+
+def get_asset(
+    ip: str,
+    *,
+    asset_type: str | None = None,
+) -> dict[str, Any] | None:
+    candidates = get_assets_by_ip(ip)
+
+    if asset_type:
+        canonical = _string(asset_type).lower()
+
+        candidates = [
             asset
-            for asset in get_assets_list()
-            if asset.get("ip") == target
-        ),
-        None,
-    )
+            for asset in candidates
+            if _string(
+                asset.get("assetType")
+                or asset.get("type")
+            ).lower() == canonical
+        ]
+
+    if not candidates:
+        return None
+
+    return max(candidates, key=_asset_quality)
 
 
 def discovery_asset(system: dict[str, Any]) -> dict[str, Any]:
@@ -444,22 +514,27 @@ def discovery_asset(system: dict[str, Any]) -> dict[str, Any]:
 
     ip = _string(system.get("ip"))
 
-    existing = get_asset(ip)
+    requested_type = classify_asset(
+        object_type=system.get("type"),
+        asset_type=system.get("assetType"),
+        name=system.get("primaryRole") or ip,
+        primary_role=system.get("primaryRole"),
+        open_ports=system.get("openPorts"),
+        services=system.get("services"),
+        properties=system,
+    )
+
+    existing = get_asset(
+        ip,
+        asset_type=requested_type,
+    )
 
     if existing:
         return existing
 
     role = _string(system.get("primaryRole"))
 
-    asset_type = classify_asset(
-        object_type=system.get("type"),
-        asset_type=system.get("assetType"),
-        name=role or ip,
-        primary_role=role,
-        open_ports=system.get("openPorts"),
-        services=system.get("services"),
-        properties=system,
-    )
+    asset_type = requested_type
 
     name = role if role and "unknown" not in role.lower() else ip
 
@@ -488,8 +563,43 @@ def upsert_managed_asset(
         raise ValueError("Cannot add system without an IP address.")
 
     assets = get_assets_list()
+
+    requested_type = classify_asset(
+        object_type=system.get("type"),
+        asset_type=(
+            system.get("assetType")
+            or system.get("canonicalType")
+        ),
+        name=(
+            system.get("friendlyName")
+            or system.get("displayName")
+            or system.get("name")
+            or system.get("primaryRole")
+            or ip
+        ),
+        primary_role=system.get("primaryRole"),
+        open_ports=system.get("openPorts"),
+        services=system.get("services"),
+        properties=system,
+    )
+
+    incoming_worker_id = _string(system.get("workerId"))
+
     existing = next(
-        (asset for asset in assets if asset.get("ip") == ip),
+        (
+            asset
+            for asset in assets
+            if asset.get("ip") == ip
+            and _string(
+                asset.get("assetType")
+                or asset.get("type")
+            ).lower() == requested_type
+            and (
+                requested_type != "asic"
+                or not incoming_worker_id
+                or _string(asset.get("workerId")) == incoming_worker_id
+            )
+        ),
         None,
     )
 
@@ -541,10 +651,12 @@ def upsert_managed_asset(
 
     managed_asset = normalize_asset(incoming)
 
+    managed_identity = asset_identity(managed_asset)
+
     next_assets = [
         asset
         for asset in assets
-        if asset.get("ip") != ip
+        if asset_identity(asset) != managed_identity
     ]
 
     next_assets.append(managed_asset)

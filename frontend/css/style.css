@@ -4860,3 +4860,687 @@ body.command-tv .command-tv-exit {
     flex-direction: column;
   }
 }
+
+.digital-twin-recommendation.digital-twin-healthy {
+  border-color: rgba(52, 211, 153, 0.3);
+  background: rgba(6, 78, 59, 0.16);
+}
+
+.digital-twin-recommendation.digital-twin-healthy strong {
+  color: #34d399;
+}
+
+.mining-readiness-checks {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.mining-readiness-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(51, 65, 85, 0.75);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.mining-readiness-icon {
+  display: grid;
+  flex: 0 0 23px;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.mining-readiness-check > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mining-readiness-check strong {
+  color: #e2e8f0;
+  font-size: 11px;
+}
+
+.mining-readiness-check small {
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.mining-readiness-check.status-healthy {
+  border-color: rgba(52, 211, 153, 0.22);
+}
+
+.mining-readiness-check.status-healthy .mining-readiness-icon {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.mining-readiness-check.status-warning {
+  border-color: rgba(251, 191, 36, 0.25);
+}
+
+.mining-readiness-check.status-warning .mining-readiness-icon {
+  background: rgba(217, 119, 6, 0.15);
+  color: #fbbf24;
+}
+
+.mining-readiness-check.status-failed {
+  border-color: rgba(251, 113, 133, 0.3);
+}
+
+.mining-readiness-check.status-failed .mining-readiness-icon {
+  background: rgba(190, 24, 93, 0.15);
+  color: #fb7185;
+}
+
+.mining-readiness-check.status-unknown .mining-readiness-icon {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+}
+
+/* =========================================================
+   Live Infrastructure Canvas relationships
+   ========================================================= */
+
+.infra-relationship {
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    filter 160ms ease;
+}
+
+.infra-relationship.faded {
+  opacity: 0.1;
+}
+
+.infra-link {
+  fill: none;
+  stroke: #60a5fa;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 8 8;
+  opacity: 0.72;
+}
+
+.infra-link-glow {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 8;
+  opacity: 0;
+}
+
+.infra-relationship.active .infra-link,
+.infra-relationship.default-relationship.active .infra-link {
+  stroke-width: 2.5;
+  opacity: 1;
+}
+
+.infra-relationship.mining.active-mining .infra-link {
+  stroke: #34d399;
+  stroke-width: 2.6;
+  stroke-dasharray: none;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}
+
+.infra-relationship.mining.active-mining .infra-link-glow {
+  stroke: #10b981;
+  opacity: 0.28;
+  filter: url(#miningLineGlow);
+}
+
+.infra-relationship.mining.idle-mining .infra-link {
+  stroke: #64748b;
+  stroke-width: 1.8;
+  stroke-dasharray: 6 9;
+  opacity: 0.44;
+}
+
+.infra-edge-label rect {
+  fill: rgba(2, 8, 23, 0.94);
+  stroke: rgba(96, 165, 250, 0.5);
+  stroke-width: 1;
+}
+
+.infra-edge-label text {
+  fill: #bfdbfe;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.infra-relationship.mining.active-mining .infra-edge-label rect {
+  stroke: rgba(52, 211, 153, 0.72);
+  filter: url(#miningLineGlow);
+}
+
+.infra-relationship.mining.active-mining .infra-edge-label text {
+  fill: #6ee7b7;
+}
+
+.infra-relationship.mining.idle-mining .infra-edge-label rect {
+  stroke: rgba(100, 116, 139, 0.55);
+}
+
+.infra-relationship.mining.idle-mining .infra-edge-label text {
+  fill: #94a3b8;
+}
+
+.share-pulse {
+  fill: #60a5fa;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.share-pulse.active {
+  fill: #34d399;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}
+
+/*
+ * On dense graphs the edge labels are suppressed in JavaScript.
+ * Relationship paths remain visible and usable at scale.
+ */
+
+/* =========================================================
+   Live relationship telemetry
+   ========================================================= */
+
+.infra-relationship.telemetry-path-shares.telemetry-active .infra-link {
+  stroke: #34d399;
+  stroke-width: 2.7;
+  stroke-dasharray: none;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}
+
+.infra-relationship.telemetry-path-rpc.telemetry-active .infra-link {
+  stroke: #60a5fa;
+  stroke-width: 2.2;
+  stroke-dasharray: 8 7;
+  opacity: 0.82;
+}
+
+.infra-relationship.telemetry-path-health.telemetry-active .infra-link {
+  stroke: #facc15;
+  stroke-width: 1.8;
+  stroke-dasharray: 3 9;
+  opacity: 0.68;
+}
+
+.infra-relationship.telemetry-path-fault .infra-link {
+  stroke: #f43f5e;
+  stroke-width: 3;
+  stroke-dasharray: 5 5;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}
+
+.infra-relationship.telemetry-path-fault .infra-link-glow {
+  stroke: #e11d48;
+  opacity: 0.38;
+  filter: url(#miningLineGlow);
+}
+
+.telemetry-particle {
+  pointer-events: none;
+}
+
+.telemetry-particle.telemetry-shares {
+  fill: #34d399;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}
+
+.telemetry-particle.telemetry-rpc {
+  fill: #60a5fa;
+  opacity: 0.92;
+  filter: url(#miningLineGlow);
+}
+
+.telemetry-particle.telemetry-health {
+  fill: #facc15;
+  opacity: 0.82;
+}
+
+.telemetry-particle.telemetry-fault {
+  fill: #f43f5e;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}
+
+/*
+ * Keep animations comfortable for people who request reduced motion.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .telemetry-particle,
+  .share-pulse {
+    display: none;
+  }
+
+  .infra-link {
+    animation: none !important;
+  }
+}
+
+/* =========================================================
+   Enterprise Canvas modes and ASIC clusters
+   ========================================================= */
+
+.canvas-mode-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  background: rgba(2, 8, 23, 0.48);
+}
+
+.canvas-mode-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.canvas-mode-copy strong {
+  color: #dbeafe;
+  font-size: 11px;
+}
+
+.canvas-mode-copy span {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.canvas-mode-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.canvas-mode-buttons button {
+  padding: 7px 10px;
+  border: 1px solid rgba(96, 165, 250, 0.28);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.7);
+  color: #93c5fd;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.canvas-mode-buttons button:hover,
+.canvas-mode-buttons button.active {
+  border-color: #34d399;
+  background: rgba(6, 78, 59, 0.24);
+  color: #6ee7b7;
+}
+
+.infra-node.node-asic-cluster rect {
+  stroke: #a78bfa;
+  stroke-width: 2;
+  fill: rgba(30, 20, 60, 0.82);
+}
+
+.infra-node.node-asic-cluster circle {
+  fill: #a78bfa;
+  filter: drop-shadow(0 0 7px #a78bfa);
+}
+
+.infra-node.node-asic-cluster .infra-node-type {
+  fill: #c4b5fd;
+}
+
+.infra-node.node-asic-cluster .infra-node-metric {
+  fill: #34d399;
+}
+
+.infra-node.node-asic-cluster {
+  cursor: zoom-in;
+}
+
+@media (max-width: 760px) {
+  .canvas-mode-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .canvas-mode-buttons {
+    width: 100%;
+  }
+
+  .canvas-mode-buttons button {
+    flex: 1;
+  }
+}
+
+/* =========================================================
+   Infrastructure Explorer management actions
+   ========================================================= */
+
+.infrastructure-action-intro {
+  margin: -2px 0 13px;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.infrastructure-action-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.infrastructure-action {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px;
+  border: 1px solid rgba(51, 65, 85, 0.78);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.64);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.infrastructure-action:hover {
+  border-color: #38bdf8;
+  background: rgba(14, 116, 144, 0.12);
+  transform: translateY(-1px);
+}
+
+.infrastructure-action-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-radius: 9px;
+  background: rgba(30, 41, 59, 0.75);
+  color: #93c5fd;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.infrastructure-action-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.infrastructure-action-copy strong {
+  color: #e2e8f0;
+  font-size: 11px;
+}
+
+.infrastructure-action-copy small {
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.infrastructure-action-arrow {
+  color: #475569;
+  font-size: 21px;
+}
+
+.infrastructure-action.action-tone-healthy:hover {
+  border-color: #34d399;
+  background: rgba(6, 78, 59, 0.16);
+}
+
+.infrastructure-action.action-tone-healthy
+.infrastructure-action-icon {
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #34d399;
+}
+
+.infrastructure-action.action-tone-warning:hover {
+  border-color: #fbbf24;
+  background: rgba(120, 53, 15, 0.14);
+}
+
+.infrastructure-action.action-tone-warning
+.infrastructure-action-icon {
+  border-color: rgba(251, 191, 36, 0.35);
+  color: #fbbf24;
+}
+
+.infrastructure-action.action-tone-danger:hover {
+  border-color: #fb7185;
+  background: rgba(136, 19, 55, 0.14);
+}
+
+.infrastructure-action.action-tone-danger
+.infrastructure-action-icon {
+  border-color: rgba(251, 113, 133, 0.35);
+  color: #fb7185;
+}
+
+.infrastructure-action-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(96, 165, 250, 0.15);
+  border-radius: 9px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.infrastructure-action-note span {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: rgba(14, 116, 144, 0.17);
+  color: #38bdf8;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+/* Operational playbook preview */
+
+.action-preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1190;
+  background: rgba(2, 6, 23, 0.56);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.action-preview-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.action-preview-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 1200;
+  width: min(520px, 94vw);
+  height: 100vh;
+  border-left: 1px solid rgba(96, 165, 250, 0.25);
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(14, 116, 144, 0.14),
+      transparent 34%
+    ),
+    #07101f;
+  box-shadow: -26px 0 70px rgba(0, 0, 0, 0.45);
+  transform: translateX(102%);
+  transition: transform 220ms ease;
+}
+
+.action-preview-panel.open {
+  transform: translateX(0);
+}
+
+.action-preview-toolbar {
+  display: flex;
+  height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(96, 165, 250, 0.17);
+}
+
+.action-preview-toolbar strong {
+  color: #bfdbfe;
+  font-size: 12px;
+}
+
+.action-preview-content {
+  height: calc(100vh - 58px);
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.action-preview-header h2 {
+  margin: 6px 0;
+  color: #f8fafc;
+  font-size: 25px;
+}
+
+.action-preview-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
+}
+
+.action-preview-summary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 15px;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.action-preview-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.action-preview-summary strong {
+  color: #e2e8f0;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.action-preview-summary small {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.action-preview-plan,
+.action-preview-safety {
+  margin-top: 18px;
+  padding: 15px;
+  border: 1px solid rgba(51, 65, 85, 0.72);
+  border-radius: 12px;
+  background: rgba(2, 6, 23, 0.35);
+}
+
+.action-preview-plan h3,
+.action-preview-safety h3 {
+  margin: 0 0 13px;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.action-preview-plan ol {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.action-preview-plan li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.action-preview-plan li span {
+  display: grid;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(14, 116, 144, 0.17);
+  color: #38bdf8;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.action-preview-plan li strong {
+  color: #cbd5e1;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.action-preview-safety {
+  display: grid;
+  gap: 9px;
+}
+
+.action-preview-safety h3 {
+  margin-bottom: 4px;
+}
+
+.action-preview-safety > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+
+.action-preview-safety > div span {
+  color: #34d399;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.action-preview-safety p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.action-preview-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  margin-top: 20px;
+}

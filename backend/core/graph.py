@@ -209,25 +209,29 @@ def build_graph():
             or ip
         )
 
-        host_type = (
-            managed_asset.get("assetType")
-            or managed_asset.get("type")
-            if managed_asset
-            else "host"
-        )
-
+        # Host nodes exist only to support internal graph relationships.
+        # They must never impersonate the managed ASIC, blockchain node,
+        # or other asset using the same IP address.
         add_node(nodes, {
             "id": host_node_id(ip),
-            "type": host_type,
+            "type": "host",
             "label": label,
             "status": (
                 system.get("health", {}).get("level")
                 or "online"
             ),
-            "properties": _host_properties(
-                system,
-                managed_asset,
-            ),
+            "properties": {
+                **_host_properties(
+                    system,
+                    managed_asset,
+                ),
+                "internalGraphNode": True,
+                "managedAssetId": (
+                    managed_asset.get("id")
+                    if managed_asset
+                    else None
+                ),
+            },
         })
 
     # Logical mining pool nodes.
@@ -258,26 +262,117 @@ def build_graph():
             )
 
     # Managed infrastructure assets.
+    #
+    # Live MiningCore worker telemetry is authoritative for current pool
+    # routing. Saved poolId/poolHost values are only a fallback when a miner
+    # is not currently visible in the worker API.
+    def worker_suffix(value):
+        raw = str(value or "").strip()
+
+        if not raw:
+            return ""
+
+        return raw.rsplit(".", 1)[-1].lower().lstrip("0") or "0"
+
+    def live_worker_for_asset(asset):
+        asset_worker = worker_suffix(asset.get("workerId"))
+        asset_name = str(
+            asset.get("friendlyName")
+            or asset.get("name")
+            or ""
+        ).strip().lower()
+
+        asset_ip = str(asset.get("ip") or "").strip()
+
+        for worker in workers:
+            worker_name = worker_suffix(
+                worker.get("workerName")
+                or worker.get("name")
+                or worker.get("workerId")
+            )
+
+            worker_asset_name = str(
+                worker.get("assetName")
+                or worker.get("displayName")
+                or ""
+            ).strip().lower()
+
+            worker_asset_ip = str(
+                worker.get("assetIp")
+                or ""
+            ).strip()
+
+            if asset_worker and worker_name == asset_worker:
+                return worker
+
+            if asset_name and worker_asset_name == asset_name:
+                return worker
+
+            if asset_ip and worker_asset_ip == asset_ip:
+                return worker
+
+        return None
+
     for asset in assets:
         aid = asset.get("id")
         ip = str(asset.get("ip") or "")
+        live_worker = live_worker_for_asset(asset)
+
+        runtime_properties = {
+            **asset,
+            "managed": True,
+            "lifecycleStatus": "managed",
+        }
+
+        if live_worker:
+            runtime_properties.update({
+                "liveWorkerId": (
+                    live_worker.get("workerName")
+                    or live_worker.get("name")
+                    or live_worker.get("workerId")
+                ),
+                "livePoolId": live_worker.get("poolId"),
+                "livePoolHost": (
+                    live_worker.get("poolHost")
+                    or live_worker.get("host")
+                ),
+                "liveHashrate": float(
+                    live_worker.get("hashrate")
+                    or live_worker.get("hashRate")
+                    or 0
+                ),
+                "liveSharesPerSecond": float(
+                    live_worker.get("sharesPerSecond")
+                    or live_worker.get("shares_per_second")
+                    or 0
+                ),
+                "liveMining": float(
+                    live_worker.get("hashrate")
+                    or live_worker.get("hashRate")
+                    or 0
+                ) > 0,
+            })
 
         add_node(nodes, {
             "id": aid,
-            "type": asset.get("assetType")
-            or asset.get("type")
-            or "unknown",
+            "type": (
+                asset.get("assetType")
+                or asset.get("type")
+                or "unknown"
+            ),
             "label": (
                 asset.get("friendlyName")
                 or asset.get("name")
                 or ip
             ),
-            "status": "online",
-            "properties": {
-                **asset,
-                "managed": True,
-                "lifecycleStatus": "managed",
-            },
+            "status": (
+                "online"
+                if live_worker and runtime_properties["liveMining"]
+                else "idle"
+                if asset.get("assetType") == "asic"
+                else "online"
+            ),
+            "properties": runtime_properties,
         })
 
         if ip:
@@ -288,13 +383,65 @@ def build_graph():
                 "HAS_NETWORK_IDENTITY",
             )
 
-        if asset.get("poolId") and asset.get("poolHost"):
+        # Current MiningCore worker routing wins.
+        effective_pool_id = (
+            live_worker.get("poolId")
+            if live_worker
+            else asset.get("poolId")
+        )
+
+        effective_pool_host = (
+            (
+                live_worker.get("poolHost")
+                or live_worker.get("host")
+            )
+            if live_worker
+            else asset.get("poolHost")
+        )
+
+        if effective_pool_id and effective_pool_host:
+            requested_pool_id = str(
+                effective_pool_id or ""
+            ).lower()
+
+            requested_pool_host = str(
+                effective_pool_host or ""
+            )
+
+            def pool_matches_live_worker(pool):
+                pool_id = str(
+                    pool.get("id") or ""
+                ).lower()
+
+                pool_host = str(
+                    pool.get("host") or ""
+                )
+
+                canonical_graph_id = pool_node_id(pool).lower()
+
+                # MiningCore discovery may return IDs such as:
+                # pool-192-168-1-156-4000-bch
+                canonical_worker_suffix = (
+                    requested_pool_id.rsplit("-", 1)[-1]
+                )
+
+                id_matches = (
+                    requested_pool_id == pool_id
+                    or requested_pool_id == canonical_graph_id
+                    or requested_pool_id.endswith(f"-{pool_id}")
+                    or canonical_worker_suffix == pool_id
+                )
+
+                return (
+                    id_matches
+                    and pool_host == requested_pool_host
+                )
+
             matching_pool = next(
                 (
                     pool
                     for pool in pools
-                    if pool.get("id") == asset.get("poolId")
-                    and pool.get("host") == asset.get("poolHost")
+                    if pool_matches_live_worker(pool)
                 ),
                 None,
             )

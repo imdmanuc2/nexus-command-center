@@ -407,6 +407,7 @@ function normalizedInventoryNodes() {
      */
     if (
       type === "worker" ||
+      type === "coin-node-rpc" ||
       props.internalGraphNode === true
     ) {
       return;
@@ -552,49 +553,897 @@ function isManagedInfrastructureNode(node) {
   return false;
 }
 
-function layoutNodes() {
-  /*
-   * The canvas and inventory must use the exact same normalized asset list.
-   * This prevents Host + ASIC + Worker copies of one physical miner.
-   */
-  const nodes = normalizedInventoryNodes()
+
+let canvasViewMode = localStorage.getItem(
+  "nexusCanvasViewMode"
+) || "auto";
+
+let expandedPoolClusters = new Set();
+
+function canvasManagedNodes() {
+  return normalizedInventoryNodes()
     .filter(node =>
       canvasAssetCategories.has(inventoryCategory(node)) &&
       isManagedInfrastructureNode(node)
     )
     .map(node => ({ ...node }));
+}
+
+function canvasAsicNodes(nodes = canvasManagedNodes()) {
+  return nodes.filter(node =>
+    inventoryCategory(node) === "asic"
+  );
+}
+
+function resolvedCanvasViewMode(nodes = canvasManagedNodes()) {
+  if (canvasViewMode !== "auto") {
+    return canvasViewMode;
+  }
+
+  const asicCount = canvasAsicNodes(nodes).length;
+
+  /*
+   * Small fleets retain the full engineering view.
+   * Large fleets automatically collapse miners into pool clusters.
+   */
+  return asicCount > 50
+    ? "overview"
+    : "engineering";
+}
+
+function canvasPoolForAsic(asicNode) {
+  const directEdge = graph.edges.find(edge =>
+    String(edge.type || "").toUpperCase() === "MINES_ON" &&
+    edge.source === asicNode.id
+  );
+
+  if (directEdge) {
+    return graph.nodes.find(node =>
+      node.id === directEdge.target
+    ) || null;
+  }
+
+  const props = asicNode?.properties || {};
+  const poolId = String(
+    props.livePoolId ||
+    props.poolId ||
+    ""
+  ).toLowerCase();
+
+  const poolHost = String(
+    props.livePoolHost ||
+    props.poolHost ||
+    ""
+  );
+
+  return graph.nodes.find(node => {
+    if (inventoryCategory(node) !== "pool") {
+      return false;
+    }
+
+    const nodeProps = node.properties || {};
+
+    const nodePoolId = String(
+      nodeProps.id ||
+      nodeProps.poolId ||
+      ""
+    ).toLowerCase();
+
+    const nodeHost = String(
+      nodeProps.host ||
+      nodeProps.poolHost ||
+      ""
+    );
+
+    const poolSuffix = poolId.split("-").pop();
+
+    const idMatches = (
+      nodePoolId === poolId ||
+      poolId.endsWith(`-${nodePoolId}`) ||
+      poolSuffix === nodePoolId
+    );
+
+    const hostMatches = (
+      !poolHost ||
+      !nodeHost ||
+      poolHost === nodeHost
+    );
+
+    return idMatches && hostMatches;
+  }) || null;
+}
+
+function canvasClusterId(poolNode) {
+  return `asic-cluster:${poolNode.id}`;
+}
+
+function canvasClusterMembers(poolNode, asicNodes) {
+  return asicNodes.filter(asic => {
+    const pool = canvasPoolForAsic(asic);
+    return pool?.id === poolNode.id;
+  });
+}
+
+function canvasBuildPoolCluster(poolNode, members) {
+  const totalHashrate = members.reduce(
+    (sum, member) =>
+      sum + Number(liveHashrateForNode(member) || 0),
+    0
+  );
+
+  const miningCount = members.filter(member =>
+    liveHashrateForNode(member) > 0
+  ).length;
+
+  const offlineCount = members.filter(member => {
+    const status = String(
+      liveNodeStatus(member) || ""
+    ).toLowerCase();
+
+    return [
+      "offline",
+      "failed",
+      "fault",
+      "critical"
+    ].includes(status);
+  }).length;
+
+  const warningCount = members.filter(member => {
+    const status = String(
+      liveNodeStatus(member) || ""
+    ).toLowerCase();
+
+    return [
+      "warning",
+      "degraded"
+    ].includes(status);
+  }).length;
+
+  return {
+    id: canvasClusterId(poolNode),
+    type: "asic-cluster",
+    label: `${members.length} ASICs`,
+    status:
+      offlineCount > 0
+        ? "warning"
+        : miningCount > 0
+          ? "mining"
+          : "idle",
+    properties: {
+      syntheticCluster: true,
+      poolNodeId: poolNode.id,
+      poolName: poolNode.label,
+      memberIds: members.map(member => member.id),
+      minerCount: members.length,
+      miningCount,
+      warningCount,
+      offlineCount,
+      totalHashrate,
+      assetType: "asic-cluster",
+      managed: true,
+      lifecycleStatus: "managed"
+    }
+  };
+}
+
+function canvasBuildModel() {
+  const allNodes = canvasManagedNodes();
+  const mode = resolvedCanvasViewMode(allNodes);
+
+  if (mode === "engineering") {
+    return {
+      mode,
+      nodes: allNodes,
+      edges: graph.edges.map(edge => ({ ...edge }))
+    };
+  }
+
+  const asicNodes = canvasAsicNodes(allNodes);
+
+  const visibleNodes = allNodes.filter(node =>
+    inventoryCategory(node) !== "asic"
+  );
+
+  const syntheticEdges = [];
+
+  visibleNodes
+    .filter(node => inventoryCategory(node) === "pool")
+    .forEach(poolNode => {
+      const members = canvasClusterMembers(
+        poolNode,
+        asicNodes
+      );
+
+      if (!members.length) {
+        return;
+      }
+
+      if (expandedPoolClusters.has(poolNode.id)) {
+        visibleNodes.push(...members);
+
+        members.forEach(member => {
+          syntheticEdges.push({
+            source: member.id,
+            target: poolNode.id,
+            type: "MINES_ON",
+            label: "Mines On"
+          });
+        });
+
+        return;
+      }
+
+      const cluster = canvasBuildPoolCluster(
+        poolNode,
+        members
+      );
+
+      visibleNodes.push(cluster);
+
+      syntheticEdges.push({
+        source: cluster.id,
+        target: poolNode.id,
+        type: "MINES_ON",
+        label: "Mines On"
+      });
+    });
+
+  /*
+   * Preserve relationships between visible infrastructure objects,
+   * but remove individual worker/miner edges hidden inside clusters.
+   */
+  const visibleIds = new Set(
+    visibleNodes.map(node => node.id)
+  );
+
+  const retainedEdges = graph.edges.filter(edge =>
+    String(edge.type || "").toUpperCase() !== "MINES_ON" &&
+    visibleIds.has(edge.source) &&
+    visibleIds.has(edge.target)
+  );
+
+  return {
+    mode,
+    nodes: visibleNodes,
+    edges: [
+      ...retainedEdges,
+      ...syntheticEdges
+    ]
+  };
+}
+
+function canvasLayerForNode(node) {
+  if (node.type === "asic-cluster") return 5;
+
+  const category = inventoryCategory(node);
+
+  if (category === "blockchain") return 1;
+  if (category === "server") return 2;
+  if (category === "pool") return 3;
+  if (category === "asic") return 5;
+
+  return 6;
+}
+
+function canvasDisplayName(node) {
+  if (node.type === "asic-cluster") {
+    const props = node.properties || {};
+    return `${props.minerCount || 0} ASICs`;
+  }
+
+  return inventoryDisplayName(node);
+}
+
+function canvasDisplayType(node) {
+  if (node.type === "asic-cluster") {
+    return "MINER CLUSTER";
+  }
+
+  return inventoryTypeLabel(node);
+}
+
+function canvasDisplayMetric(node) {
+  if (node.type === "asic-cluster") {
+    const props = node.properties || {};
+    const hashrate = Number(
+      props.totalHashrate || 0
+    );
+
+    return hashrate > 0
+      ? formatHashrate(hashrate)
+      : `${props.minerCount || 0} MINERS`;
+  }
+
+  const hashrate = liveHashrateForNode(node);
+  const status = liveNodeStatus(node);
+
+  return hashrate > 0
+    ? formatHashrate(hashrate)
+    : String(status || "unknown").toUpperCase();
+}
+
+function renderCanvasModeControls() {
+  const canvas = byId("graphCanvas");
+
+  if (!canvas || byId("canvasModeControls")) {
+    return;
+  }
+
+  const controls = document.createElement("div");
+  controls.id = "canvasModeControls";
+  controls.className = "canvas-mode-controls";
+
+  controls.innerHTML = `
+    <div class="canvas-mode-copy">
+      <strong>Canvas Detail</strong>
+      <span id="canvasModeStatus"></span>
+    </div>
+
+    <div class="canvas-mode-buttons">
+      <button
+        type="button"
+        data-canvas-mode="auto"
+      >
+        Auto
+      </button>
+
+      <button
+        type="button"
+        data-canvas-mode="overview"
+      >
+        Overview
+      </button>
+
+      <button
+        type="button"
+        data-canvas-mode="engineering"
+      >
+        Engineering
+      </button>
+    </div>
+  `;
+
+  canvas.parentElement?.insertBefore(
+    controls,
+    canvas
+  );
+
+  controls
+    .querySelectorAll("[data-canvas-mode]")
+    .forEach(button => {
+      button.addEventListener("click", () => {
+        canvasViewMode =
+          button.dataset.canvasMode || "auto";
+
+        localStorage.setItem(
+          "nexusCanvasViewMode",
+          canvasViewMode
+        );
+
+        expandedPoolClusters = new Set();
+
+        renderCanvas();
+      });
+    });
+}
+
+function updateCanvasModeControls(
+  mode,
+  nodes
+) {
+  renderCanvasModeControls();
+
+  document
+    .querySelectorAll("[data-canvas-mode]")
+    .forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.canvasMode === canvasViewMode
+      );
+    });
+
+  const status = byId("canvasModeStatus");
+
+  if (!status) return;
+
+  const asicCount = canvasAsicNodes(
+    canvasManagedNodes()
+  ).length;
+
+  status.textContent = (
+    mode === "overview"
+      ? `${asicCount} miners grouped by pool`
+      : `${asicCount} individual miners shown`
+  );
+}
+
+function layoutNodes(inputNodes = null) {
+  const nodes = (
+    inputNodes ||
+    canvasBuildModel().nodes
+  ).map(node => ({ ...node }));
 
   const groups = {};
 
-  nodes.forEach(n => {
-    const layer = typeOrder[n.type] || 6;
+  nodes.forEach(node => {
+    const layer = canvasLayerForNode(node);
+
     groups[layer] ||= [];
-    groups[layer].push(n);
+    groups[layer].push(node);
   });
 
   Object.entries(groups).forEach(([layer, items]) => {
-    items.forEach((n, i) => {
-      n.x = 90 + (Number(layer) - 1) * 250;
-      n.y = 90 + i * 130;
-    });
+    items
+      .sort((a, b) =>
+        String(a.label || "").localeCompare(
+          String(b.label || "")
+        )
+      )
+      .forEach((node, index) => {
+        node.x =
+          90 +
+          (Number(layer) - 1) * 250;
+
+        node.y =
+          90 +
+          index * 130;
+      });
   });
 
   return nodes;
 }
 
-function renderCanvas() {
-  const nodes = layoutNodes().map(n => {
-    if (manualPositions[n.id]) {
-      n.x = manualPositions[n.id].x;
-      n.y = manualPositions[n.id].y;
-    }
-    return n;
-  });
-  const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
+function canvasNodeCenter(node) {
+  return {
+    x: Number(node.x || 0) + 90,
+    y: Number(node.y || 0) + 42
+  };
+}
 
-  const edges = graph.edges
-    .map(e => ({ ...e, sourceNode: nodeMap[e.source], targetNode: nodeMap[e.target] }))
-    .filter(e => e.sourceNode && e.targetNode);
+function canvasNodeBoundaryPoint(fromNode, towardNode) {
+  const from = canvasNodeCenter(fromNode);
+  const toward = canvasNodeCenter(towardNode);
+
+  const dx = toward.x - from.x;
+  const dy = toward.y - from.y;
+
+  if (!dx && !dy) {
+    return from;
+  }
+
+  /*
+   * Canvas cards are 180 x 84. Intersect the line with the card
+   * boundary so relationship arrows do not disappear underneath it.
+   */
+  const halfWidth = 90;
+  const halfHeight = 42;
+
+  const scaleX = dx ? halfWidth / Math.abs(dx) : Infinity;
+  const scaleY = dy ? halfHeight / Math.abs(dy) : Infinity;
+  const scale = Math.min(scaleX, scaleY);
+
+  return {
+    x: from.x + dx * scale,
+    y: from.y + dy * scale
+  };
+}
+
+function canvasRelationshipGeometry(edge) {
+  const start = canvasNodeBoundaryPoint(
+    edge.sourceNode,
+    edge.targetNode
+  );
+
+  const end = canvasNodeBoundaryPoint(
+    edge.targetNode,
+    edge.sourceNode
+  );
+
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+
+  /*
+   * A slight curve keeps parallel and crossing connections readable.
+   */
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  const curvature = Math.min(50, Math.max(16, distance * 0.09));
+
+  const normalX = distance ? -dy / distance : 0;
+  const normalY = distance ? dx / distance : 0;
+
+  const controlX =
+    (start.x + end.x) / 2 + normalX * curvature;
+
+  const controlY =
+    (start.y + end.y) / 2 + normalY * curvature;
+
+  return {
+    start,
+    end,
+    control: {
+      x: controlX,
+      y: controlY
+    },
+    midpoint: {
+      x:
+        0.25 * start.x +
+        0.5 * controlX +
+        0.25 * end.x,
+      y:
+        0.25 * start.y +
+        0.5 * controlY +
+        0.25 * end.y
+    },
+    path:
+      `M ${start.x} ${start.y} ` +
+      `Q ${controlX} ${controlY} ${end.x} ${end.y}`
+  };
+}
+
+function canvasRelationshipType(edge) {
+  return String(edge?.type || "")
+    .trim()
+    .toUpperCase();
+}
+
+function canvasMiningRelationship(edge) {
+  return canvasRelationshipType(edge) === "MINES_ON";
+}
+
+function canvasRelationshipActive(edge) {
+  if (canvasMiningRelationship(edge)) {
+    return liveHashrateForNode(edge.sourceNode) > 0;
+  }
+
+  return highlightedEdgeKeys.has(edgeKey(edge));
+}
+
+function canvasRelationshipLabel(edge) {
+  const type = canvasRelationshipType(edge);
+
+  if (type === "MINES_ON") {
+    return "MINES ON";
+  }
+
+  return String(
+    edge.label ||
+    type.replaceAll("_", " ")
+  ).toUpperCase();
+}
+
+
+function canvasRelationshipTelemetryKind(edge) {
+  const type = canvasRelationshipType(edge);
+
+  if (
+    type === "MINES_ON" ||
+    type === "RUNS_WORKER"
+  ) {
+    return "shares";
+  }
+
+  if (
+    type === "USES_RPC" ||
+    type === "HOSTS" ||
+    type === "HOSTED_ON"
+  ) {
+    return "rpc";
+  }
+
+  if (
+    type === "HAS_NETWORK_IDENTITY" ||
+    type.includes("HEALTH")
+  ) {
+    return "health";
+  }
+
+  return "relationship";
+}
+
+function canvasRelationshipFault(edge) {
+  const sourceStatus = String(
+    liveNodeStatus(edge.sourceNode) || ""
+  ).toLowerCase();
+
+  const targetStatus = String(
+    liveNodeStatus(edge.targetNode) || ""
+  ).toLowerCase();
+
+  const badStates = new Set([
+    "offline",
+    "failed",
+    "fault",
+    "error",
+    "critical",
+    "warning"
+  ]);
+
+  return (
+    badStates.has(sourceStatus) ||
+    badStates.has(targetStatus)
+  );
+}
+
+function canvasWorkerForRelationship(edge) {
+  if (!canvasMiningRelationship(edge)) {
+    return null;
+  }
+
+  const node = edge.sourceNode;
+  const props = node?.properties || {};
+  const ip = inventoryIp(node);
+
+  return liveWorkers.find(worker => {
+    const workerId = shortWorkerId(
+      worker.workerName ||
+      worker.name ||
+      worker.workerId
+    );
+
+    const assetWorkerId = shortWorkerId(
+      props.liveWorkerId ||
+      props.workerId ||
+      props.workerName
+    );
+
+    return (
+      worker.assetName === node.label ||
+      worker.displayName === node.label ||
+      worker.assetIp === ip ||
+      (
+        workerId &&
+        assetWorkerId &&
+        workerId === assetWorkerId
+      )
+    );
+  }) || null;
+}
+
+function canvasRelationshipActivity(edge) {
+  const kind = canvasRelationshipTelemetryKind(edge);
+  const fault = canvasRelationshipFault(edge);
+
+  if (fault) {
+    return {
+      kind: "fault",
+      active: true,
+      rate: 1,
+      duration: 1.25,
+      particles: 1
+    };
+  }
+
+  if (kind === "shares") {
+    const worker = canvasWorkerForRelationship(edge);
+
+    const sharesPerSecond = Number(
+      worker?.sharesPerSecond ||
+      edge.sourceNode?.properties?.liveSharesPerSecond ||
+      0
+    );
+
+    const hashrate = liveHashrateForNode(edge.sourceNode);
+    const active = hashrate > 0;
+
+    /*
+     * Faster share flow produces faster particles, but clamp it so
+     * low-difficulty miners do not turn the browser into a laser show.
+     */
+    const normalizedRate = Math.max(
+      0,
+      Math.min(1, sharesPerSecond / 0.25)
+    );
+
+    return {
+      kind,
+      active,
+      rate: sharesPerSecond,
+      duration: active
+        ? 2.8 - normalizedRate * 1.55
+        : 0,
+      particles: active && sharesPerSecond > 0.1 ? 2 : 1
+    };
+  }
+
+  if (kind === "rpc") {
+    const active =
+      String(edge.sourceNode?.status || "").toLowerCase() !== "offline" &&
+      String(edge.targetNode?.status || "").toLowerCase() !== "offline";
+
+    return {
+      kind,
+      active,
+      rate: active ? 1 : 0,
+      duration: 3.2,
+      particles: 1
+    };
+  }
+
+  if (kind === "health") {
+    return {
+      kind,
+      active: true,
+      rate: 1,
+      duration: 4.8,
+      particles: 1
+    };
+  }
+
+  return {
+    kind,
+    active: false,
+    rate: 0,
+    duration: 0,
+    particles: 0
+  };
+}
+
+function canvasAnimationPolicy(nodes, edges) {
+  const assetCount = nodes.length;
+  const relationshipCount = edges.length;
+
+  /*
+   * Engineering view:
+   * Animate every useful relationship.
+   */
+  if (assetCount <= 75 && relationshipCount <= 120) {
+    return {
+      mode: "full",
+      animateShares: true,
+      animateRpc: true,
+      animateHealth: true,
+      showLabels: relationshipCount <= 24,
+      maxAnimatedEdges: 120
+    };
+  }
+
+  /*
+   * Medium fleet:
+   * Prioritize live mining and fault traffic.
+   */
+  if (assetCount <= 300 && relationshipCount <= 600) {
+    return {
+      mode: "reduced",
+      animateShares: true,
+      animateRpc: false,
+      animateHealth: false,
+      showLabels: false,
+      maxAnimatedEdges: 160
+    };
+  }
+
+  /*
+   * Large fleet:
+   * Animate only selected paths and faults. Clustering will become the
+   * default view in the next scalability phase.
+   */
+  return {
+    mode: "enterprise",
+    animateShares: false,
+    animateRpc: false,
+    animateHealth: false,
+    showLabels: false,
+    maxAnimatedEdges: 40
+  };
+}
+
+function canvasShouldAnimateRelationship(
+  edge,
+  activity,
+  policy,
+  index
+) {
+  if (document.hidden) {
+    return false;
+  }
+
+  if (!activity.active) {
+    return false;
+  }
+
+  const selectedPath =
+    selectedNodeId &&
+    (
+      edge.source === selectedNodeId ||
+      edge.target === selectedNodeId ||
+      highlightedEdgeKeys.has(edgeKey(edge))
+    );
+
+  if (activity.kind === "fault") {
+    return index < policy.maxAnimatedEdges;
+  }
+
+  if (policy.mode === "enterprise") {
+    return Boolean(selectedPath);
+  }
+
+  if (
+    activity.kind === "shares" &&
+    policy.animateShares
+  ) {
+    return index < policy.maxAnimatedEdges;
+  }
+
+  if (
+    activity.kind === "rpc" &&
+    policy.animateRpc
+  ) {
+    return index < policy.maxAnimatedEdges;
+  }
+
+  if (
+    activity.kind === "health" &&
+    policy.animateHealth
+  ) {
+    return index < policy.maxAnimatedEdges;
+  }
+
+  return false;
+}
+
+function canvasPulseMarkup(
+  geometry,
+  activity,
+  animationDelay = 0
+) {
+  const duration = Number(activity.duration || 2.2);
+
+  return `
+    <circle
+      class="
+        telemetry-particle
+        telemetry-${activity.kind}
+      "
+      r="${activity.kind === "fault" ? 5 : 4}"
+    >
+      <animateMotion
+        dur="${duration}s"
+        begin="${animationDelay}s"
+        repeatCount="indefinite"
+        path="${geometry.path}"
+      ></animateMotion>
+    </circle>
+  `;
+}
+
+function renderCanvas() {
+  const canvasModel = canvasBuildModel();
+
+  const nodes = layoutNodes(
+    canvasModel.nodes
+  ).map(node => {
+    if (manualPositions[node.id]) {
+      node.x = manualPositions[node.id].x;
+      node.y = manualPositions[node.id].y;
+    }
+
+    return node;
+  });
+
+  updateCanvasModeControls(
+    canvasModel.mode,
+    nodes
+  );
+
+  const nodeMap = Object.fromEntries(
+    nodes.map(node => [node.id, node])
+  );
+
+  const edges = canvasModel.edges
+    .map(edge => ({
+      ...edge,
+      sourceNode: nodeMap[edge.source],
+      targetNode: nodeMap[edge.target]
+    }))
+    .filter(edge =>
+      edge.sourceNode &&
+      edge.targetNode
+    );
+
+  const animationPolicy = canvasAnimationPolicy(
+    nodes,
+    edges
+  );
 
   const maxX = Math.max(...nodes.map(n => n.x), 900) + 180;
   const maxY = Math.max(...nodes.map(n => n.y), 460) + 100;
@@ -602,26 +1451,220 @@ function renderCanvas() {
   byId("graphCanvas").innerHTML = `
     <svg viewBox="0 0 ${maxX} ${maxY}" class="infra-svg" id="infraSvgCanvas">
       <defs>
-        <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L9,3 z" fill="#60a5fa"></path>
+        <filter
+          id="miningLineGlow"
+          x="-40%"
+          y="-40%"
+          width="180%"
+          height="180%"
+        >
+          <feGaussianBlur stdDeviation="3.2" result="blur"></feGaussianBlur>
+          <feMerge>
+            <feMergeNode in="blur"></feMergeNode>
+            <feMergeNode in="SourceGraphic"></feMergeNode>
+          </feMerge>
+        </filter>
+
+        <marker
+          id="arrowDefault"
+          markerWidth="11"
+          markerHeight="11"
+          refX="9"
+          refY="4"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path
+            d="M0,0 L0,8 L10,4 z"
+            fill="#60a5fa"
+          ></path>
+        </marker>
+
+        <marker
+          id="arrowMining"
+          markerWidth="12"
+          markerHeight="12"
+          refX="10"
+          refY="4"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path
+            d="M0,0 L0,8 L10,4 z"
+            fill="#34d399"
+          ></path>
+        </marker>
+
+        <marker
+          id="arrowMiningIdle"
+          markerWidth="11"
+          markerHeight="11"
+          refX="9"
+          refY="4"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path
+            d="M0,0 L0,8 L10,4 z"
+            fill="#64748b"
+          ></path>
+        </marker>
+
+        <marker
+          id="arrowHealth"
+          markerWidth="11"
+          markerHeight="11"
+          refX="9"
+          refY="4"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path
+            d="M0,0 L0,8 L10,4 z"
+            fill="#facc15"
+          ></path>
+        </marker>
+
+        <marker
+          id="arrowFault"
+          markerWidth="12"
+          markerHeight="12"
+          refX="10"
+          refY="4"
+          orient="auto"
+          markerUnits="strokeWidth"
+        >
+          <path
+            d="M0,0 L0,8 L10,4 z"
+            fill="#f43f5e"
+          ></path>
         </marker>
       </defs>
 
-      ${edges.map(e => {
-        const active = highlightedEdgeKeys.has(edgeKey(e));
-        const faded = selectedNodeId && !active;
+      ${edges.map((edge, edgeIndex) => {
+        const geometry = canvasRelationshipGeometry(edge);
+        const mining = canvasMiningRelationship(edge);
+        const activity = canvasRelationshipActivity(edge);
+
+        const highlighted =
+          highlightedEdgeKeys.has(edgeKey(edge));
+
+        const faded =
+          selectedNodeId &&
+          !highlighted &&
+          selectedNodeId !== edge.source &&
+          selectedNodeId !== edge.target;
+
+        const shouldAnimate =
+          canvasShouldAnimateRelationship(
+            edge,
+            activity,
+            animationPolicy,
+            edgeIndex
+          );
+
+        const relationshipClass = [
+          mining ? "mining" : "default-relationship",
+          `telemetry-path-${activity.kind}`,
+          activity.active ? "telemetry-active" : "telemetry-idle",
+          highlighted ? "active" : "",
+          faded ? "faded" : ""
+        ].filter(Boolean).join(" ");
+
+        const marker = activity.kind === "fault"
+          ? "url(#arrowFault)"
+          : activity.kind === "shares" && activity.active
+            ? "url(#arrowMining)"
+            : activity.kind === "shares"
+              ? "url(#arrowMiningIdle)"
+              : activity.kind === "health"
+                ? "url(#arrowHealth)"
+                : "url(#arrowDefault)";
+
+        const showLabel =
+          animationPolicy.showLabels &&
+          (
+            mining ||
+            highlighted
+          );
+
+        const particleCount =
+          shouldAnimate
+            ? Math.max(
+                1,
+                Number(activity.particles || 1)
+              )
+            : 0;
+
         return `
-        <line
-          x1="${e.sourceNode.x + 85}" y1="${e.sourceNode.y + 37}"
-          x2="${e.targetNode.x + 85}" y2="${e.targetNode.y + 37}"
-          class="infra-link ${active ? "active" : ""} ${faded ? "faded" : ""}"
-          marker-end="url(#arrow)"
-        />
-        <circle class="share-pulse ${active ? "active" : ""}" r="4">
-          <animateMotion dur="2.2s" repeatCount="indefinite"
-            path="M${e.sourceNode.x + 85},${e.sourceNode.y + 37} L${e.targetNode.x + 85},${e.targetNode.y + 37}" />
-        </circle>
-      `}).join("")}
+          <g
+            class="infra-relationship ${relationshipClass}"
+            data-source="${edge.source}"
+            data-target="${edge.target}"
+            data-type="${canvasRelationshipType(edge)}"
+          >
+            <path
+              class="infra-link-glow"
+              d="${geometry.path}"
+            ></path>
+
+            <path
+              class="infra-link"
+              d="${geometry.path}"
+              marker-end="${marker}"
+            ></path>
+
+            ${
+              Array.from({
+                length: particleCount
+              }).map((_, particleIndex) =>
+                canvasPulseMarkup(
+                  geometry,
+                  activity,
+                  -(
+                    particleIndex *
+                    Number(activity.duration || 2.2) /
+                    particleCount
+                  )
+                )
+              ).join("")
+            }
+
+            ${
+              showLabel
+                ? `
+                  <g
+                    class="infra-edge-label"
+                    transform="
+                      translate(
+                        ${geometry.midpoint.x},
+                        ${geometry.midpoint.y}
+                      )
+                    "
+                  >
+                    <rect
+                      x="-37"
+                      y="-12"
+                      width="74"
+                      height="23"
+                      rx="6"
+                      ry="6"
+                    ></rect>
+
+                    <text
+                      x="0"
+                      y="4"
+                      text-anchor="middle"
+                    >
+                      ${canvasRelationshipLabel(edge)}
+                    </text>
+                  </g>
+                `
+                : ""
+            }
+          </g>
+        `;
+      }).join("")}
 
       ${nodes.map(n => {
         const h = liveHashrateForNode(n);
@@ -630,9 +1673,29 @@ function renderCanvas() {
         <g class="infra-node node-${n.type} status-${liveStatus} ${selectedNodeId === n.id ? "selected" : ""} ${highlightedNodeIds.has(n.id) ? "highlighted" : ""} ${selectedNodeId && !highlightedNodeIds.has(n.id) ? "faded" : ""}" data-id="${n.id}">
           <rect x="${n.x}" y="${n.y}" rx="16" ry="16" width="180" height="84"></rect>
           <circle cx="${n.x + 18}" cy="${n.y + 22}" r="6"></circle>
-          <text x="${n.x + 34}" y="${n.y + 26}" class="infra-node-title">${shortLabel(inventoryDisplayName(n), 20)}</text>
-          <text x="${n.x + 16}" y="${n.y + 54}" class="infra-node-type">${inventoryTypeLabel(n)}</text>
-          <text x="${n.x + 16}" y="${n.y + 73}" class="infra-node-metric">${h > 0 ? formatHashrate(h) : liveStatus.toUpperCase()}</text>
+          <text
+            x="${n.x + 34}"
+            y="${n.y + 26}"
+            class="infra-node-title"
+          >
+            ${shortLabel(canvasDisplayName(n), 20)}
+          </text>
+
+          <text
+            x="${n.x + 16}"
+            y="${n.y + 54}"
+            class="infra-node-type"
+          >
+            ${canvasDisplayType(n)}
+          </text>
+
+          <text
+            x="${n.x + 16}"
+            y="${n.y + 73}"
+            class="infra-node-metric"
+          >
+            ${canvasDisplayMetric(n)}
+          </text>
         </g>
       `}).join("")}
     </svg>
@@ -650,16 +1713,51 @@ function renderCanvas() {
   enableDrag(nodes);
 
   document.querySelectorAll(".infra-node").forEach(el => {
-    el.addEventListener("click", async (event) => {
+    el.addEventListener("click", async event => {
       event.stopPropagation();
-      selectedNodeId = el.dataset.id;
-      await loadImpactHighlight(selectedNodeId);
+
+      const clickedId = el.dataset.id;
+      const canvasNode = nodes.find(node =>
+        node.id === clickedId
+      );
+
+      if (canvasNode?.properties?.syntheticCluster) {
+        const poolNodeId =
+          canvasNode.properties.poolNodeId;
+
+        expandedPoolClusters.add(poolNodeId);
+        renderCanvas();
+        return;
+      }
+
+      /*
+       * In Overview mode, clicking an expanded pool collapses its
+       * individual miners back into the cluster.
+       */
+      if (
+        canvasModel.mode === "overview" &&
+        expandedPoolClusters.has(clickedId)
+      ) {
+        expandedPoolClusters.delete(clickedId);
+        renderCanvas();
+        return;
+      }
+
+      selectedNodeId = clickedId;
+
+      await loadImpactHighlight(
+        selectedNodeId
+      );
+
       renderCanvas();
       renderNodes();
       renderRelationships();
 
       const node = nodeById(selectedNodeId);
-      const impact = await fetchImpact(selectedNodeId);
+      const impact = await fetchImpact(
+        selectedNodeId
+      );
+
       openInspector(node, impact);
     });
   });
@@ -688,6 +1786,11 @@ function enableDrag(nodes) {
       event.preventDefault();
 
       const node = nodeMap[nodeId];
+
+      if (!node) {
+        return;
+      }
+
       const point = svgPoint(svg, event);
 
       dragState = {
@@ -1042,14 +2145,80 @@ function liveHashrateForNode(node) {
   }
 
   if (node.type === "asic") {
-    const worker = liveWorkers.find(w => w.assetName === node.label || w.assetIp === props.ip);
-    return Number(worker?.hashrate || 0);
+    const worker = liveWorkers.find(worker =>
+      worker.assetName === node.label ||
+      worker.displayName === node.label ||
+      worker.assetIp === props.ip ||
+      shortWorkerId(
+        worker.workerName ||
+        worker.name ||
+        worker.workerId
+      ) === shortWorkerId(
+        props.workerId ||
+        props.liveWorkerId
+      )
+    );
+
+    return Number(
+      worker?.hashrate ||
+      worker?.hashRate ||
+      props.liveHashrate ||
+      0
+    );
   }
 
   if (node.type === "pool") {
+    const poolId = String(
+      props.id ||
+      props.poolId ||
+      ""
+    ).toLowerCase();
+
+    const poolHost = String(
+      props.host ||
+      props.poolHost ||
+      ""
+    );
+
     return liveWorkers
-      .filter(w => w.poolId === props.id && w.poolHost === props.host)
-      .reduce((sum, w) => sum + Number(w.hashrate || 0), 0);
+      .filter(worker => {
+        const workerPoolId = String(
+          worker.poolId ||
+          worker.pool ||
+          ""
+        ).toLowerCase();
+
+        const workerPoolHost = String(
+          worker.poolHost ||
+          worker.host ||
+          ""
+        );
+
+        const workerPoolSuffix =
+          workerPoolId.split("-").pop();
+
+        const idMatches = (
+          workerPoolId === poolId ||
+          workerPoolId.endsWith(`-${poolId}`) ||
+          workerPoolSuffix === poolId
+        );
+
+        const hostMatches = (
+          !poolHost ||
+          workerPoolHost === poolHost
+        );
+
+        return idMatches && hostMatches;
+      })
+      .reduce(
+        (sum, worker) =>
+          sum + Number(
+            worker.hashrate ||
+            worker.hashRate ||
+            0
+          ),
+        0
+      );
   }
 
   return 0;
@@ -1340,21 +2509,67 @@ function inspectorAsicSection(node) {
   `;
 }
 
+function miningReadinessStatusLabel(status) {
+  const labels = {
+    ready: "READY TO MINE",
+    "idle-ready": "READY · IDLE",
+    degraded: "DEGRADED",
+    blocked: "BLOCKED"
+  };
+
+  return labels[status] || "UNKNOWN";
+}
+
+function miningReadinessStatusClass(status) {
+  if (status === "ready" || status === "idle-ready") {
+    return "good";
+  }
+
+  if (status === "degraded") {
+    return "warning";
+  }
+
+  return "risk-high";
+}
+
+function miningReadinessCheckIcon(status) {
+  if (status === "healthy") return "✓";
+  if (status === "warning") return "!";
+  if (status === "failed") return "×";
+
+  return "?";
+}
+
 function inspectorPoolSection(node) {
   const props = node?.properties || {};
+  const readiness = props.miningReadiness || null;
   const workers = inspectorPoolWorkers(node);
-  const totalHashrate = workers.reduce(
+
+  const workerHashrate = workers.reduce(
     (sum, worker) =>
       sum + Number(worker.hashrate || worker.hashRate || 0),
     0
   );
 
+  const totalHashrate = Number(
+    readiness?.hashrate ?? workerHashrate
+  );
+
+  const connectedMiners = Number(
+    readiness?.connectedMiners ?? workers.length
+  );
+
+  const readinessStatus =
+    readiness?.status ||
+    (totalHashrate > 0 ? "ready" : "degraded");
+
   return `
     <section class="digital-twin-section">
       <div class="digital-twin-section-head">
-        <h3>Pool Operations</h3>
-        <span class="${totalHashrate > 0 ? "good" : "warning"}">
-          ${totalHashrate > 0 ? "ACTIVE" : "IDLE"}
+        <h3>Mining Operations</h3>
+
+        <span class="${miningReadinessStatusClass(readinessStatus)}">
+          ${miningReadinessStatusLabel(readinessStatus)}
         </span>
       </div>
 
@@ -1364,47 +2579,150 @@ function inspectorPoolSection(node) {
           <strong>${formatHashrate(totalHashrate)}</strong>
         </div>
 
+        <div class="digital-twin-field metric-primary">
+          <label>Readiness Score</label>
+          <strong>
+            ${
+              readiness
+                ? `${readiness.readinessScore}%`
+                : "Checking"
+            }
+          </strong>
+        </div>
+
         <div class="digital-twin-field">
           <label>Connected Miners</label>
-          <strong>${workers.length}</strong>
+          <strong>${connectedMiners}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Share Flow</label>
+          <strong>
+            ${
+              readiness
+                ? `${Number(
+                    readiness.sharesPerSecond || 0
+                  ).toFixed(3)} / sec`
+                : "Not reported"
+            }
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Coin</label>
+          <strong>
+            ${safe(
+              readiness?.coin ||
+              inspectorCoin(node),
+              "Unknown"
+            )}
+          </strong>
         </div>
 
         <div class="digital-twin-field">
           <label>Mode</label>
-          <strong>${safe(
-            props.mode ||
-            props.visibility,
-            "Unknown"
-          ).toUpperCase()}</strong>
+          <strong>
+            ${safe(
+              readiness?.mode ||
+              props.mode ||
+              props.visibility,
+              "Unknown"
+            ).toUpperCase()}
+          </strong>
         </div>
 
         <div class="digital-twin-field">
-          <label>Pool ID</label>
-          <strong>${safe(
-            props.id ||
-            props.poolId,
-            "Not reported"
-          )}</strong>
+          <label>Blockchain Node</label>
+          <strong>
+            ${safe(
+              readiness?.blockchainName,
+              "Not linked"
+            )}
+          </strong>
         </div>
 
         <div class="digital-twin-field">
-          <label>Host</label>
-          <strong>${safe(
-            props.host ||
-            props.poolHost,
-            "Not reported"
-          )}</strong>
+          <label>Blockchain RPC</label>
+          <strong class="${
+            readiness?.blockchainRpcConnected
+              ? "good"
+              : "warning"
+          }">
+            ${
+              readiness?.blockchainRpcConnected
+                ? "Connected"
+                : "Not connected"
+            }
+          </strong>
         </div>
 
         <div class="digital-twin-field">
-          <label>Stratum</label>
-          <strong>${safe(
-            Array.isArray(props.stratumPorts)
-              ? props.stratumPorts.join(", ")
-              : props.stratumPort,
-            "Not reported"
-          )}</strong>
+          <label>Block Height</label>
+          <strong>
+            ${
+              readiness?.blockHeight
+                ? Number(
+                    readiness.blockHeight
+                  ).toLocaleString()
+                : "Not reported"
+            }
+          </strong>
         </div>
+
+        <div class="digital-twin-field">
+          <label>Peers</label>
+          <strong>
+            ${readiness?.peerCount ?? "Not reported"}
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Stratum Ports</label>
+          <strong>
+            ${
+              readiness?.stratumPorts?.length
+                ? readiness.stratumPorts.join(", ")
+                : "Not reported"
+            }
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Active Mining</label>
+          <strong class="${
+            readiness?.activeMining
+              ? "good"
+              : "warning"
+          }">
+            ${readiness?.activeMining ? "Yes" : "No"}
+          </strong>
+        </div>
+      </div>
+
+      <div class="mining-readiness-checks">
+        ${
+          (readiness?.checks || []).map(check => `
+            <div class="mining-readiness-check status-${check.status}">
+              <span class="mining-readiness-icon">
+                ${miningReadinessCheckIcon(check.status)}
+              </span>
+
+              <div>
+                <strong>${check.label}</strong>
+                <small>${check.detail}</small>
+              </div>
+            </div>
+          `).join("") ||
+          `
+            <div class="mining-readiness-check status-unknown">
+              <span class="mining-readiness-icon">…</span>
+              <div>
+                <strong>Readiness Engine</strong>
+                <small>Waiting for operational readiness data.</small>
+              </div>
+            </div>
+          `
+        }
       </div>
 
       <div class="digital-twin-mini-list">
@@ -1418,16 +2736,107 @@ function inspectorPoolSection(node) {
                   `Miner ${index + 1}`
                 )}
               </span>
-              <b>${formatHashrate(
-                Number(worker.hashrate || worker.hashRate || 0)
-              )}</b>
+
+              <b>
+                ${formatHashrate(
+                  Number(
+                    worker.hashrate ||
+                    worker.hashRate ||
+                    0
+                  )
+                )}
+              </b>
             </div>
           `).join("") ||
           "<p>No live miners matched to this pool.</p>"
         }
       </div>
+
+      <div class="digital-twin-recommendation ${
+        readiness?.readyToMine
+          ? "digital-twin-healthy"
+          : ""
+      }">
+        <strong>
+          ${
+            readiness?.readyToMine
+              ? "Mining Readiness"
+              : "Recommended Action"
+          }
+        </strong>
+
+        <span>
+          ${
+            readiness?.recommendation ||
+            "Readiness data is not available yet."
+          }
+        </span>
+      </div>
     </section>
   `;
+}
+
+function digitalTwinFormatBytes(value) {
+  const bytes = Number(value || 0);
+
+  if (!bytes) return "Not reported";
+
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  let amount = bytes;
+  let index = 0;
+
+  while (amount >= 1024 && index < units.length - 1) {
+    amount /= 1024;
+    index += 1;
+  }
+
+  return `${amount.toFixed(index >= 3 ? 2 : 1)} ${units[index]}`;
+}
+
+function digitalTwinFormatNumber(value, digits = 0) {
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    return "Not reported";
+  }
+
+  return number.toLocaleString(undefined, {
+    maximumFractionDigits: digits
+  });
+}
+
+function digitalTwinCoreVersion(props) {
+  if (props.subversion) {
+    return String(props.subversion)
+      .replaceAll("/", "")
+      .replace("Satoshi:", "");
+  }
+
+  const version = Number(props.version || 0);
+
+  if (!version) return "Not reported";
+
+  const major = Math.floor(version / 10000);
+  const minor = Math.floor((version % 10000) / 100);
+  const patch = version % 100;
+
+  return `${major}.${minor}.${patch}`;
+}
+
+function digitalTwinCheckedAge(value) {
+  const timestamp = Number(value || 0);
+
+  if (!timestamp) return "Not reported";
+
+  const seconds = Math.max(
+    0,
+    Math.floor((Date.now() - timestamp) / 1000)
+  );
+
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+
+  return `${Math.floor(seconds / 3600)}h ago`;
 }
 
 function inspectorBlockchainSection(node) {
@@ -1447,12 +2856,35 @@ function inspectorBlockchainSection(node) {
       ? syncPercent * 100
       : syncPercent;
 
+  const isSynced =
+    props.initialBlockDownload === false &&
+    normalizedSync >= 99.99 &&
+    Number(props.blocks || 0) === Number(props.headers || 0);
+
+  const warningText = props.error
+    ? props.error
+    : rpcState !== "Connected"
+      ? "Verify RPC credentials and connectivity to unlock live blockchain telemetry."
+      : !isSynced
+        ? "The node is reachable but has not finished synchronizing."
+        : "";
+
   return `
     <section class="digital-twin-section">
       <div class="digital-twin-section-head">
         <h3>Blockchain Operations</h3>
-        <span class="${inspectorStatusClass(rpcState)}">
-          RPC ${rpcState.toUpperCase()}
+        <span class="${
+          rpcState === "Connected" && isSynced
+            ? "good"
+            : "warning"
+        }">
+          ${
+            rpcState === "Connected"
+              ? isSynced
+                ? "RPC CONNECTED · SYNCED"
+                : "RPC CONNECTED · SYNCING"
+              : `RPC ${rpcState.toUpperCase()}`
+          }
         </span>
       </div>
 
@@ -1462,7 +2894,7 @@ function inspectorBlockchainSection(node) {
           <strong>
             ${
               normalizedSync > 0
-                ? `${normalizedSync.toFixed(2)}%`
+                ? `${normalizedSync.toFixed(6)}%`
                 : "Awaiting RPC"
             }
           </strong>
@@ -1477,67 +2909,124 @@ function inspectorBlockchainSection(node) {
 
         <div class="digital-twin-field">
           <label>Block Height</label>
-          <strong>${safe(
-            props.blocks ||
-            props.blockHeight ||
-            props.height,
-            "Awaiting RPC"
-          )}</strong>
+          <strong>
+            ${digitalTwinFormatNumber(
+              props.blocks ||
+              props.blockHeight ||
+              props.height
+            )}
+          </strong>
         </div>
 
         <div class="digital-twin-field">
           <label>Headers</label>
-          <strong>${safe(
-            props.headers,
-            "Awaiting RPC"
-          )}</strong>
+          <strong>
+            ${digitalTwinFormatNumber(props.headers)}
+          </strong>
         </div>
 
         <div class="digital-twin-field">
           <label>Peers</label>
-          <strong>${safe(
-            props.connections ||
-            props.peers ||
-            props.peerCount,
-            "Awaiting RPC"
-          )}</strong>
+          <strong>
+            ${digitalTwinFormatNumber(
+              props.connections ||
+              props.peers ||
+              props.peerCount
+            )}
+          </strong>
         </div>
 
         <div class="digital-twin-field">
           <label>Version</label>
-          <strong>${safe(
-            props.version ||
-            props.subversion,
-            "Awaiting RPC"
-          )}</strong>
+          <strong>${digitalTwinCoreVersion(props)}</strong>
         </div>
 
         <div class="digital-twin-field">
           <label>Chain</label>
-          <strong>${safe(
-            props.chain,
-            inspectorCoin(node)
-          )}</strong>
+          <strong>
+            ${safe(props.chain, inspectorCoin(node)).toUpperCase()}
+          </strong>
         </div>
 
         <div class="digital-twin-field">
-          <label>Ports</label>
-          <strong>${inspectorPortList(node)}</strong>
+          <label>Network</label>
+          <strong class="${props.networkActive === false ? "warning" : "good"}">
+            ${props.networkActive === false ? "Inactive" : "Active"}
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Disk Used</label>
+          <strong>
+            ${digitalTwinFormatBytes(props.sizeOnDisk)}
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Pruned</label>
+          <strong>${props.pruned === true ? "Yes" : "No"}</strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Mempool Transactions</label>
+          <strong>
+            ${digitalTwinFormatNumber(props.mempoolSize)}
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Mempool Data</label>
+          <strong>
+            ${digitalTwinFormatBytes(props.mempoolBytes)}
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Difficulty</label>
+          <strong>
+            ${digitalTwinFormatNumber(props.difficulty, 2)}
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Initial Block Download</label>
+          <strong class="${props.initialBlockDownload ? "warning" : "good"}">
+            ${props.initialBlockDownload ? "Yes" : "No"}
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Protocol</label>
+          <strong>
+            ${digitalTwinFormatNumber(props.protocolVersion)}
+          </strong>
+        </div>
+
+        <div class="digital-twin-field">
+          <label>Telemetry Updated</label>
+          <strong>
+            ${digitalTwinCheckedAge(props.checkedAt)}
+          </strong>
         </div>
       </div>
 
       ${
-        rpcState !== "Connected"
+        warningText
           ? `
             <div class="digital-twin-recommendation">
               <strong>Recommended Action</strong>
+              <span>${warningText}</span>
+            </div>
+          `
+          : `
+            <div class="digital-twin-recommendation digital-twin-healthy">
+              <strong>Mining Ready</strong>
               <span>
-                Verify RPC credentials and run getblockchaininfo
-                to unlock live sync, peer, version, and block telemetry.
+                Bitcoin Core is connected, synchronized, network-active,
+                and ready to provide RPC services to Seymour MiningCore.
               </span>
             </div>
           `
-          : ""
       }
     </section>
   `;
@@ -1689,10 +3178,745 @@ function bindInspectorRelationships() {
     });
 }
 
-function openInspector(node, impact) {
+async function fetchSelectedMiningReadiness(node) {
+  const nodeId = String(node?.id || "");
+  const props = node?.properties || {};
+
+  const poolId = String(
+    props.id ||
+    props.poolId ||
+    ""
+  ).toLowerCase();
+
+  const host = String(
+    props.host ||
+    props.poolHost ||
+    ""
+  );
+
+  try {
+    const response = await fetch(
+      "/api/operations/mining-readiness",
+      {
+        cache: "no-store"
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `/api/operations/mining-readiness returned ${response.status}`
+      );
+    }
+
+    const payload = await response.json();
+    const items = Array.isArray(payload.items)
+      ? payload.items
+      : [];
+
+    return items.find(item => {
+      const itemPoolId = String(
+        item.poolId || ""
+      ).toLowerCase();
+
+      const itemHost = String(item.host || "");
+
+      if (item.poolNodeId === nodeId) {
+        return true;
+      }
+
+      const poolMatches =
+        poolId &&
+        itemPoolId &&
+        (
+          itemPoolId === poolId ||
+          itemPoolId.endsWith(poolId) ||
+          poolId.endsWith(itemPoolId)
+        );
+
+      const hostMatches =
+        !host ||
+        !itemHost ||
+        itemHost === host;
+
+      return poolMatches && hostMatches;
+    }) || null;
+  } catch (error) {
+    console.error(
+      "Selected mining-readiness request failed:",
+      error
+    );
+
+    return null;
+  }
+}
+
+async function fetchSelectedBlockchainTelemetry(node) {
+  const assetId = String(
+    node?.properties?.managedAssetId ||
+    node?.properties?.id ||
+    node?.id ||
+    ""
+  );
+
+  const ip = String(
+    inventoryIp(node) ||
+    node?.properties?.ip ||
+    ""
+  );
+
+  try {
+    const response = await fetch(
+      "/api/blockchain/nodes",
+      {
+        cache: "no-store"
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `/api/blockchain/nodes returned ${response.status}`
+      );
+    }
+
+    const payload = await response.json();
+    const items = Array.isArray(payload.items)
+      ? payload.items
+      : [];
+
+    const telemetry = items.find(item => {
+      const telemetryAssetId = String(item?.assetId || "");
+      const telemetryHost = String(item?.host || "");
+
+      return (
+        (assetId && telemetryAssetId === assetId) ||
+        (ip && telemetryHost === ip)
+      );
+    });
+
+    if (!telemetry) {
+      console.warn(
+        "No blockchain telemetry matched selected asset",
+        {
+          assetId,
+          ip,
+          items
+        }
+      );
+
+      return null;
+    }
+
+    return telemetry;
+  } catch (error) {
+    console.error(
+      "Selected blockchain telemetry request failed:",
+      error
+    );
+
+    return null;
+  }
+}
+
+
+function infrastructureActionCatalog(node) {
+  const category = inventoryCategory(node);
+  const props = node?.properties || {};
+  const rpcConnected =
+    props.rpcConnected === true ||
+    String(props.rpcStatus || "").toLowerCase() === "connected";
+
+  if (category === "blockchain") {
+    return [
+      {
+        id: "test-rpc",
+        label: "Test RPC",
+        icon: "↔",
+        tone: rpcConnected ? "healthy" : "warning",
+        description:
+          "Verify credentials, network access, RPC response, chain, and sync state.",
+        steps: [
+          "Connect to the configured RPC endpoint",
+          "Authenticate using the stored Nexus credential",
+          "Run getblockchaininfo",
+          "Run getnetworkinfo",
+          "Verify block height and headers",
+          "Report RPC and synchronization health"
+        ]
+      },
+      {
+        id: "repair-rpc",
+        label: rpcConnected ? "Repair RPC" : "Enable RPC",
+        icon: "⚙",
+        tone: rpcConnected ? "default" : "warning",
+        description:
+          "Inspect and repair rpcbind, rpcallowip, credentials, and firewall access.",
+        steps: [
+          "Identify the Bitcoin Core installation method",
+          "Locate the active bitcoin.conf",
+          "Back up the current configuration",
+          "Verify server, rpcbind, rpcallowip, and rpcport",
+          "Verify Nexus RPC credentials",
+          "Check the host firewall",
+          "Restart bitcoind only when changes are required",
+          "Retest RPC from Nexus"
+        ]
+      },
+      {
+        id: "restart-service",
+        label: "Restart Bitcoin",
+        icon: "↻",
+        tone: "danger",
+        description:
+          "Restart the Bitcoin Core service and verify that it returns healthy.",
+        steps: [
+          "Confirm the active bitcoind service",
+          "Capture current service status",
+          "Restart Bitcoin Core",
+          "Wait for RPC availability",
+          "Verify chain, peers, and synchronization",
+          "Record the action in Mission Timeline"
+        ]
+      },
+      {
+        id: "view-logs",
+        label: "View Logs",
+        icon: "≡",
+        tone: "default",
+        description:
+          "Open recent Bitcoin Core and system service events.",
+        steps: [
+          "Read recent bitcoind service events",
+          "Read Bitcoin Core debug log",
+          "Highlight RPC, peer, disk, and chain warnings",
+          "Show the newest events first"
+        ]
+      },
+      {
+        id: "backup-wallet",
+        label: "Backup Wallet",
+        icon: "⬇",
+        tone: "default",
+        description:
+          "Create and verify a timestamped wallet backup.",
+        steps: [
+          "List loaded wallets",
+          "Select the pool wallet",
+          "Create an encrypted timestamped backup",
+          "Verify the backup file",
+          "Record its location and checksum"
+        ]
+      },
+      {
+        id: "open-config",
+        label: "Open Config",
+        icon: "{}",
+        tone: "default",
+        description:
+          "Review the active Bitcoin Core configuration with secrets hidden.",
+        steps: [
+          "Locate the active bitcoin.conf",
+          "Read the effective configuration",
+          "Mask passwords and authentication secrets",
+          "Highlight risky or conflicting values"
+        ]
+      }
+    ];
+  }
+
+  if (category === "pool") {
+    return [
+      {
+        id: "test-pool",
+        label: "Run Readiness Test",
+        icon: "✓",
+        tone: "healthy",
+        description:
+          "Verify the complete mining path from blockchain node through stratum.",
+        steps: [
+          "Test MiningCore API",
+          "Verify blockchain RPC",
+          "Verify blockchain synchronization",
+          "Check stratum listeners",
+          "Check connected miners",
+          "Confirm live hashrate and share flow",
+          "Calculate mining readiness"
+        ]
+      },
+      {
+        id: "restart-pool",
+        label: "Restart Pool",
+        icon: "↻",
+        tone: "danger",
+        description:
+          "Restart the selected MiningCore pool and validate recovery.",
+        steps: [
+          "Capture current pool health",
+          "Confirm active miners",
+          "Restart the MiningCore service or pool process",
+          "Verify API recovery",
+          "Verify stratum recovery",
+          "Confirm miners reconnect"
+        ]
+      },
+      {
+        id: "view-pool-config",
+        label: "Pool Config",
+        icon: "{}",
+        tone: "default",
+        description:
+          "Review coin, wallet, ports, payout, fee, and daemon settings.",
+        steps: [
+          "Load the active pool configuration",
+          "Mask wallet and RPC secrets",
+          "Validate the pool schema",
+          "Highlight conflicting ports or missing values"
+        ]
+      },
+      {
+        id: "view-pool-logs",
+        label: "View Logs",
+        icon: "≡",
+        tone: "default",
+        description:
+          "Show recent pool, daemon, share, payout, and stratum events.",
+        steps: [
+          "Read recent MiningCore logs",
+          "Filter for the selected pool",
+          "Highlight daemon and stratum errors",
+          "Show rejected-share and payout warnings"
+        ]
+      },
+      {
+        id: "backup-pool",
+        label: "Backup Pool",
+        icon: "⬇",
+        tone: "default",
+        description:
+          "Back up the pool configuration and operational metadata.",
+        steps: [
+          "Export the selected pool configuration",
+          "Mask or encrypt secrets",
+          "Include wallet and payout metadata",
+          "Generate a timestamped archive",
+          "Verify archive integrity"
+        ]
+      },
+      {
+        id: "repair-pool",
+        label: "Repair Installation",
+        icon: "⚙",
+        tone: "warning",
+        description:
+          "Diagnose and repair common MiningCore installation problems.",
+        steps: [
+          "Verify service installation",
+          "Verify runtime dependencies",
+          "Verify PostgreSQL connectivity",
+          "Validate pool configuration",
+          "Verify firewall and listening ports",
+          "Restart only failed components",
+          "Run readiness verification"
+        ]
+      }
+    ];
+  }
+
+  if (category === "asic") {
+    return [
+      {
+        id: "test-miner",
+        label: "Run Diagnostics",
+        icon: "✓",
+        tone: "healthy",
+        description:
+          "Check connectivity, hashrate, share flow, pool assignment, and health.",
+        steps: [
+          "Ping the miner",
+          "Check the management interface",
+          "Match the live MiningCore worker",
+          "Verify pool assignment",
+          "Compare actual and expected hashrate",
+          "Check recent share flow"
+        ]
+      },
+      {
+        id: "reboot-miner",
+        label: "Reboot Miner",
+        icon: "↻",
+        tone: "danger",
+        description:
+          "Safely reboot the ASIC and verify that it reconnects.",
+        steps: [
+          "Capture current hashrate and pool",
+          "Request a controlled reboot",
+          "Wait for network recovery",
+          "Wait for worker reconnection",
+          "Verify hashrate recovery",
+          "Record downtime"
+        ]
+      },
+      {
+        id: "open-miner-ui",
+        label: "Open Miner UI",
+        icon: "↗",
+        tone: "default",
+        description:
+          "Open the ASIC manufacturer management interface.",
+        steps: [
+          "Verify the management port",
+          "Open the device interface",
+          "Keep credentials outside the browser URL"
+        ]
+      },
+      {
+        id: "change-pool",
+        label: "Change Pool",
+        icon: "⇄",
+        tone: "warning",
+        description:
+          "Move the miner to another configured pool.",
+        steps: [
+          "List compatible pools",
+          "Validate coin and algorithm",
+          "Save the current pool configuration",
+          "Apply the new stratum endpoint",
+          "Verify worker reconnection",
+          "Confirm live hashrate"
+        ]
+      },
+      {
+        id: "firmware",
+        label: "Firmware",
+        icon: "⬆",
+        tone: "default",
+        description:
+          "Inspect firmware and prepare a controlled upgrade.",
+        steps: [
+          "Detect manufacturer and model",
+          "Read installed firmware",
+          "Check compatibility",
+          "Back up miner configuration",
+          "Stage the upgrade",
+          "Require confirmation before installation"
+        ]
+      },
+      {
+        id: "locate-miner",
+        label: "Locate Miner",
+        icon: "◉",
+        tone: "default",
+        description:
+          "Identify this physical miner using its light, sound, or network identity.",
+        steps: [
+          "Check supported locate capabilities",
+          "Blink the miner identification light when available",
+          "Show IP, MAC address, site, rack, and position"
+        ]
+      }
+    ];
+  }
+
+  return [
+    {
+      id: "test-connectivity",
+      label: "Test Connectivity",
+      icon: "↔",
+      tone: "healthy",
+      description:
+        "Check reachability, ports, services, and host health.",
+      steps: [
+        "Ping the host",
+        "Scan known management ports",
+        "Verify expected services",
+        "Report latency and connectivity"
+      ]
+    },
+    {
+      id: "open-terminal",
+      label: "Open Terminal",
+      icon: ">_",
+      tone: "default",
+      description:
+        "Start a secure administrative terminal session.",
+      steps: [
+        "Verify SSH connectivity",
+        "Confirm the managed host identity",
+        "Start an audited terminal session"
+      ]
+    },
+    {
+      id: "view-server-logs",
+      label: "View Logs",
+      icon: "≡",
+      tone: "default",
+      description:
+        "Show recent operating system and service events.",
+      steps: [
+        "Read system journal events",
+        "Highlight failed services",
+        "Highlight disk, memory, and network warnings"
+      ]
+    },
+    {
+      id: "restart-server",
+      label: "Restart Server",
+      icon: "↻",
+      tone: "danger",
+      description:
+        "Restart the managed server after dependency and impact checks.",
+      steps: [
+        "Calculate blast radius",
+        "Check dependent pools and services",
+        "Require operator confirmation",
+        "Restart the server",
+        "Verify services recover"
+      ]
+    }
+  ];
+}
+
+function infrastructureActionSection(node) {
+  const actions = infrastructureActionCatalog(node);
+
+  return `
+    <section class="digital-twin-section">
+      <div class="digital-twin-section-head">
+        <h3>Management Actions</h3>
+        <span>INFRASTRUCTURE EXPLORER</span>
+      </div>
+
+      <p class="infrastructure-action-intro">
+        Configure, repair, test, and maintain this asset directly from Nexus.
+      </p>
+
+      <div class="infrastructure-action-grid">
+        ${actions.map(action => `
+          <button
+            type="button"
+            class="
+              infrastructure-action
+              action-tone-${action.tone || "default"}
+            "
+            data-infrastructure-action="${action.id}"
+          >
+            <span class="infrastructure-action-icon">
+              ${action.icon}
+            </span>
+
+            <span class="infrastructure-action-copy">
+              <strong>${action.label}</strong>
+              <small>${action.description}</small>
+            </span>
+
+            <span class="infrastructure-action-arrow">›</span>
+          </button>
+        `).join("")}
+      </div>
+
+      <div class="infrastructure-action-note">
+        <span>Preview mode</span>
+        Actions show their execution plan but will not modify infrastructure yet.
+      </div>
+    </section>
+  `;
+}
+
+function openInfrastructureActionPreview(node, actionId) {
+  const action = infrastructureActionCatalog(node)
+    .find(item => item.id === actionId);
+
+  if (!action) return;
+
+  const panel = byId("infrastructureActionPreview");
+  const backdrop = byId("infrastructureActionBackdrop");
+
+  if (!panel || !backdrop) return;
+
+  byId("infrastructureActionPreviewContent").innerHTML = `
+    <div class="action-preview-header">
+      <span class="digital-twin-kicker">
+        Nexus Operational Playbook
+      </span>
+
+      <h2>${action.label}</h2>
+
+      <p>
+        ${inventoryDisplayName(node)}
+        ·
+        ${inventoryTypeLabel(node)}
+        ·
+        ${safe(inventoryIp(node), "No IP")}
+      </p>
+    </div>
+
+    <div class="action-preview-summary">
+      <span class="infrastructure-action-icon">
+        ${action.icon}
+      </span>
+
+      <div>
+        <strong>${action.description}</strong>
+        <small>
+          Review the planned checks and changes before execution.
+        </small>
+      </div>
+    </div>
+
+    <section class="action-preview-plan">
+      <h3>Execution Plan</h3>
+
+      <ol>
+        ${action.steps.map((step, index) => `
+          <li>
+            <span>${index + 1}</span>
+            <strong>${step}</strong>
+          </li>
+        `).join("")}
+      </ol>
+    </section>
+
+    <section class="action-preview-safety">
+      <h3>Safety Controls</h3>
+
+      <div>
+        <span>✓</span>
+        <p>Secrets remain server-side and are never shown in browser URLs.</p>
+      </div>
+
+      <div>
+        <span>✓</span>
+        <p>Configuration changes require a backup before modification.</p>
+      </div>
+
+      <div>
+        <span>✓</span>
+        <p>Disruptive actions require impact analysis and confirmation.</p>
+      </div>
+
+      <div>
+        <span>✓</span>
+        <p>Every action will be recorded in Mission Timeline.</p>
+      </div>
+    </section>
+
+    <div class="action-preview-buttons">
+      <button
+        type="button"
+        class="btn"
+        data-close-action-preview
+      >
+        Cancel
+      </button>
+
+      <button
+        type="button"
+        class="btn btn-primary"
+        data-action-preview-demo
+      >
+        Preview Run
+      </button>
+    </div>
+  `;
+
+  panel.classList.add("open");
+  backdrop.classList.add("open");
+
+  document
+    .querySelectorAll("[data-close-action-preview]")
+    .forEach(button => {
+      button.addEventListener(
+        "click",
+        closeInfrastructureActionPreview
+      );
+    });
+
+  byId("infrastructureActionPreviewContent")
+    ?.querySelector("[data-action-preview-demo]")
+    ?.addEventListener("click", event => {
+      const button = event.currentTarget;
+
+      button.disabled = true;
+      button.textContent = "Playbook Preview Complete";
+
+      setTimeout(() => {
+        button.disabled = false;
+        button.textContent = "Preview Run";
+      }, 1800);
+    });
+}
+
+function closeInfrastructureActionPreview() {
+  byId("infrastructureActionPreview")
+    ?.classList.remove("open");
+
+  byId("infrastructureActionBackdrop")
+    ?.classList.remove("open");
+}
+
+function bindInfrastructureActions(node) {
+  document
+    .querySelectorAll("[data-infrastructure-action]")
+    .forEach(button => {
+      button.addEventListener("click", () => {
+        openInfrastructureActionPreview(
+          node,
+          button.dataset.infrastructureAction
+        );
+      });
+    });
+}
+
+async function openInspector(node, impact) {
   if (!node) return;
 
+  /*
+   * Always open the Digital Twin immediately.
+   * Telemetry enriches it but can never block access.
+   */
+  byId("inspectorPanel")?.classList.add("open");
+  byId("inspectorBackdrop")?.classList.add("open");
+
   const category = inventoryCategory(node);
+
+  if (category === "blockchain") {
+    const telemetry = await fetchSelectedBlockchainTelemetry(node);
+
+    if (telemetry) {
+      node.properties = {
+        ...(node.properties || {}),
+        ...telemetry
+      };
+
+      node.status = telemetry.rpcConnected === true
+        ? "online"
+        : "warning";
+
+      const graphNode = graph.nodes.find(item =>
+        item.id === node.id
+      );
+
+      if (graphNode) {
+        graphNode.properties = {
+          ...(graphNode.properties || {}),
+          ...telemetry
+        };
+
+        graphNode.status = node.status;
+      }
+    }
+  }
+
+  if (category === "pool") {
+    const readiness = await fetchSelectedMiningReadiness(node);
+
+    if (readiness) {
+      node.properties = {
+        ...(node.properties || {}),
+        miningReadiness: readiness
+      };
+    }
+  }
+
   const liveStatus = liveNodeStatus(node);
 
   let operationalSection = "";
@@ -1728,6 +3952,7 @@ function openInspector(node, impact) {
     ${inspectorIdentitySection(node)}
     ${operationalSection}
     ${inspectorOperationalSection(node, impact)}
+    ${infrastructureActionSection(node)}
 
     <section class="digital-twin-section">
       <details class="digital-twin-raw">
@@ -1741,6 +3966,7 @@ function openInspector(node, impact) {
   byId("inspectorBackdrop")?.classList.add("open");
 
   bindInspectorRelationships();
+  bindInfrastructureActions(node);
 }
 
 function closeInspector() {
@@ -2184,3 +4410,21 @@ nc -vz ${ip} 8332
 
 Later Nexus can use RPC to read sync percent from getblockchaininfo.verificationprogress.`);
 }
+
+/*
+ * Keep the Canvas efficient when Nexus is left open on a background tab.
+ * The next normal graph refresh restores activity after returning.
+ */
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    renderCanvas();
+  }
+});
+
+window.addEventListener("DOMContentLoaded", () => {
+  byId("infrastructureActionBackdrop")
+    ?.addEventListener(
+      "click",
+      closeInfrastructureActionPreview
+    );
+});

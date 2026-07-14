@@ -5,11 +5,16 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 from backend.modules import system
+from backend.modules import blockchain
+from backend.modules import mining_readiness
 from backend.modules import connectors
 from backend.modules import discovery
 from backend.core import discovery as discovery_core
 from backend.modules import dashboard
 from backend.modules import mining
+from backend.modules import fleet
+from backend.modules import smc_health
+from backend.modules import operations_events
 from backend.modules import assets
 from backend.modules import graph
 from backend.modules import graph_engine
@@ -52,6 +57,8 @@ class NexusHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/" or self.path == "/index.html":
             return self._send_file("frontend/index.html", "text/html")
+        if self.path == "/home-v2.html":
+            return self._send_file("frontend/home-v2.html", "text/html")
         if self.path == "/map.html":
             return self._send_file("frontend/map.html", "text/html")
         if self.path == "/timeline.html":
@@ -81,16 +88,23 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/discovery/scan": discovery.scan,
             "/api/discovery/topology": discovery.topology,
             "/api/dashboard/summary": dashboard.summary,
+            "/api/fleet/home": fleet.home,
+            "/api/smc/health": smc_health.health,
             "/api/mining/summary": mining.summary,
             "/api/mining/workers": mining.workers,
+            "/api/mining/pools": mining.pools,
+            "/api/mining/coins": mining.coins,
             "/api/assets/relationships": assets.relationships,
             "/api/graph": graph.graph,
+            "/api/blockchain/nodes": blockchain.nodes,
+            "/api/operations/mining-readiness": mining_readiness.pools,
             "/api/graph/live": graph_engine.live,
             "/api/graph/rebuild": graph_engine.rebuild,
             "/api/graph/snapshots": graph_engine.snapshots,
             "/api/graph/statistics": graph_engine.statistics,
             "/api/graph/diff": graph_diff.latest,
             "/api/events/live": event_engine.live,
+            "/api/events/operations": operations_events.events,
             "/api/mission/status": mission.status,
             "/api/timeline/latest": timeline.latest,
         }

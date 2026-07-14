@@ -1,0 +1,14 @@
+{
+  "nodes": [
+    {
+      "assetId": "asset-82ac3c36",
+      "name": "Bitcoin Core",
+      "coin": "BTC",
+      "host": "192.168.1.169",
+      "rpcPort": 8332,
+      "rpcUserEnv": "NEXUS_BTC_RPC_USER",
+      "rpcPasswordEnv": "NEXUS_BTC_RPC_PASSWORD",
+      "enabled": true
+    }
+  ]
+}
