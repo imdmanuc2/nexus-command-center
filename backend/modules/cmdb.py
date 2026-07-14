@@ -27,7 +27,7 @@ def audit_events(
     )
     return {
         "status": "ok",
-        "source": "legacy-jsonl-audit",
+        "source": "nexus-postgresql-audit",
         "count": len(events),
         "events": events,
     }
