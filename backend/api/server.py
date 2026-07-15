@@ -29,6 +29,7 @@ from backend.modules import scan_registry
 from backend.modules import cmdb
 from backend.modules import platform_inventory
 from backend.modules import platform
+from backend.modules import metrics
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -104,6 +105,10 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/platform/inventory": platform_inventory.summary,
             "/api/platform/relationships": platform.relationship_list,
             "/api/platform/workloads": platform.workload_list,
+            "/api/platform/metrics/rollups": metrics.metric_rollups,
+            "/api/platform/metrics/history": metrics.metric_history,
+            "/api/platform/metrics/current": metrics.current_metrics,
+            "/api/platform/metrics": metrics.metrics_summary,
             "/api/platform/pools": platform.pool_list,
             "/api/platform/workers": platform.worker_list,
             "/api/platform/fleet": platform.fleet_summary,

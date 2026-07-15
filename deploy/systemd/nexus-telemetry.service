@@ -1,0 +1,13 @@
+[Unit]
+Description=Nexus Platform telemetry collection and rollups
+After=network-online.target postgresql.service nexus-api.service
+Requires=nexus-api.service
+[Service]
+Type=oneshot
+User=__NEXUS_USER__
+Group=__NEXUS_GROUP__
+WorkingDirectory=__PROJECT_ROOT__
+EnvironmentFile=-__PROJECT_ROOT__/backend/data/private/cmdb.env
+ExecStart=/usr/bin/python3 -m backend.jobs.telemetry_collection_job
+TimeoutStartSec=90
+Nice=5
