@@ -1529,6 +1529,10 @@ window.addEventListener(
     setupPriorityQueue();
     setupFleetInsights();
     setupMetricTrends();
+    setupNexusOperationsBrief();
+    setupMissionTimeline();
+    loadMissionTimeline();
+    loadNexusOperationsBrief();
     loadFleet();
     loadMetricTrends();
     loadSmcHealth();
@@ -2175,6 +2179,11 @@ document.addEventListener(
         } pools`
       );
     }
+    setInterval(
+      loadMissionTimeline,
+      30000
+    );
+
   }
 );
 
@@ -4980,4 +4989,1462 @@ function renderPlatformOperations(fleet) {
   container.innerHTML = domains
     .map(platformDomainCard)
     .join("");
+}
+
+/* =========================================================
+   Nexus Operations Brief
+   ========================================================= */
+
+function nexusContextHome(payload) {
+  if (
+    payload
+    && typeof payload === "object"
+    && payload.context
+    && typeof payload.context === "object"
+  ) {
+    return payload.context;
+  }
+
+  return {};
+}
+
+
+function nexusContextCount(
+  section,
+  statusName
+) {
+  if (!section || typeof section !== "object") {
+    return 0;
+  }
+
+  if (
+    section.status
+    && typeof section.status === "object"
+    && statusName
+  ) {
+    return integerValue(
+      section.status[statusName]
+    );
+  }
+
+  return integerValue(
+    section.total
+  );
+}
+
+
+function nexusContextFleetHashrate(context) {
+  return numberValue(
+    context?.metricsByEntity
+      ?.[
+        "fleet:primary"
+      ]
+      ?.fleet_hashrate
+      ?.metricValue
+    ?? context?.workers?.top?.reduce(
+      (sum, worker) => (
+        sum
+        + numberValue(
+          worker.currentHashrate
+        )
+      ),
+      0
+    )
+    ?? 0
+  );
+}
+
+
+function nexusContextWorkerSummary(context) {
+  const workers = context?.workers || {};
+
+  return {
+    total: integerValue(workers.total),
+    online: nexusContextCount(
+      workers,
+      "online"
+    ),
+    items: Array.isArray(workers.top)
+      ? workers.top
+      : [],
+  };
+}
+
+
+function nexusContextPoolSummary(context) {
+  const pools = context?.pools || {};
+
+  return {
+    total: integerValue(pools.total),
+    active: nexusContextCount(
+      pools,
+      "active"
+    ),
+    items: Array.isArray(pools.items)
+      ? pools.items
+      : [],
+  };
+}
+
+
+function nexusContextNodeSummary(context) {
+  const nodes = context?.nodes || {};
+
+  return {
+    total: integerValue(nodes.total),
+    online: nexusContextCount(
+      nodes,
+      "online"
+    ),
+    items: Array.isArray(nodes.items)
+      ? nodes.items
+      : [],
+  };
+}
+
+
+function nexusContextMiningCoreSummary(context) {
+  const miningCore = context?.miningcore || {};
+
+  return {
+    total: integerValue(miningCore.total),
+    connected: integerValue(
+      miningCore.connected
+    ),
+    items: Array.isArray(miningCore.items)
+      ? miningCore.items
+      : [],
+  };
+}
+
+
+function nexusMeaningfulObservations(context) {
+  const observations = [];
+
+  const workers = nexusContextWorkerSummary(
+    context
+  );
+
+  const pools = nexusContextPoolSummary(
+    context
+  );
+
+  const nodes = nexusContextNodeSummary(
+    context
+  );
+
+  const miningCore =
+    nexusContextMiningCoreSummary(
+      context
+    );
+
+  const alerts = Array.isArray(
+    context?.alerts
+  )
+    ? context.alerts
+    : [];
+
+  if (
+    workers.total > 0
+    && workers.online === workers.total
+  ) {
+    observations.push(
+      `${workers.online} of ${workers.total} workers are online.`
+    );
+  } else if (workers.total > 0) {
+    observations.push(
+      `${workers.total - workers.online} worker${
+        workers.total - workers.online === 1
+          ? ""
+          : "s"
+      } require attention.`
+    );
+  }
+
+  if (
+    pools.total > 0
+    && pools.active === pools.total
+  ) {
+    observations.push(
+      `All ${pools.active} managed pools are active.`
+    );
+  }
+
+  if (
+    miningCore.total > 0
+    && miningCore.connected
+      === miningCore.total
+  ) {
+    observations.push(
+      `All ${miningCore.connected} Seymour MiningCore instances are connected.`
+    );
+  }
+
+  nodes.items.forEach((node) => {
+    const coin = platformCoinSymbol(
+      node.coin
+    );
+
+    const syncPercent = numberValue(
+      node.syncPercent
+    );
+
+    const peers = integerValue(
+      node.peers
+    );
+
+    observations.push(
+      `${node.name || coin} is online${
+        Number.isFinite(syncPercent)
+          ? ` and ${syncPercent.toFixed(3)}% synchronized`
+          : ""
+      }${peers ? ` with ${peers} peers` : ""}.`
+    );
+  });
+
+  if (!alerts.length) {
+    observations.push(
+      "No active alerts require operator attention."
+    );
+  } else {
+    observations.push(
+      `${alerts.length} active alert${
+        alerts.length === 1 ? "" : "s"
+      } require review.`
+    );
+  }
+
+  return observations.slice(0, 6);
+}
+
+
+function nexusRecommendation(context) {
+  const alerts = Array.isArray(
+    context?.alerts
+  )
+    ? context.alerts
+    : [];
+
+  if (alerts.length) {
+    const critical = alerts.find(
+      (alert) => (
+        String(alert.severity).toLowerCase()
+        === "critical"
+      )
+    );
+
+    const alert = critical || alerts[0];
+
+    return (
+      alert.recommendedAction
+      || alert.message
+      || "Review the active Platform alert queue."
+    );
+  }
+
+  const pools = nexusContextPoolSummary(
+    context
+  );
+
+  const publicPoolWithoutTls =
+    pools.items.find((pool) => {
+      const visibility = String(
+        pool.visibility || ""
+      ).toLowerCase();
+
+      const ports = Array.isArray(
+        pool.stratumPorts
+      )
+        ? pool.stratumPorts
+        : [];
+
+      const tlsConfigured = Boolean(
+        pool.configuration?.tls
+        || pool.observedState?.tls
+      );
+
+      return (
+        visibility === "public"
+        && ports.length > 0
+        && !tlsConfigured
+      );
+    });
+
+  if (publicPoolWithoutTls) {
+    return (
+      `Review TLS protection for ${publicPoolWithoutTls.name}.`
+    );
+  }
+
+  const miningCore =
+    nexusContextMiningCoreSummary(
+      context
+    );
+
+  const unknownVersion =
+    miningCore.items.some(
+      (instance) => (
+        !String(
+          instance.softwareVersion
+          || instance.version
+          || ""
+        ).trim()
+      )
+    );
+
+  if (unknownVersion) {
+    return (
+      "Capture MiningCore software versions during synchronization "
+      + "to strengthen upgrade and compliance reporting."
+    );
+  }
+
+  return (
+    "No immediate action is required. Continue normal monitoring."
+  );
+}
+
+
+function nexusBriefState(context) {
+  const alerts = Array.isArray(
+    context?.alerts
+  )
+    ? context.alerts
+    : [];
+
+  const critical = alerts.some(
+    (alert) => (
+      String(alert.severity).toLowerCase()
+      === "critical"
+    )
+  );
+
+  if (critical) {
+    return {
+      state: "critical",
+      label: "ACTION REQUIRED",
+      headline:
+        "Critical operational conditions require attention.",
+    };
+  }
+
+  if (alerts.length) {
+    return {
+      state: "warning",
+      label: "REVIEW NEEDED",
+      headline:
+        "The fleet is operating with conditions to review.",
+    };
+  }
+
+  return {
+    state: "healthy",
+    label: "FLEET NORMAL",
+    headline:
+      "Fleet operating normally.",
+  };
+}
+
+
+function nexusBriefFact(
+  label,
+  value
+) {
+  return `
+    <div class="nexus-brief-fact">
+      <div class="nexus-brief-fact-label">
+        ${escapeHtml(label)}
+      </div>
+
+      <div class="nexus-brief-fact-value">
+        ${escapeHtml(value)}
+      </div>
+    </div>
+  `;
+}
+
+
+function renderNexusOperationsBrief(payload) {
+  const body = byId("nexusBriefBody");
+  const status = byId("nexusBriefStatus");
+  const subtitle = byId("nexusBriefSubtitle");
+  const source = byId("nexusBriefSource");
+  const updated = byId("nexusBriefUpdated");
+
+  if (
+    !body
+    || !status
+    || !subtitle
+    || !source
+    || !updated
+  ) {
+    return;
+  }
+
+  const context = nexusContextHome(
+    payload
+  );
+
+  const briefState = nexusBriefState(
+    context
+  );
+
+  const workers = nexusContextWorkerSummary(
+    context
+  );
+
+  const pools = nexusContextPoolSummary(
+    context
+  );
+
+  const nodes = nexusContextNodeSummary(
+    context
+  );
+
+  const miningCore =
+    nexusContextMiningCoreSummary(
+      context
+    );
+
+  const hashrate =
+    nexusContextFleetHashrate(
+      context
+    );
+
+  const health = numberValue(
+    context.fleetHealth,
+    0
+  );
+
+  const observations =
+    nexusMeaningfulObservations(
+      context
+    );
+
+  const recommendation =
+    nexusRecommendation(context);
+
+  status.className = (
+    `nexus-brief-status ${briefState.state}`
+  );
+
+  status.textContent = briefState.label;
+
+  subtitle.textContent = (
+    "Derived from PostgreSQL Platform context, telemetry, "
+    + "events, alerts, and infrastructure state."
+  );
+
+  source.textContent = (
+    `${payload?.source || "nexus-postgresql-platform-context"}`
+    + ` · ${payload?.contextVersion || "v1"}`
+  );
+
+  updated.textContent = payload?.generatedAt
+    ? `Generated ${priorityAge(payload.generatedAt)}`
+    : "Generated recently";
+
+  const summary = (
+    `${workers.online} workers are online across `
+    + `${pools.active} active pool${
+      pools.active === 1 ? "" : "s"
+    }. `
+    + `${nodes.online} blockchain node${
+      nodes.online === 1 ? " is" : "s are"
+    } online, and `
+    + `${miningCore.connected} MiningCore instance${
+      miningCore.connected === 1
+        ? " is"
+        : "s are"
+    } connected.`
+  );
+
+  body.innerHTML = `
+    <div class="nexus-brief-primary">
+      <div class="nexus-brief-headline">
+        ${escapeHtml(briefState.headline)}
+      </div>
+
+      <div class="nexus-brief-summary">
+        ${escapeHtml(summary)}
+      </div>
+
+      <div class="nexus-brief-facts">
+        ${nexusBriefFact(
+          "Fleet Health",
+          `${health.toFixed(1)}%`
+        )}
+
+        ${nexusBriefFact(
+          "Fleet Hashrate",
+          fmtHashrate(hashrate)
+        )}
+
+        ${nexusBriefFact(
+          "Active Alerts",
+          String(
+            Array.isArray(context.alerts)
+              ? context.alerts.length
+              : 0
+          )
+        )}
+      </div>
+
+      <ul class="nexus-brief-observations">
+        ${observations
+          .map((observation) => `
+            <li>
+              ${escapeHtml(observation)}
+            </li>
+          `)
+          .join("")}
+      </ul>
+    </div>
+
+    <div class="nexus-brief-side">
+      <div class="nexus-brief-side-card">
+        <div class="nexus-brief-side-label">
+          Platform Footprint
+        </div>
+
+        <div class="nexus-brief-side-value">
+          ${workers.total} workers ·
+          ${pools.total} pools ·
+          ${nodes.total} nodes ·
+          ${miningCore.total} MiningCore
+        </div>
+      </div>
+
+      <div class="nexus-brief-side-card">
+        <div class="nexus-brief-side-label">
+          Telemetry State
+        </div>
+
+        <div class="nexus-brief-side-value">
+          ${integerValue(
+            context?.telemetry?.currentMetricCount
+          )} current metrics ·
+          ${integerValue(
+            context?.telemetry?.sampleCount
+          )} samples
+        </div>
+      </div>
+
+      <div class="nexus-brief-side-card recommendation">
+        <div class="nexus-brief-side-label">
+          Recommended Next Step
+        </div>
+
+        <div class="nexus-brief-side-value">
+          ${escapeHtml(recommendation)}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+
+function renderNexusBriefError(error) {
+  const body = byId("nexusBriefBody");
+  const status = byId("nexusBriefStatus");
+
+  if (status) {
+    status.className =
+      "nexus-brief-status warning";
+
+    status.textContent =
+      "CONTEXT UNAVAILABLE";
+  }
+
+  if (body) {
+    body.innerHTML = `
+      <div class="home-v2-empty">
+        Unable to build the Nexus Operations Brief:
+        ${escapeHtml(
+          error?.message || error
+        )}
+      </div>
+    `;
+  }
+}
+
+
+async function loadNexusOperationsBrief() {
+  const button = byId(
+    "nexusBriefRefresh"
+  );
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Analyzing...";
+  }
+
+  try {
+    const response = await fetch(
+      "/api/platform/context/home",
+      {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Platform context returned HTTP ${response.status}`
+      );
+    }
+
+    const payload = await response.json();
+
+    homeV2State.platformContext = payload;
+
+    renderNexusOperationsBrief(payload);
+  } catch (error) {
+    console.error(
+      "Unable to load Nexus Operations Brief:",
+      error
+    );
+
+    renderNexusBriefError(error);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Refresh brief";
+    }
+  }
+}
+
+
+function setupNexusOperationsBrief() {
+  byId(
+    "nexusBriefRefresh"
+  )?.addEventListener(
+    "click",
+    loadNexusOperationsBrief
+  );
+}
+
+/* =========================================================
+   Live Mission Timeline
+   ========================================================= */
+
+function missionEventList(payload) {
+  if (Array.isArray(payload?.events)) {
+    return payload.events;
+  }
+
+  if (Array.isArray(payload?.items)) {
+    return payload.items;
+  }
+
+  return [];
+}
+
+
+function missionRecommendationList(payload) {
+  return Array.isArray(payload?.recommendations)
+    ? payload.recommendations
+    : [];
+}
+
+
+function missionEventTime(event) {
+  return (
+    event.occurredAt
+    || event.createdAt
+    || event.generatedAt
+    || null
+  );
+}
+
+
+function missionChangedKeys(event) {
+  const previous = (
+    event?.previousState
+    && typeof event.previousState === "object"
+  )
+    ? event.previousState
+    : {};
+
+  const current = (
+    event?.currentState
+    && typeof event.currentState === "object"
+  )
+    ? event.currentState
+    : {};
+
+  const keys = new Set([
+    ...Object.keys(previous),
+    ...Object.keys(current),
+  ]);
+
+  return [...keys].filter(
+    (key) => (
+      JSON.stringify(previous[key])
+      !== JSON.stringify(current[key])
+    )
+  );
+}
+
+
+function missionIsMetricOnlyChange(event) {
+  if (
+    String(event?.eventType)
+    !== "resource.state_changed"
+  ) {
+    return false;
+  }
+
+  const changed = missionChangedKeys(event);
+
+  if (!changed.length) {
+    return true;
+  }
+
+  const metricOnlyFields = new Set([
+    "currentHashrate",
+    "hashrate",
+    "sharesPerSecond",
+    "peers",
+    "peerCount",
+    "connections",
+    "mempoolSize",
+    "mempoolBytes",
+    "mempoolUsage",
+    "checkedAt",
+    "lastSeenAt",
+    "updatedAt",
+  ]);
+
+  return changed.every(
+    (key) => metricOnlyFields.has(key)
+  );
+}
+
+
+function missionMeaningfulEvents(events) {
+  return events.filter((event) => {
+    const type = String(
+      event.eventType || ""
+    );
+
+    if (type === "resource.state_changed") {
+      return !missionIsMetricOnlyChange(event);
+    }
+
+    return true;
+  });
+}
+
+
+function missionPercentChange(
+  previousValue,
+  currentValue
+) {
+  const previous = Number(previousValue);
+  const current = Number(currentValue);
+
+  if (
+    !Number.isFinite(previous)
+    || !Number.isFinite(current)
+    || previous === 0
+  ) {
+    return null;
+  }
+
+  return (
+    (current - previous)
+    / Math.abs(previous)
+    * 100
+  );
+}
+
+
+function missionWorkerPerformanceUpdate(events) {
+  const workerEvents = events
+    .filter((event) => (
+      event.entityType === "worker"
+      && event.eventType
+        === "resource.state_changed"
+      && event.previousState
+      && event.currentState
+      && Number.isFinite(
+        Number(
+          event.previousState.currentHashrate
+        )
+      )
+      && Number.isFinite(
+        Number(
+          event.currentState.currentHashrate
+        )
+      )
+    ))
+    .slice(0, 20);
+
+  if (!workerEvents.length) {
+    return null;
+  }
+
+  const newestByWorker = new Map();
+
+  workerEvents.forEach((event) => {
+    if (!newestByWorker.has(event.entityId)) {
+      newestByWorker.set(
+        event.entityId,
+        event
+      );
+    }
+  });
+
+  const changes = [
+    ...newestByWorker.values(),
+  ].map((event) => ({
+    entityId: event.entityId,
+    percent: missionPercentChange(
+      event.previousState.currentHashrate,
+      event.currentState.currentHashrate
+    ),
+    previous:
+      event.previousState.currentHashrate,
+    current:
+      event.currentState.currentHashrate,
+    occurredAt: event.occurredAt,
+  })).filter(
+    (item) => item.percent != null
+  );
+
+  if (!changes.length) {
+    return null;
+  }
+
+  const average = (
+    changes.reduce(
+      (sum, item) => sum + item.percent,
+      0
+    )
+    / changes.length
+  );
+
+  return {
+    kind: "performance",
+    state: (
+      average > 2
+        ? "success"
+        : average < -8
+          ? "warning"
+          : "info"
+    ),
+    kicker: "Fleet Performance",
+    title: "Worker output updated",
+    message: (
+      `${changes.length} worker${
+        changes.length === 1 ? "" : "s"
+      } reported recent production changes. `
+      + `Average movement: ${
+        average > 0 ? "+" : ""
+      }${average.toFixed(1)}%.`
+    ),
+    meta: `${changes.length} workers summarized`,
+    occurredAt: changes
+      .map((item) => item.occurredAt)
+      .filter(Boolean)
+      .sort((a, b) => (
+        new Date(b) - new Date(a)
+      ))[0],
+  };
+}
+
+
+function missionHumanEntity(event) {
+  const type = String(
+    event.entityType || "resource"
+  );
+
+  if (type === "blockchain-node") {
+    return "Blockchain node";
+  }
+
+  if (type === "miningcore-instance") {
+    return "Seymour MiningCore";
+  }
+
+  if (type === "worker") {
+    return "Mining worker";
+  }
+
+  if (type === "pool") {
+    return "Mining pool";
+  }
+
+  return type
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (char) => (
+      char.toUpperCase()
+    ));
+}
+
+
+function missionDescribeEvent(event) {
+  const type = String(
+    event.eventType || ""
+  );
+
+  const entity = missionHumanEntity(event);
+
+  const current = event.currentState || {};
+  const previous = event.previousState || {};
+
+  if (type === "resource.discovered") {
+    return {
+      kind: "event",
+      state: "success",
+      kicker: "Resource Discovery",
+      title: `${entity} joined the Platform`,
+      message: (
+        event.message
+        || `${entity} entered the Nexus state model.`
+      ),
+      meta: event.entityId || entity,
+      occurredAt: missionEventTime(event),
+    };
+  }
+
+  if (
+    type.includes("offline")
+    || current.status === "offline"
+    || current.connected === false
+    || current.rpcConnected === false
+  ) {
+    return {
+      kind: "event",
+      state: "critical",
+      kicker: "Operational State",
+      title: `${entity} is offline`,
+      message: (
+        event.message
+        || "The resource stopped responding to Platform monitoring."
+      ),
+      meta: event.entityId || entity,
+      occurredAt: missionEventTime(event),
+    };
+  }
+
+  if (
+    type.includes("restored")
+    || type.includes("recovered")
+    || (
+      previous.status === "offline"
+      && current.status === "online"
+    )
+  ) {
+    return {
+      kind: "event",
+      state: "success",
+      kicker: "Recovery",
+      title: `${entity} recovered`,
+      message: (
+        event.message
+        || "The resource returned to normal operation."
+      ),
+      meta: event.entityId || entity,
+      occurredAt: missionEventTime(event),
+    };
+  }
+
+  if (
+    event.entityType === "blockchain-node"
+    && Number(current.blockHeight)
+      > Number(previous.blockHeight)
+  ) {
+    return {
+      kind: "event",
+      state: "success",
+      kicker: "Blockchain",
+      title: "Blockchain node advanced",
+      message:
+        `Block height advanced from ${
+          previous.blockHeight
+        } to ${current.blockHeight}.`,
+      meta: event.entityId || "Blockchain",
+      occurredAt: missionEventTime(event),
+    };
+  }
+
+  return {
+    kind: "event",
+    state: (
+      event.severity === "critical"
+        ? "critical"
+        : event.severity === "warning"
+          ? "warning"
+          : "info"
+    ),
+    kicker: "Platform Event",
+    title: (
+      String(event.title || "Resource changed")
+        .replaceAll("_", " ")
+    ),
+    message: (
+      event.message
+      || `${entity} reported a meaningful state change.`
+    ),
+    meta: event.entityId || entity,
+    occurredAt: missionEventTime(event),
+  };
+}
+
+
+function missionDescribeRecommendation(
+  recommendation
+) {
+  const priority = String(
+    recommendation.priority
+    || recommendation.severity
+    || "normal"
+  ).toLowerCase();
+
+  return {
+    kind: "recommendation",
+    state: "recommendation",
+    kicker: (
+      priority === "critical"
+      || priority === "high"
+        ? "High-Priority Recommendation"
+        : "Recommendation"
+    ),
+    title: (
+      recommendation.title
+      || "Nexus recommends operator review"
+    ),
+    message: (
+      recommendation.recommendedAction
+      || recommendation.message
+      || recommendation.description
+      || "Review the recommendation details."
+    ),
+    meta: (
+      recommendation.entityId
+      || recommendation.assetId
+      || recommendation.ruleId
+      || "Nexus Intelligence"
+    ),
+    occurredAt: (
+      recommendation.generatedAt
+      || recommendation.createdAt
+      || new Date().toISOString()
+    ),
+  };
+}
+
+
+function buildMissionNarrative(
+  eventsPayload,
+  recommendationsPayload
+) {
+  const allEvents = missionEventList(
+    eventsPayload
+  );
+
+  const meaningful = missionMeaningfulEvents(
+    allEvents
+  );
+
+  const narrative = meaningful
+    .slice(0, 8)
+    .map(missionDescribeEvent);
+
+  const performance =
+    missionWorkerPerformanceUpdate(
+      allEvents
+    );
+
+  if (performance) {
+    narrative.push(performance);
+  }
+
+  missionRecommendationList(
+    recommendationsPayload
+  )
+    .slice(0, 3)
+    .forEach((recommendation) => {
+      narrative.push(
+        missionDescribeRecommendation(
+          recommendation
+        )
+      );
+    });
+
+  return narrative
+    .sort((left, right) => (
+      new Date(right.occurredAt || 0)
+      - new Date(left.occurredAt || 0)
+    ))
+    .slice(0, 8);
+}
+
+
+function missionEntryHtml(entry) {
+  return `
+    <article class="mission-entry ${escapeHtml(
+      entry.state
+    )}">
+      <div class="mission-entry-marker"></div>
+
+      <div class="mission-entry-content">
+        <div class="mission-entry-kicker">
+          ${escapeHtml(entry.kicker)}
+        </div>
+
+        <div class="mission-entry-title">
+          ${escapeHtml(entry.title)}
+        </div>
+
+        <div class="mission-entry-message">
+          ${escapeHtml(entry.message)}
+        </div>
+
+        <div class="mission-entry-meta">
+          <span>
+            ${escapeHtml(entry.meta)}
+          </span>
+        </div>
+      </div>
+
+      <div class="mission-entry-time">
+        ${entry.occurredAt
+          ? escapeHtml(
+              priorityAge(entry.occurredAt)
+            )
+          : "—"}
+      </div>
+    </article>
+  `;
+}
+
+
+function renderMissionBrief(
+  contextPayload,
+  recommendationsPayload
+) {
+  const container = byId(
+    "missionTimelineBrief"
+  );
+
+  if (!container) {
+    return;
+  }
+
+  const context = nexusContextHome(
+    contextPayload
+  );
+
+  const health = numberValue(
+    context.fleetHealth
+  );
+
+  const workers =
+    nexusContextWorkerSummary(context);
+
+  const pools =
+    nexusContextPoolSummary(context);
+
+  const nodes =
+    nexusContextNodeSummary(context);
+
+  const recommendations =
+    missionRecommendationList(
+      recommendationsPayload
+    );
+
+  const nextAction = recommendations[0];
+
+  container.innerHTML = `
+    <div class="mission-brief-card primary">
+      <div class="mission-brief-label">
+        Current Mission State
+      </div>
+
+      <div class="mission-brief-value">
+        ${health >= 95
+          ? "Fleet operating normally"
+          : health >= 80
+            ? "Fleet operating with degradation"
+            : "Operator attention required"}
+      </div>
+
+      <div class="mission-brief-detail">
+        ${workers.online}/${workers.total} workers ·
+        ${pools.active}/${pools.total} pools ·
+        ${nodes.online}/${nodes.total} nodes
+      </div>
+    </div>
+
+    <div class="mission-brief-card">
+      <div class="mission-brief-label">
+        Fleet Production
+      </div>
+
+      <div class="mission-brief-value">
+        ${escapeHtml(
+          fmtHashrate(
+            nexusContextFleetHashrate(
+              context
+            )
+          )
+        )}
+      </div>
+
+      <div class="mission-brief-detail">
+        Current aggregate worker output
+      </div>
+    </div>
+
+    <div class="mission-brief-card recommendation">
+      <div class="mission-brief-label">
+        Recommended Action
+      </div>
+
+      <div class="mission-brief-value">
+        ${escapeHtml(
+          nextAction?.title
+          || "No immediate intervention required"
+        )}
+      </div>
+
+      <div class="mission-brief-detail">
+        ${escapeHtml(
+          nextAction?.recommendedAction
+          || nextAction?.message
+          || "Continue normal monitoring."
+        )}
+      </div>
+    </div>
+  `;
+}
+
+
+function renderMissionTimeline(
+  eventsPayload,
+  recommendationsPayload,
+  contextPayload
+) {
+  const stream = byId(
+    "missionTimelineStream"
+  );
+
+  const status = byId(
+    "missionTimelineStatus"
+  );
+
+  const subtitle = byId(
+    "missionTimelineSubtitle"
+  );
+
+  const source = byId(
+    "missionTimelineSource"
+  );
+
+  const updated = byId(
+    "missionTimelineUpdated"
+  );
+
+  if (
+    !stream
+    || !status
+    || !subtitle
+    || !source
+    || !updated
+  ) {
+    return;
+  }
+
+  const narrative = buildMissionNarrative(
+    eventsPayload,
+    recommendationsPayload
+  );
+
+  const recommendations =
+    missionRecommendationList(
+      recommendationsPayload
+    );
+
+  status.className = (
+    `mission-timeline-status ${
+      recommendations.length
+        ? "attention"
+        : "live"
+    }`
+  );
+
+  status.textContent = (
+    recommendations.length
+      ? `${recommendations.length} RECOMMENDATION${
+          recommendations.length === 1
+            ? ""
+            : "S"
+        }`
+      : "LIVE"
+  );
+
+  subtitle.textContent = (
+    "Meaningful discoveries, changes, recoveries, "
+    + "performance summaries, and recommendations."
+  );
+
+  source.textContent = (
+    `${eventsPayload?.source
+      || "nexus-postgresql-platform-events"}`
+    + " · "
+    + `${recommendationsPayload?.source
+      || "nexus-postgresql-platform-recommendations"}`
+  );
+
+  const latestTime = narrative
+    .map((entry) => entry.occurredAt)
+    .filter(Boolean)
+    .sort((left, right) => (
+      new Date(right) - new Date(left)
+    ))[0];
+
+  updated.textContent = latestTime
+    ? `Latest ${priorityAge(latestTime)}`
+    : "No recent activity";
+
+  if (!narrative.length) {
+    stream.innerHTML = `
+      <div class="mission-timeline-empty">
+        ✓ No meaningful operational changes detected
+      </div>
+    `;
+  } else {
+    stream.innerHTML = narrative
+      .map(missionEntryHtml)
+      .join("");
+  }
+
+  renderMissionBrief(
+    contextPayload,
+    recommendationsPayload
+  );
+}
+
+
+function renderMissionTimelineError(error) {
+  const stream = byId(
+    "missionTimelineStream"
+  );
+
+  const status = byId(
+    "missionTimelineStatus"
+  );
+
+  if (status) {
+    status.className =
+      "mission-timeline-status attention";
+
+    status.textContent =
+      "DATA UNAVAILABLE";
+  }
+
+  if (stream) {
+    stream.innerHTML = `
+      <div class="home-v2-empty">
+        Unable to load the Mission Timeline:
+        ${escapeHtml(
+          error?.message || error
+        )}
+      </div>
+    `;
+  }
+}
+
+
+async function loadMissionTimeline() {
+  const button = byId(
+    "missionTimelineRefresh"
+  );
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Loading...";
+  }
+
+  try {
+    const [
+      eventsResponse,
+      recommendationsResponse,
+      contextResponse,
+    ] = await Promise.all([
+      fetch(
+        "/api/platform/events",
+        { cache: "no-store" }
+      ),
+      fetch(
+        "/api/platform/recommendations/high-priority",
+        { cache: "no-store" }
+      ),
+      fetch(
+        "/api/platform/context/home",
+        { cache: "no-store" }
+      ),
+    ]);
+
+    if (!eventsResponse.ok) {
+      throw new Error(
+        `Events returned HTTP ${eventsResponse.status}`
+      );
+    }
+
+    if (!recommendationsResponse.ok) {
+      throw new Error(
+        `Recommendations returned HTTP ${recommendationsResponse.status}`
+      );
+    }
+
+    if (!contextResponse.ok) {
+      throw new Error(
+        `Context returned HTTP ${contextResponse.status}`
+      );
+    }
+
+    const [
+      eventsPayload,
+      recommendationsPayload,
+      contextPayload,
+    ] = await Promise.all([
+      eventsResponse.json(),
+      recommendationsResponse.json(),
+      contextResponse.json(),
+    ]);
+
+    renderMissionTimeline(
+      eventsPayload,
+      recommendationsPayload,
+      contextPayload
+    );
+  } catch (error) {
+    console.error(
+      "Unable to load Mission Timeline:",
+      error
+    );
+
+    renderMissionTimelineError(error);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Refresh";
+    }
+  }
+}
+
+
+function setupMissionTimeline() {
+  byId(
+    "missionTimelineRefresh"
+  )?.addEventListener(
+    "click",
+    loadMissionTimeline
+  );
 }
