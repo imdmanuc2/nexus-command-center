@@ -31,6 +31,7 @@ from backend.modules import platform_inventory
 from backend.modules import platform
 from backend.modules import platform_miningcore
 from backend.modules import platform_events
+from backend.modules import platform_alerts
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -116,6 +117,9 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/platform/events/summary": platform_events.summary,
             "/api/platform/events/recent": platform_events.recent_events,
             "/api/platform/events": platform_events.events,
+            "/api/platform/alerts/summary": platform_alerts.summary,
+            "/api/platform/alerts/active": platform_alerts.active_alerts,
+            "/api/platform/alerts": platform_alerts.alerts,
             "/api/platform/nodes": platform_nodes.node_list,
             "/api/platform/pools": platform.pool_list,
             "/api/platform/workers": platform.worker_list,

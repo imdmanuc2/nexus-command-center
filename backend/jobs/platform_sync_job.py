@@ -14,6 +14,7 @@ from backend.db.connection import transaction
 from scripts.sync_platform_inventory import main as sync_inventory
 from backend.jobs.platform_resource_sync import synchronize_platform_resources
 from backend.services.platform_event_service import evaluate_platform_state
+from backend.services.alert_engine_service import evaluate_alerts
 
 
 LOGGER = logging.getLogger("nexus.platform-sync")
@@ -203,6 +204,8 @@ def run_once(
 
     events = evaluate_platform_state()
 
+    alerts = evaluate_alerts()
+
     completed_at = datetime.now(timezone.utc)
 
     return {
@@ -216,6 +219,7 @@ def run_once(
         ),
         "resourcePersistence": resources,
         "eventEngine": events,
+        "alertEngine": alerts,
         "staleReconciliation": stale,
     }
 
