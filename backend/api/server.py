@@ -33,6 +33,7 @@ from backend.modules import platform_miningcore
 from backend.modules import platform_events
 from backend.modules import platform_alerts
 from backend.modules import platform_context
+from backend.modules import platform_recommendations
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -126,6 +127,9 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/platform/context/mining": platform_context.mining,
             "/api/platform/context/home": platform_context.home,
             "/api/platform/context": platform_context.overview,
+            "/api/platform/recommendations/summary": platform_recommendations.summary,
+            "/api/platform/recommendations/high-priority": platform_recommendations.high_priority,
+            "/api/platform/recommendations": platform_recommendations.recommendations,
             "/api/platform/nodes": platform_nodes.node_list,
             "/api/platform/pools": platform.pool_list,
             "/api/platform/workers": platform.worker_list,

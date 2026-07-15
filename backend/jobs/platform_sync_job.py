@@ -16,6 +16,7 @@ from backend.jobs.platform_resource_sync import synchronize_platform_resources
 from backend.services.platform_event_service import evaluate_platform_state
 from backend.services.alert_engine_service import evaluate_alerts
 from backend.services.platform_context_service import build_contexts
+from backend.services.recommendation_engine_service import evaluate_recommendations
 
 
 LOGGER = logging.getLogger("nexus.platform-sync")
@@ -209,6 +210,8 @@ def run_once(
 
     context = build_contexts()
 
+    recommendations = evaluate_recommendations()
+
     completed_at = datetime.now(timezone.utc)
 
     return {
@@ -224,6 +227,7 @@ def run_once(
         "eventEngine": events,
         "alertEngine": alerts,
         "contextBuilder": context,
+        "recommendationEngine": recommendations,
         "staleReconciliation": stale,
     }
 
