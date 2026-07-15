@@ -27,6 +27,7 @@ from backend.modules import event_engine
 from backend.modules import mission
 from backend.modules import scan_registry
 from backend.modules import cmdb
+from backend.modules import platform_inventory
 from backend.core.assets import update_asset
 
 APP_NAME = "Nexus Command Center"
@@ -99,6 +100,8 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/assets/relationships": assets.relationships,
             "/api/cmdb/assets": cmdb.assets,
             "/api/cmdb/summary": cmdb.summary,
+            "/api/platform/inventory": platform_inventory.summary,
+            "/api/platform/topology": platform_inventory.graph,
             "/api/graph": graph.graph,
             "/api/blockchain/nodes": blockchain.nodes,
             "/api/operations/mining-readiness": mining_readiness.pools,
