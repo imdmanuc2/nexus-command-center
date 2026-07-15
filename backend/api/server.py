@@ -29,6 +29,9 @@ from backend.modules import scan_registry
 from backend.modules import cmdb
 from backend.modules import platform_inventory
 from backend.modules import platform
+from backend.modules import platform_miningcore
+from backend.modules import platform_events
+from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
 
@@ -109,6 +112,11 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/platform/metrics/history": metrics.metric_history,
             "/api/platform/metrics/current": metrics.current_metrics,
             "/api/platform/metrics": metrics.metrics_summary,
+            "/api/platform/miningcore": platform_miningcore.instance_list,
+            "/api/platform/events/summary": platform_events.summary,
+            "/api/platform/events/recent": platform_events.recent_events,
+            "/api/platform/events": platform_events.events,
+            "/api/platform/nodes": platform_nodes.node_list,
             "/api/platform/pools": platform.pool_list,
             "/api/platform/workers": platform.worker_list,
             "/api/platform/fleet": platform.fleet_summary,
@@ -126,6 +134,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/operations": operations.available,
             "/api/mission/status": mission.status,
             "/api/timeline/latest": timeline.latest,
+            "/api/platform/home": platform.home,
         }
 
         parsed = urlparse(self.path)

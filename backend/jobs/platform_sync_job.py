@@ -12,6 +12,8 @@ from typing import Any
 
 from backend.db.connection import transaction
 from scripts.sync_platform_inventory import main as sync_inventory
+from backend.jobs.platform_resource_sync import synchronize_platform_resources
+from backend.services.platform_event_service import evaluate_platform_state
 
 
 LOGGER = logging.getLogger("nexus.platform-sync")
@@ -190,10 +192,16 @@ def run_once(
             f"Platform inventory sync returned {sync_exit}."
         )
 
+    resources = synchronize_platform_resources(
+        stale_seconds=stale_seconds,
+    )
+
     stale = reconcile_stale_state(
         stale_seconds=stale_seconds,
         dry_run=dry_run,
     )
+
+    events = evaluate_platform_state()
 
     completed_at = datetime.now(timezone.utc)
 
@@ -206,6 +214,8 @@ def run_once(
             (completed_at - started_at).total_seconds(),
             3,
         ),
+        "resourcePersistence": resources,
+        "eventEngine": events,
         "staleReconciliation": stale,
     }
 
