@@ -26,7 +26,17 @@
 
   function normalizeNode(node) {
     const properties = { ...(node.properties || {}) };
-    let type = node.assetType || node.nodeType || "unknown";
+    /*
+     * nodeType identifies the Platform object layer:
+     * asset, worker, pool, or workload.
+     *
+     * assetType describes the underlying hardware/classification:
+     * asic, virtual-machine, blockchain-node, and so on.
+     *
+     * Never let assetType overwrite nodeType or worker records will
+     * masquerade as physical ASIC assets.
+     */
+    let type = node.nodeType || node.assetType || "unknown";
 
     if (node.nodeType === "pool") {
       type = "pool";

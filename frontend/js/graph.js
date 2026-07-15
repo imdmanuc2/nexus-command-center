@@ -580,15 +580,11 @@ function resolvedCanvasViewMode(nodes = canvasManagedNodes()) {
     return canvasViewMode;
   }
 
-  const asicCount = canvasAsicNodes(nodes).length;
-
   /*
-   * Small fleets retain the full engineering view.
-   * Large fleets automatically collapse miners into pool clusters.
+   * Auto is the clean operational view.
+   * Engineering remains the explicit X-ray view.
    */
-  return asicCount > 50
-    ? "overview"
-    : "engineering";
+  return "overview";
 }
 
 function canvasPoolForAsic(asicNode) {
@@ -738,9 +734,49 @@ function canvasBuildModel() {
     };
   }
 
-  const asicNodes = canvasAsicNodes(allNodes);
+  /*
+   * Overview is asset-centric. Workers and workloads remain available
+   * in Engineering, but their live state is folded into matched assets.
+   */
+  const operationalNodes = allNodes.filter(node => {
+    const platformNodeType = String(
+      node.type
+      || node.nodeType
+      || node.properties?.nodeType
+      || ""
+    ).toLowerCase();
 
-  const visibleNodes = allNodes.filter(node =>
+    /*
+     * Worker nodes may advertise assetType=asic/cpu/gpu, so checking
+     * inventoryCategory() alone misclassifies them as physical assets.
+     */
+    return (
+      platformNodeType !== "worker" &&
+      platformNodeType !== "workload"
+    );
+  });
+
+  const asicNodes = canvasAsicNodes(operationalNodes);
+  const shouldClusterAsics = asicNodes.length > 50;
+
+  if (!shouldClusterAsics) {
+    const visibleIds = new Set(
+      operationalNodes.map(node => node.id)
+    );
+
+    return {
+      mode,
+      nodes: operationalNodes,
+      edges: graph.edges
+        .filter(edge =>
+          visibleIds.has(edge.source) &&
+          visibleIds.has(edge.target)
+        )
+        .map(edge => ({ ...edge }))
+    };
+  }
+
+  const visibleNodes = operationalNodes.filter(node =>
     inventoryCategory(node) !== "asic"
   );
 
@@ -788,10 +824,6 @@ function canvasBuildModel() {
       });
     });
 
-  /*
-   * Preserve relationships between visible infrastructure objects,
-   * but remove individual worker/miner edges hidden inside clusters.
-   */
   const visibleIds = new Set(
     visibleNodes.map(node => node.id)
   );
