@@ -32,6 +32,7 @@ from backend.modules import platform
 from backend.modules import platform_miningcore
 from backend.modules import platform_events
 from backend.modules import platform_alerts
+from backend.modules import platform_context
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -120,6 +121,11 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/platform/alerts/summary": platform_alerts.summary,
             "/api/platform/alerts/active": platform_alerts.active_alerts,
             "/api/platform/alerts": platform_alerts.alerts,
+            "/api/platform/context/health": platform_context.health,
+            "/api/platform/context/infrastructure": platform_context.infrastructure,
+            "/api/platform/context/mining": platform_context.mining,
+            "/api/platform/context/home": platform_context.home,
+            "/api/platform/context": platform_context.overview,
             "/api/platform/nodes": platform_nodes.node_list,
             "/api/platform/pools": platform.pool_list,
             "/api/platform/workers": platform.worker_list,
