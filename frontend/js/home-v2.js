@@ -1445,7 +1445,7 @@ async function loadFleet() {
 
   try {
     const response = await fetch(
-      "/api/fleet/home",
+      "/api/platform/home",
       {
         cache: "no-store",
         headers: {
@@ -1462,7 +1462,11 @@ async function loadFleet() {
 
     const fleet = await response.json();
 
-    renderFleet(fleet);
+    const normalizedFleet = normalizePlatformHome(fleet);
+
+
+    renderFleet(normalizedFleet);
+    renderPlatformOperations(normalizedFleet);
   } catch (error) {
     renderLoadError(error);
   } finally {
@@ -1524,7 +1528,9 @@ window.addEventListener(
     setupAttentionPanel();
     setupPriorityQueue();
     setupFleetInsights();
+    setupMetricTrends();
     loadFleet();
+    loadMetricTrends();
     loadSmcHealth();
     loadOperationsEvents();
     startFleetRefresh();
@@ -1537,6 +1543,11 @@ window.addEventListener(
     setInterval(
       loadOperationsEvents,
       5000
+    );
+
+    setInterval(
+      loadMetricTrends,
+      60000
     );
   }
 );
@@ -3676,4 +3687,1297 @@ function setupFleetInsights() {
       renderFleetInsights();
     }
   );
+}
+
+/* =========================================================
+   PostgreSQL Fleet Metric Trends
+   ========================================================= */
+
+function metricHistoryRows(payload) {
+  return Array.isArray(payload?.metrics)
+    ? payload.metrics
+    : [];
+}
+
+
+function metricSeries(
+  payload,
+  entityType,
+  entityId,
+  metricName
+) {
+  return metricHistoryRows(payload)
+    .filter((metric) => (
+      String(metric.entityType) === entityType
+      && String(metric.entityId) === entityId
+      && String(metric.metricName) === metricName
+      && Number.isFinite(
+        Number(metric.metricValue)
+      )
+    ))
+    .map((metric) => ({
+      value: Number(metric.metricValue),
+      observedAt: metric.observedAt,
+      unit: metric.metricUnit || "",
+    }))
+    .sort((left, right) => (
+      new Date(left.observedAt).getTime()
+      - new Date(right.observedAt).getTime()
+    ));
+}
+
+
+function metricSeriesDelta(series) {
+  if (!Array.isArray(series) || series.length < 2) {
+    return {
+      value: null,
+      type: "neutral",
+      label: "Collecting",
+    };
+  }
+
+  const first = Number(series[0].value);
+  const latest = Number(
+    series[series.length - 1].value
+  );
+
+  if (
+    !Number.isFinite(first)
+    || !Number.isFinite(latest)
+  ) {
+    return {
+      value: null,
+      type: "neutral",
+      label: "Unavailable",
+    };
+  }
+
+  if (first === 0) {
+    const difference = latest - first;
+
+    return {
+      value: difference,
+      type: difference > 0
+        ? "positive"
+        : difference < 0
+          ? "negative"
+          : "neutral",
+      label: difference === 0
+        ? "No change"
+        : `${difference > 0 ? "+" : ""}${difference.toFixed(0)}`,
+    };
+  }
+
+  const percent = (
+    (latest - first)
+    / Math.abs(first)
+    * 100
+  );
+
+  return {
+    value: percent,
+    type: percent > 0.05
+      ? "positive"
+      : percent < -0.05
+        ? "negative"
+        : "neutral",
+    label: (
+      Math.abs(percent) < 0.05
+        ? "Stable"
+        : `${percent > 0 ? "+" : ""}${percent.toFixed(1)}%`
+    ),
+  };
+}
+
+
+function sparklineGeometry(series) {
+  const width = 320;
+  const height = 76;
+  const paddingX = 3;
+  const paddingY = 7;
+
+  if (!Array.isArray(series) || series.length < 2) {
+    return null;
+  }
+
+  const values = series.map(
+    (point) => Number(point.value)
+  );
+
+  let minimum = Math.min(...values);
+  let maximum = Math.max(...values);
+
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) {
+    return null;
+  }
+
+  if (minimum === maximum) {
+    const padding = Math.max(
+      Math.abs(minimum) * 0.03,
+      1
+    );
+
+    minimum -= padding;
+    maximum += padding;
+  }
+
+  const usableWidth = width - paddingX * 2;
+  const usableHeight = height - paddingY * 2;
+
+  const points = series.map((point, index) => {
+    const x = (
+      paddingX
+      + (
+        index
+        / Math.max(1, series.length - 1)
+      ) * usableWidth
+    );
+
+    const ratio = (
+      (Number(point.value) - minimum)
+      / (maximum - minimum)
+    );
+
+    const y = (
+      height
+      - paddingY
+      - ratio * usableHeight
+    );
+
+    return {
+      x,
+      y,
+      value: point.value,
+    };
+  });
+
+  const linePath = points
+    .map((point, index) => (
+      `${index === 0 ? "M" : "L"}`
+      + `${point.x.toFixed(2)},`
+      + `${point.y.toFixed(2)}`
+    ))
+    .join(" ");
+
+  const areaPath = [
+    linePath,
+    `L ${points[points.length - 1].x.toFixed(2)},${height}`,
+    `L ${points[0].x.toFixed(2)},${height}`,
+    "Z",
+  ].join(" ");
+
+  return {
+    width,
+    height,
+    points,
+    linePath,
+    areaPath,
+    minimum,
+    maximum,
+  };
+}
+
+
+function renderMetricSparkline(
+  series,
+  gradientId
+) {
+  const geometry = sparklineGeometry(series);
+
+  if (!geometry) {
+    return `
+      <div class="metric-trend-empty">
+        More historical samples are needed
+      </div>
+    `;
+  }
+
+  const latest = geometry.points[
+    geometry.points.length - 1
+  ];
+
+  return `
+    <svg
+      class="metric-sparkline"
+      viewBox="0 0 ${geometry.width} ${geometry.height}"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="Historical metric trend"
+    >
+      <defs>
+        <linearGradient
+          id="${escapeHtml(gradientId)}"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="1"
+        >
+          <stop
+            offset="0%"
+            stop-color="currentColor"
+            stop-opacity="0.34"
+          ></stop>
+
+          <stop
+            offset="100%"
+            stop-color="currentColor"
+            stop-opacity="0"
+          ></stop>
+        </linearGradient>
+      </defs>
+
+      <line
+        class="metric-sparkline-grid"
+        x1="0"
+        y1="25"
+        x2="${geometry.width}"
+        y2="25"
+      ></line>
+
+      <line
+        class="metric-sparkline-grid"
+        x1="0"
+        y1="51"
+        x2="${geometry.width}"
+        y2="51"
+      ></line>
+
+      <path
+        d="${geometry.areaPath}"
+        fill="url(#${escapeHtml(gradientId)})"
+        opacity="0.52"
+      ></path>
+
+      <path
+        class="metric-sparkline-line"
+        d="${geometry.linePath}"
+      ></path>
+
+      <circle
+        class="metric-sparkline-point"
+        cx="${latest.x.toFixed(2)}"
+        cy="${latest.y.toFixed(2)}"
+        r="4"
+      ></circle>
+    </svg>
+  `;
+}
+
+
+function formatMetricTrendValue(type, value) {
+  if (!Number.isFinite(Number(value))) {
+    return "—";
+  }
+
+  if (type === "hashrate") {
+    return fmtHashrate(value);
+  }
+
+  if (type === "health") {
+    return fmtPercent(value);
+  }
+
+  return fmtNumber(value);
+}
+
+
+function metricTrendState(type, latestValue) {
+  const value = Number(latestValue);
+
+  if (!Number.isFinite(value)) {
+    return "";
+  }
+
+  if (type === "health") {
+    if (value >= 95) {
+      return "healthy";
+    }
+
+    if (value >= 80) {
+      return "warning";
+    }
+
+    return "critical";
+  }
+
+  return "";
+}
+
+
+function metricTrendCard({
+  type,
+  label,
+  description,
+  series,
+}) {
+  const latest = (
+    series.length
+      ? series[series.length - 1]
+      : null
+  );
+
+  const delta = metricSeriesDelta(series);
+
+  const latestValue = latest
+    ? latest.value
+    : null;
+
+  const state = metricTrendState(
+    type,
+    latestValue
+  );
+
+  const gradientId = (
+    `metric-gradient-${type}`
+  );
+
+  const firstAt = series[0]?.observedAt;
+  const latestAt = latest?.observedAt;
+
+  return `
+    <article class="metric-trend-card ${escapeHtml(type)} ${escapeHtml(state)}">
+      <div class="metric-trend-card-header">
+        <div class="metric-trend-label">
+          ${escapeHtml(label)}
+        </div>
+
+        <span class="metric-trend-delta ${escapeHtml(delta.type)}">
+          ${escapeHtml(delta.label)}
+        </span>
+      </div>
+
+      <div class="metric-trend-value">
+        ${escapeHtml(
+          formatMetricTrendValue(
+            type,
+            latestValue
+          )
+        )}
+      </div>
+
+      <div class="metric-trend-detail">
+        ${escapeHtml(description)}
+      </div>
+
+      ${renderMetricSparkline(
+        series,
+        gradientId
+      )}
+
+      <div class="metric-trend-footer">
+        <span>
+          ${firstAt
+            ? `From ${escapeHtml(fmtTime(firstAt))}`
+            : "Awaiting baseline"}
+        </span>
+
+        <span>
+          ${latestAt
+            ? `Updated ${escapeHtml(priorityAge(latestAt))}`
+            : "No samples"}
+        </span>
+      </div>
+    </article>
+  `;
+}
+
+
+function renderMetricTrends(payload) {
+  const container = byId("metricTrendGrid");
+  const age = byId("metricTrendsAge");
+
+  if (!container || !age) {
+    return;
+  }
+
+  const definitions = [
+    {
+      type: "hashrate",
+      label: "Fleet Hashrate",
+      description: "Total online worker hashrate",
+      metricName: "fleet_hashrate",
+    },
+    {
+      type: "health",
+      label: "Fleet Health",
+      description: "Combined worker and pool availability",
+      metricName: "fleet_health",
+    },
+    {
+      type: "workers",
+      label: "Online Workers",
+      description: "Workers currently reporting online",
+      metricName: "worker_online",
+    },
+    {
+      type: "pools",
+      label: "Pool Inventory",
+      description: "Managed pool instances",
+      metricName: "pool_total",
+    },
+  ];
+
+  const cards = definitions.map((definition) => ({
+    ...definition,
+    series: metricSeries(
+      payload,
+      "fleet",
+      "primary",
+      definition.metricName
+    ),
+  }));
+
+  const allSamples = cards.flatMap(
+    (card) => card.series
+  );
+
+  const latestTimestamp = allSamples
+    .map((sample) => sample.observedAt)
+    .filter(Boolean)
+    .sort((left, right) => (
+      new Date(right).getTime()
+      - new Date(left).getTime()
+    ))[0];
+
+  age.textContent = latestTimestamp
+    ? `Updated ${priorityAge(latestTimestamp)}`
+    : "No historical samples";
+
+  container.innerHTML = cards
+    .map(metricTrendCard)
+    .join("");
+}
+
+
+function renderMetricTrendError(error) {
+  const container = byId("metricTrendGrid");
+  const age = byId("metricTrendsAge");
+
+  if (age) {
+    age.textContent = "History unavailable";
+  }
+
+  if (container) {
+    container.innerHTML = `
+      <div class="home-v2-empty">
+        Unable to load historical metrics:
+        ${escapeHtml(
+          error?.message || error
+        )}
+      </div>
+    `;
+  }
+}
+
+
+async function loadMetricTrends() {
+  const button = byId("metricTrendsRefresh");
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Loading...";
+  }
+
+  try {
+    const response = await fetch(
+      "/api/platform/metrics/history",
+      {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Metrics history returned HTTP ${response.status}`
+      );
+    }
+
+    const payload = await response.json();
+
+    renderMetricTrends(payload);
+  } catch (error) {
+    console.error(
+      "Unable to load fleet metric trends:",
+      error
+    );
+
+    renderMetricTrendError(error);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Refresh";
+    }
+  }
+}
+
+
+function setupMetricTrends() {
+  byId(
+    "metricTrendsRefresh"
+  )?.addEventListener(
+    "click",
+    loadMetricTrends
+  );
+}
+
+/* =========================================================
+   PostgreSQL Platform Home Adapter
+   ========================================================= */
+
+function platformArray(value, key) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (
+    value
+    && typeof value === "object"
+    && Array.isArray(value[key])
+  ) {
+    return value[key];
+  }
+
+  return [];
+}
+
+
+function platformCoinSymbol(value) {
+  if (value && typeof value === "object") {
+    return String(
+      value.symbol
+      || value.type
+      || value.coin
+      || "UNKNOWN"
+    ).toUpperCase();
+  }
+
+  const text = String(value || "").trim();
+
+  if (!text) {
+    return "UNKNOWN";
+  }
+
+  /*
+   * Temporary normalization for previously imported records
+   * whose coin dictionary was serialized as text.
+   */
+  const dictionaryMatch = text.match(
+    /['"]SYMBOL['"]\s*:\s*['"]([^'"]+)['"]/i
+  );
+
+  if (dictionaryMatch) {
+    return dictionaryMatch[1].toUpperCase();
+  }
+
+  return text.toUpperCase();
+}
+
+
+function platformPoolCoin(pool) {
+  return platformCoinSymbol(
+    pool?.observedState?.coin
+    || pool?.coin
+  );
+}
+
+
+function platformPoolHashrate(pool) {
+  return numberValue(
+    pool?.currentHashrate
+    ?? pool?.observedState?.workerHashrate
+    ?? pool?.observedState?.hashrate
+    ?? 0
+  );
+}
+
+
+function platformPoolWorkerCount(pool) {
+  return integerValue(
+    pool?.onlineWorkerCount
+    ?? pool?.workerCount
+    ?? pool?.observedState?.connectedMiners
+    ?? pool?.observedState?.workerCount
+    ?? 0
+  );
+}
+
+
+function platformNodeList(payload) {
+  return platformArray(
+    payload?.nodes,
+    "nodes"
+  );
+}
+
+
+function normalizePlatformHome(payload) {
+  const fleet = payload?.summary || {};
+
+  const workers = platformArray(
+    payload?.workers,
+    "workers"
+  );
+
+  const pools = platformArray(
+    payload?.pools,
+    "pools"
+  );
+
+  const nodes = platformNodeList(payload);
+
+  const alerts = platformArray(
+    payload?.alerts,
+    "alerts"
+  );
+
+  const events = platformArray(
+    payload?.events,
+    "events"
+  );
+
+  const miningCoreInstances = platformArray(
+    payload?.miningCore,
+    "instances"
+  );
+
+  const onlineWorkers = workers.filter(
+    (worker) => (
+      String(
+        worker.status || ""
+      ).toLowerCase() === "online"
+    )
+  );
+
+  const activePools = pools
+    .filter((pool) => (
+      String(
+        pool.status || ""
+      ).toLowerCase() === "active"
+      || platformPoolWorkerCount(pool) > 0
+    ))
+    .map((pool) => ({
+      id: pool.poolId,
+      poolId: pool.poolId,
+      nativePoolId: pool.nativePoolId,
+      name: pool.name,
+      coin: platformPoolCoin(pool),
+      host: pool.host,
+      endpoint: pool.apiBase,
+      apiPort: pool.apiPort,
+      mode: pool.mode,
+      visibility: pool.visibility,
+      status: "active",
+      workerCount: platformPoolWorkerCount(
+        pool
+      ),
+      connectedMiners: platformPoolWorkerCount(
+        pool
+      ),
+      hashrate: platformPoolHashrate(pool),
+      sharesPerSecond: (
+        pool?.observedState?.sharesPerSecond
+        ?? pool?.workers?.reduce(
+          (sum, worker) => (
+            sum
+            + numberValue(
+              worker.sharesPerSecond
+            )
+          ),
+          0
+        )
+        ?? 0
+      ),
+      stratumPorts: pool.stratumPorts || [],
+      workers: pool.workers || [],
+      observedState: pool.observedState || {},
+    }));
+
+  const topMiners = [...onlineWorkers]
+    .sort((left, right) => (
+      numberValue(right.currentHashrate)
+      - numberValue(left.currentHashrate)
+    ))
+    .slice(0, 10)
+    .map((worker, index) => {
+      const matchingPool = pools.find(
+        (pool) => (
+          pool.poolId
+          === worker.poolInstanceId
+        )
+      );
+
+      return {
+        rank: index + 1,
+        workerId: worker.workerId,
+        name: worker.displayName,
+        displayName: worker.displayName,
+        assetId: worker.assetId,
+        assetIp: (
+          worker.observedState?.assetIp
+          || worker.poolHost
+        ),
+        coin: platformCoinSymbol(
+          worker.coin
+        ),
+        poolId: worker.poolInstanceId,
+        poolName: (
+          matchingPool?.name
+          || worker.observedState?.poolName
+          || worker.poolHost
+        ),
+        poolHost: worker.poolHost,
+        hashrate: numberValue(
+          worker.currentHashrate
+        ),
+        currentHashrate: numberValue(
+          worker.currentHashrate
+        ),
+        sharesPerSecond: numberValue(
+          worker.sharesPerSecond
+        ),
+        status: worker.status,
+      };
+    });
+
+  const coinMap = new Map();
+
+  function ensureCoin(symbol) {
+    const normalized = platformCoinSymbol(
+      symbol
+    );
+
+    if (!coinMap.has(normalized)) {
+      coinMap.set(normalized, {
+        symbol: normalized,
+        name: (
+          normalized === "BCH"
+            ? "Bitcoin Cash"
+            : normalized === "BTC"
+              ? "Bitcoin"
+              : normalized
+        ),
+        status: "available",
+        hashrate: 0,
+        activePoolCount: 0,
+        workerCount: 0,
+        nodeCount: 0,
+        onlineNodeCount: 0,
+      });
+    }
+
+    return coinMap.get(normalized);
+  }
+
+  activePools.forEach((pool) => {
+    const coin = ensureCoin(pool.coin);
+
+    coin.activePoolCount += 1;
+    coin.hashrate += numberValue(
+      pool.hashrate
+    );
+  });
+
+  onlineWorkers.forEach((worker) => {
+    const coin = ensureCoin(worker.coin);
+
+    coin.workerCount += 1;
+  });
+
+  nodes.forEach((node) => {
+    const coin = ensureCoin(
+      node.coin || node.network
+    );
+
+    coin.nodeCount += 1;
+
+    if (
+      node.online
+      || String(node.status).toLowerCase()
+        === "online"
+    ) {
+      coin.onlineNodeCount += 1;
+    }
+  });
+
+  coinMap.forEach((coin) => {
+    if (coin.activePoolCount > 0) {
+      coin.status = "mining";
+    } else if (coin.onlineNodeCount > 0) {
+      coin.status = "node-online";
+    }
+  });
+
+  const warningCount = alerts.filter(
+    (alert) => (
+      String(alert.severity).toLowerCase()
+      === "warning"
+      && !["resolved", "closed"].includes(
+        String(alert.status).toLowerCase()
+      )
+    )
+  ).length;
+
+  const criticalCount = alerts.filter(
+    (alert) => (
+      String(alert.severity).toLowerCase()
+      === "critical"
+      && !["resolved", "closed"].includes(
+        String(alert.status).toLowerCase()
+      )
+    )
+  ).length;
+
+  const onlineNodes = nodes.filter(
+    (node) => (
+      node.online
+      || String(
+        node.status || ""
+      ).toLowerCase() === "online"
+    )
+  );
+
+  return {
+    status: payload?.status || "ok",
+    source: payload?.source,
+    generatedAt: payload?.generatedAt,
+
+    summary: {
+      fleetHashrate: numberValue(
+        fleet.fleetHashrate
+      ),
+      sharesPerSecond: onlineWorkers.reduce(
+        (sum, worker) => (
+          sum
+          + numberValue(
+            worker.sharesPerSecond
+          )
+        ),
+        0
+      ),
+      coinCount: coinMap.size,
+      poolCount: pools.length,
+      activePoolCount: activePools.length,
+      minerCount: workers.length,
+      onlineMinerCount: onlineWorkers.length,
+      nodeCount: nodes.length,
+      onlineNodeCount: onlineNodes.length,
+      miningCoreInstanceCount:
+        miningCoreInstances.length,
+      onlineMiningCoreInstanceCount:
+        miningCoreInstances.filter(
+          (instance) => (
+            instance.online
+            || String(
+              instance.status || ""
+            ).toLowerCase() === "online"
+          )
+        ).length,
+      fleetHealth: numberValue(
+        fleet.fleetHealth,
+        100
+      ),
+      warningCount,
+      criticalCount,
+    },
+
+    coins: Array.from(
+      coinMap.values()
+    ).sort((left, right) => (
+      numberValue(right.hashrate)
+      - numberValue(left.hashrate)
+    )),
+
+    activePools,
+    topMiners,
+    nodes,
+    alerts,
+    events,
+
+    miningCore: payload?.miningCore,
+    metrics: payload?.metrics,
+    platform: payload,
+  };
+}
+
+/* =========================================================
+   Platform Operations Matrix
+   ========================================================= */
+
+function platformDomainState({
+  healthy = true,
+  warning = false,
+  critical = false,
+} = {}) {
+  if (critical) {
+    return "critical";
+  }
+
+  if (warning) {
+    return "warning";
+  }
+
+  if (healthy) {
+    return "healthy";
+  }
+
+  return "unknown";
+}
+
+
+function platformDomainCard(domain) {
+  return `
+    <article class="platform-domain ${escapeHtml(
+      domain.state
+    )}">
+      <div class="platform-domain-top">
+        <div class="platform-domain-name">
+          ${escapeHtml(domain.name)}
+        </div>
+
+        <span class="platform-domain-indicator"></span>
+      </div>
+
+      <div class="platform-domain-status">
+        ${escapeHtml(domain.status)}
+      </div>
+
+      <div class="platform-domain-detail">
+        ${escapeHtml(domain.detail)}
+      </div>
+
+      <div class="platform-domain-metric">
+        ${escapeHtml(domain.metric)}
+      </div>
+    </article>
+  `;
+}
+
+
+function buildPlatformDomains(fleet) {
+  const summary = fleet?.summary || {};
+  const platform = fleet?.platform || {};
+  const platformSummary = platform?.summary || {};
+
+  const miningCore = platform?.miningCore || {};
+  const miningCoreSummary = miningCore?.summary || {};
+
+  const metricsPayload = platform?.metrics || {};
+  const metrics = Array.isArray(metricsPayload.metrics)
+    ? metricsPayload.metrics
+    : [];
+
+  const workersTotal = integerValue(
+    summary.minerCount
+    ?? platformSummary?.workers?.total
+  );
+
+  const workersOnline = integerValue(
+    summary.onlineMinerCount
+    ?? platformSummary?.workers?.online
+  );
+
+  const poolsTotal = integerValue(
+    summary.poolCount
+    ?? platformSummary?.pools?.total
+  );
+
+  const poolsOnline = integerValue(
+    summary.activePoolCount
+    ?? platformSummary?.pools?.online
+  );
+
+  const nodesTotal = integerValue(
+    summary.nodeCount
+  );
+
+  const nodesOnline = integerValue(
+    summary.onlineNodeCount
+  );
+
+  const miningCoreTotal = integerValue(
+    miningCore.count
+    ?? miningCoreSummary.instanceCount
+  );
+
+  const miningCoreOnline = integerValue(
+    miningCoreSummary.onlineInstanceCount
+  );
+
+  const assetTotal = integerValue(
+    platformSummary?.assets?.total
+  );
+
+  const matchedWorkers = integerValue(
+    platformSummary?.workers?.matched
+  );
+
+  const unmatchedWorkers = integerValue(
+    platformSummary?.workers?.unmatched
+  );
+
+  const metricCount = integerValue(
+    metricsPayload.count,
+    metrics.length
+  );
+
+  const newestMetric = metrics
+    .map((metric) => metric.observedAt)
+    .filter(Boolean)
+    .sort((left, right) => (
+      new Date(right).getTime()
+      - new Date(left).getTime()
+    ))[0];
+
+  const metricAgeMs = newestMetric
+    ? Date.now() - new Date(newestMetric).getTime()
+    : Infinity;
+
+  const fleetCritical = integerValue(
+    summary.criticalCount
+  );
+
+  const fleetWarnings = integerValue(
+    summary.warningCount
+  );
+
+  const miningState = platformDomainState({
+    critical: (
+      workersTotal > 0
+      && workersOnline === 0
+    ),
+    warning: (
+      workersOnline < workersTotal
+      || poolsOnline < poolsTotal
+    ),
+  });
+
+  const blockchainState = platformDomainState({
+    critical: (
+      nodesTotal > 0
+      && nodesOnline === 0
+    ),
+    warning: (
+      nodesOnline < nodesTotal
+    ),
+  });
+
+  const miningCoreState = platformDomainState({
+    critical: (
+      miningCoreTotal > 0
+      && miningCoreOnline === 0
+    ),
+    warning: (
+      miningCoreOnline < miningCoreTotal
+    ),
+  });
+
+  const cmdbState = platformDomainState({
+    warning: unmatchedWorkers > 0,
+  });
+
+  const telemetryState = platformDomainState({
+    critical: metricCount === 0,
+    warning: metricAgeMs > 180000,
+  });
+
+  const apiState = platformDomainState({
+    critical: platform?.status !== "ok",
+    warning: (
+      fleetCritical > 0
+      || fleetWarnings > 0
+    ),
+  });
+
+  return [
+    {
+      name: "Mining",
+      state: miningState,
+      status:
+        miningState === "healthy"
+          ? "Healthy"
+          : miningState === "critical"
+            ? "Offline"
+            : "Degraded",
+      detail:
+        `${workersOnline}/${workersTotal} workers online · `
+        + `${poolsOnline}/${poolsTotal} active pools`,
+      metric: fmtHashrate(
+        summary.fleetHashrate
+      ),
+    },
+    {
+      name: "Blockchain",
+      state: blockchainState,
+      status:
+        blockchainState === "healthy"
+          ? "Healthy"
+          : blockchainState === "critical"
+            ? "Offline"
+            : "Degraded",
+      detail:
+        `${nodesOnline}/${nodesTotal} nodes online`,
+      metric:
+        fleet?.nodes?.length
+          ? fleet.nodes
+              .map((node) => (
+                `${platformCoinSymbol(
+                  node.coin
+                )} ${node.syncPercent != null
+                  ? `${Number(node.syncPercent).toFixed(2)}%`
+                  : node.status}`
+              ))
+              .join(" · ")
+          : "No nodes registered",
+    },
+    {
+      name: "MiningCore",
+      state: miningCoreState,
+      status:
+        miningCoreState === "healthy"
+          ? "Healthy"
+          : miningCoreState === "critical"
+            ? "Offline"
+            : "Degraded",
+      detail:
+        `${miningCoreOnline}/${miningCoreTotal} instances online`,
+      metric:
+        `${integerValue(
+          miningCoreSummary.activePoolCount
+        )} pools · `
+        + `${integerValue(
+          miningCoreSummary.connectedMiners
+        )} miners`,
+    },
+    {
+      name: "CMDB",
+      state: cmdbState,
+      status:
+        cmdbState === "healthy"
+          ? "Healthy"
+          : "Review Needed",
+      detail:
+        `${assetTotal} managed assets`,
+      metric:
+        unmatchedWorkers > 0
+          ? `${unmatchedWorkers} workers unmatched`
+          : `${matchedWorkers} workers matched`,
+    },
+    {
+      name: "Telemetry",
+      state: telemetryState,
+      status:
+        telemetryState === "healthy"
+          ? "Collecting"
+          : telemetryState === "critical"
+            ? "Unavailable"
+            : "Stale",
+      detail:
+        `${metricCount} current metrics`,
+      metric:
+        newestMetric
+          ? `Updated ${priorityAge(newestMetric)}`
+          : "No observations",
+    },
+    {
+      name: "Platform API",
+      state: apiState,
+      status:
+        apiState === "healthy"
+          ? "Online"
+          : apiState === "critical"
+            ? "Offline"
+            : "Attention",
+      detail:
+        "PostgreSQL Platform services",
+      metric:
+        fleetCritical || fleetWarnings
+          ? `${fleetCritical} critical · ${fleetWarnings} warning`
+          : "No active platform alerts",
+    },
+  ];
+}
+
+
+function renderPlatformOperations(fleet) {
+  const container = byId(
+    "platformOperationsGrid"
+  );
+
+  const overall = byId(
+    "platformOperationsOverall"
+  );
+
+  const subtitle = byId(
+    "platformOperationsSubtitle"
+  );
+
+  const updated = byId(
+    "platformOperationsUpdated"
+  );
+
+  if (
+    !container
+    || !overall
+    || !subtitle
+    || !updated
+  ) {
+    return;
+  }
+
+  const domains = buildPlatformDomains(
+    fleet
+  );
+
+  const criticalCount = domains.filter(
+    (domain) => domain.state === "critical"
+  ).length;
+
+  const warningCount = domains.filter(
+    (domain) => domain.state === "warning"
+  ).length;
+
+  let overallState = "healthy";
+  let overallLabel = "ALL SYSTEMS OPERATIONAL";
+
+  if (criticalCount > 0) {
+    overallState = "critical";
+    overallLabel = (
+      `${criticalCount} CRITICAL`
+    );
+  } else if (warningCount > 0) {
+    overallState = "warning";
+    overallLabel = (
+      `${warningCount} DEGRADED`
+    );
+  }
+
+  overall.className = (
+    `platform-overall-status ${overallState}`
+  );
+
+  overall.textContent = overallLabel;
+
+  subtitle.textContent = (
+    criticalCount === 0
+    && warningCount === 0
+      ? "All monitored operational domains are healthy."
+      : `${criticalCount} critical and ${warningCount} degraded domain${
+          criticalCount + warningCount === 1
+            ? ""
+            : "s"
+        }.`
+  );
+
+  updated.textContent = fleet?.generatedAt
+    ? `Updated ${priorityAge(
+        fleet.generatedAt
+      )}`
+    : "Live";
+
+  container.innerHTML = domains
+    .map(platformDomainCard)
+    .join("");
 }

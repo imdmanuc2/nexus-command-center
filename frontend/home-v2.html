@@ -144,6 +144,57 @@
       </section>
 
       <section
+        id="platformOperationsMatrix"
+        class="nexus-card platform-operations-matrix"
+      >
+        <div class="platform-operations-header">
+          <div class="platform-operations-heading">
+            <div class="platform-operations-symbol">
+              ◉
+            </div>
+
+            <div>
+              <div class="platform-operations-title">
+                Platform Operations
+              </div>
+
+              <div
+                id="platformOperationsSubtitle"
+                class="platform-operations-subtitle"
+              >
+                Evaluating operational domains...
+              </div>
+            </div>
+          </div>
+
+          <div class="platform-operations-header-status">
+            <span
+              id="platformOperationsOverall"
+              class="platform-overall-status unknown"
+            >
+              CHECKING
+            </span>
+
+            <span
+              id="platformOperationsUpdated"
+              class="platform-operations-updated"
+            >
+              —
+            </span>
+          </div>
+        </div>
+
+        <div
+          id="platformOperationsGrid"
+          class="platform-operations-grid"
+        >
+          <div class="home-v2-loading">
+            Loading Platform operational state...
+          </div>
+        </div>
+      </section>
+
+      <section
         id="fleetPriorityQueue"
         class="nexus-card priority-queue healthy"
       >
@@ -282,6 +333,49 @@
           <span>Critical</span>
           <strong id="metricCritical">—</strong>
         </article>
+      </section>
+
+      <section
+        id="fleetMetricTrends"
+        class="nexus-card home-v2-section fleet-metric-trends"
+      >
+        <div class="home-v2-section-heading">
+          <div>
+            <div class="label">
+              Fleet Performance Trends
+            </div>
+
+            <div class="small">
+              Historical PostgreSQL telemetry from the last 24 hours.
+            </div>
+          </div>
+
+          <div class="metric-trends-actions">
+            <span
+              id="metricTrendsAge"
+              class="home-v2-section-count"
+            >
+              Loading history...
+            </span>
+
+            <button
+              id="metricTrendsRefresh"
+              class="metric-trends-refresh"
+              type="button"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="metricTrendGrid"
+          class="metric-trend-grid"
+        >
+          <div class="home-v2-loading">
+            Loading historical fleet metrics...
+          </div>
+        </div>
       </section>
 
       <section class="nexus-card home-v2-section smc-workhorse-section">
