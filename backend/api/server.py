@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
@@ -335,7 +335,12 @@ def main():
     host = "0.0.0.0"
     port = 8080
     print(f"{APP_NAME} API running on http://{host}:{port}")
-    HTTPServer((host, port), NexusHandler).serve_forever()
+    server = ThreadingHTTPServer(
+        (host, port),
+        NexusHandler,
+    )
+    server.daemon_threads = True
+    server.serve_forever()
 
 
 
