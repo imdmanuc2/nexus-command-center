@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+from datetime import date, datetime
+from decimal import Decimal
+from pathlib import Path as FilePath
+from uuid import UUID
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
@@ -34,6 +38,9 @@ from backend.modules import platform_events
 from backend.modules import platform_alerts
 from backend.modules import platform_context
 from backend.modules import platform_recommendations
+from backend.modules import platform_automation
+from backend.modules import platform_timeline
+from backend.modules import platform_operations_center
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -41,8 +48,45 @@ from backend.core.assets import update_asset
 APP_NAME = "Nexus Command Center"
 
 
+
+def _json_default(value):
+    """Serialize PostgreSQL and common Python values safely."""
+
+    if isinstance(value, Decimal):
+        # PostgreSQL NUMERIC values are commonly returned as Decimal.
+        # Preserve whole values as integers and fractional values as floats.
+        if value == value.to_integral_value():
+            return int(value)
+
+        return float(value)
+
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+
+    if isinstance(value, UUID):
+        return str(value)
+
+    if isinstance(value, FilePath):
+        return str(value)
+
+    if isinstance(value, set):
+        return sorted(value, key=str)
+
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+
+    raise TypeError(
+        f"Object of type {value.__class__.__name__} "
+        "is not JSON serializable"
+    )
+
+
 def json_response(payload, status=200):
-    return status, json.dumps(payload, indent=2).encode("utf-8")
+    return status, json.dumps(
+        payload,
+        indent=2,
+        default=_json_default,
+    ).encode("utf-8")
 
 
 class NexusHandler(BaseHTTPRequestHandler):
@@ -130,6 +174,16 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/platform/recommendations/summary": platform_recommendations.summary,
             "/api/platform/recommendations/high-priority": platform_recommendations.high_priority,
             "/api/platform/recommendations": platform_recommendations.recommendations,
+            "/api/platform/automation/summary": platform_automation.summary,
+            "/api/platform/automation/runs": platform_automation.runs,
+            "/api/platform/automation/actions": platform_automation.actions,
+            "/api/platform/timeline/summary": platform_timeline.timeline_summary,
+            "/api/platform/timeline/latest": platform_timeline.latest,
+            "/api/platform/timeline": platform_timeline.timeline,
+            "/api/platform/operations-center/snapshot": platform_operations_center.snapshot,
+            "/api/platform/operations-center/queue": platform_operations_center.queue,
+            "/api/platform/operations-center/status": platform_operations_center.status,
+            "/api/platform/operations-center": platform_operations_center.dashboard,
             "/api/platform/nodes": platform_nodes.node_list,
             "/api/platform/pools": platform.pool_list,
             "/api/platform/workers": platform.worker_list,

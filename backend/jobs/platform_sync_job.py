@@ -17,6 +17,11 @@ from backend.services.platform_event_service import evaluate_platform_state
 from backend.services.alert_engine_service import evaluate_alerts
 from backend.services.platform_context_service import build_contexts
 from backend.services.recommendation_engine_service import evaluate_recommendations
+from backend.services.automation_engine_service import process_queued_automations
+from backend.services.timeline_service import build_timeline
+from backend.services.operations_center_service import build_operations_center
+from backend.services.worker_activity_reconciliation_service import reconcile_worker_activity
+from backend.services.topology_reconciliation_service import reconcile_live_topology
 
 
 LOGGER = logging.getLogger("nexus.platform-sync")
@@ -126,6 +131,10 @@ def reconcile_stale_state(
                     UPDATE nexus.workers
                     SET
                         status = 'offline',
+                        activity_state = 'offline',
+                        current_session = FALSE,
+                        current_hashrate = 0,
+                        shares_per_second = 0,
                         reconciliation_status = 'stale',
                         updated_at = NOW()
                     WHERE worker_id = ANY(%s)
@@ -204,6 +213,9 @@ def run_once(
         dry_run=dry_run,
     )
 
+    worker_activity = reconcile_worker_activity()
+    topology_reconciliation = reconcile_live_topology()
+
     events = evaluate_platform_state()
 
     alerts = evaluate_alerts()
@@ -211,6 +223,12 @@ def run_once(
     context = build_contexts()
 
     recommendations = evaluate_recommendations()
+
+    automation = process_queued_automations()
+
+    timeline = build_timeline()
+
+    operations_center = build_operations_center(persist=True)
 
     completed_at = datetime.now(timezone.utc)
 
@@ -224,10 +242,15 @@ def run_once(
             3,
         ),
         "resourcePersistence": resources,
+        "workerActivityReconciliation": worker_activity,
+        "topologyReconciliation": topology_reconciliation,
         "eventEngine": events,
         "alertEngine": alerts,
         "contextBuilder": context,
         "recommendationEngine": recommendations,
+        "automationEngine": automation,
+        "timelineEngine": timeline,
+        "operationsCenter": operations_center,
         "staleReconciliation": stale,
     }
 
