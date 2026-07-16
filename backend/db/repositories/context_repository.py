@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import date, datetime
+from decimal import Decimal
+
 from datetime import datetime
 from typing import Any
 
@@ -7,6 +10,29 @@ from psycopg.types.json import Jsonb
 
 from backend.db.connection import get_connection, transaction
 
+
+def _json_safe(value):
+    """Convert database-native values into JSON-compatible values."""
+
+    if isinstance(value, Decimal):
+        return float(value)
+
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+
+    if isinstance(value, dict):
+        return {
+            str(key): _json_safe(item)
+            for key, item in value.items()
+        }
+
+    if isinstance(value, (list, tuple, set)):
+        return [
+            _json_safe(item)
+            for item in value
+        ]
+
+    return value
 
 def upsert_context(
     *,
@@ -46,8 +72,8 @@ def upsert_context(
                 (
                     context_key,
                     context_version,
-                    Jsonb(context_payload),
-                    Jsonb(source_state),
+                    Jsonb(_json_safe(context_payload)),
+                    Jsonb(_json_safe(source_state)),
                 ),
             )
 

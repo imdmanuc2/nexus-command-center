@@ -1,9 +1,35 @@
 from __future__ import annotations
 
+from decimal import Decimal
+from datetime import date, datetime
+
 from typing import Any
 from psycopg.types.json import Jsonb
 from backend.db.connection import get_connection, transaction
 
+
+def _json_safe(value):
+    """Convert PostgreSQL/Python values into JSON-safe structures."""
+
+    if isinstance(value, Decimal):
+        return float(value)
+
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+
+    if isinstance(value, dict):
+        return {
+            str(key): _json_safe(item)
+            for key, item in value.items()
+        }
+
+    if isinstance(value, (list, tuple, set)):
+        return [
+            _json_safe(item)
+            for item in value
+        ]
+
+    return value
 
 def get_snapshot(entity_type: str, entity_id: str) -> dict[str, Any] | None:
     with get_connection() as connection:
@@ -57,7 +83,7 @@ def upsert_snapshot(
                     entity_type,
                     entity_id,
                     state_hash,
-                    Jsonb(state_payload),
+                    Jsonb(_json_safe(state_payload)),
                     changed,
                 ),
             )
@@ -91,8 +117,8 @@ def append_event(
                     entity_id,
                     title,
                     message,
-                    Jsonb(previous_state or {}),
-                    Jsonb(current_state or {}),
+                    Jsonb(_json_safe(previous_state or {})),
+                    Jsonb(_json_safe(current_state or {})),
                 ),
             )
 

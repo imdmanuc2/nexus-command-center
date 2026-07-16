@@ -13,6 +13,7 @@ from backend.db.repositories.pool_repository import upsert_pool, list_pools
 from backend.db.repositories.worker_repository import upsert_worker
 from backend.db.repositories.workload_repository import upsert_workload
 from backend.db.repositories.relationship_repository import upsert_relationship
+from backend.services.generic_stratum_sync_service import synchronize_generic_stratum_inventory
 
 
 BASE = "http://127.0.0.1:8080"
@@ -82,6 +83,11 @@ def classify_worker(raw: dict[str, Any], asset: dict[str, Any] | None) -> tuple[
 
 def main() -> int:
     assets = get_assets()
+
+    generic_stratum = (
+        synchronize_generic_stratum_inventory()
+    )
+
     assets_by_worker = {
         str(asset.get("workerId")).strip().lower(): asset
         for asset in assets
@@ -229,7 +235,8 @@ def main() -> int:
             },
             "observedState": raw,
         }
-        upsert_worker(worker)
+        saved_worker = upsert_worker(worker)
+        canonical_worker_id = saved_worker["workerId"]
         worker_count += 1
 
         workload_id = f"workload-{canonical_worker_id}-crypto-mining"
@@ -297,6 +304,7 @@ def main() -> int:
         "workers": worker_count,
         "workloads": workload_count,
         "relationshipsWritten": relationship_count,
+        "genericStratum": generic_stratum,
     }, indent=2))
     return 0
 

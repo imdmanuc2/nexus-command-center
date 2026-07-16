@@ -77,7 +77,6 @@ def open_or_update_alert(
         f"{rule_id}:{entity_type}:{entity_id}"
     )
 
-    event_id_text = str(event_id)
 
     alert_data = {
         "entityType": entity_type,
@@ -131,7 +130,7 @@ def open_or_update_alert(
                     WHERE alert_id = %s
                     """,
                     (
-                        event_id_text,
+                        None,
                         rule_id,
                         severity,
                         title,
@@ -191,7 +190,7 @@ def open_or_update_alert(
                 """,
                 (
                     _alert_id(grouping_key),
-                    event_id_text,
+                    None,
                     rule_id,
                     severity,
                     title,
