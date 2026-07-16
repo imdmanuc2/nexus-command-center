@@ -1531,6 +1531,8 @@ window.addEventListener(
     setupMetricTrends();
     setupNexusOperationsBrief();
     setupMissionTimeline();
+    setupFleetForecast();
+    loadFleetForecast();
     loadMissionTimeline();
     loadNexusOperationsBrief();
     loadFleet();
@@ -2182,6 +2184,11 @@ document.addEventListener(
     setInterval(
       loadMissionTimeline,
       30000
+    );
+
+    setInterval(
+      loadFleetForecast,
+      60000
     );
 
   }
@@ -6446,5 +6453,1424 @@ function setupMissionTimeline() {
   )?.addEventListener(
     "click",
     loadMissionTimeline
+  );
+}
+
+/* =========================================================
+   Mission Timeline Grouping and Noise Suppression
+   ========================================================= */
+
+function missionIsWorkerHashrateEvent(event) {
+  if (
+    event?.entityType !== "worker"
+    || event?.eventType !== "resource.state_changed"
+  ) {
+    return false;
+  }
+
+  const changed = missionChangedKeys(event);
+
+  if (!changed.length) {
+    return false;
+  }
+
+  const workerMetricFields = new Set([
+    "currentHashrate",
+    "hashrate",
+    "sharesPerSecond",
+    "acceptedShares",
+    "rejectedShares",
+    "lastShareAt",
+    "lastSeenAt",
+    "updatedAt",
+  ]);
+
+  return changed.every(
+    (key) => workerMetricFields.has(key)
+  );
+}
+
+
+function missionIsBlockchainAdvance(event) {
+  if (
+    event?.entityType !== "blockchain-node"
+    || event?.eventType !== "resource.state_changed"
+  ) {
+    return false;
+  }
+
+  const previousHeight = Number(
+    event?.previousState?.blockHeight
+  );
+
+  const currentHeight = Number(
+    event?.currentState?.blockHeight
+  );
+
+  return (
+    Number.isFinite(previousHeight)
+    && Number.isFinite(currentHeight)
+    && currentHeight > previousHeight
+  );
+}
+
+
+function missionIsRoutineBlockchainTelemetry(
+  event
+) {
+  if (
+    event?.entityType !== "blockchain-node"
+    || event?.eventType !== "resource.state_changed"
+  ) {
+    return false;
+  }
+
+  if (missionIsBlockchainAdvance(event)) {
+    return false;
+  }
+
+  const changed = missionChangedKeys(event);
+
+  if (!changed.length) {
+    return true;
+  }
+
+  const routineFields = new Set([
+    "peers",
+    "peerCount",
+    "connections",
+    "mempoolSize",
+    "mempoolBytes",
+    "mempoolUsage",
+    "bestBlockHash",
+    "chainWork",
+    "difficulty",
+    "checkedAt",
+    "lastSeenAt",
+    "updatedAt",
+  ]);
+
+  return changed.every(
+    (key) => routineFields.has(key)
+  );
+}
+
+
+function missionBlockchainAdvanceGroups(events) {
+  const grouped = new Map();
+
+  events
+    .filter(missionIsBlockchainAdvance)
+    .forEach((event) => {
+      const entityId = (
+        event.entityId
+        || "blockchain-node"
+      );
+
+      if (!grouped.has(entityId)) {
+        grouped.set(entityId, []);
+      }
+
+      grouped.get(entityId).push(event);
+    });
+
+  return [...grouped.entries()]
+    .map(([entityId, nodeEvents]) => {
+      const ordered = [...nodeEvents].sort(
+        (left, right) => (
+          new Date(
+            missionEventTime(left) || 0
+          ).getTime()
+          - new Date(
+            missionEventTime(right) || 0
+          ).getTime()
+        )
+      );
+
+      const first = ordered[0];
+      const latest = ordered[
+        ordered.length - 1
+      ];
+
+      const startingHeight = Number(
+        first?.previousState?.blockHeight
+      );
+
+      const endingHeight = Number(
+        latest?.currentState?.blockHeight
+      );
+
+      const blockIncrease = (
+        Number.isFinite(startingHeight)
+        && Number.isFinite(endingHeight)
+      )
+        ? endingHeight - startingHeight
+        : ordered.length;
+
+      const peers = Number(
+        latest?.currentState?.peers
+        ?? latest?.currentState?.peerCount
+        ?? latest?.currentState?.connections
+      );
+
+      const rpcConnected = (
+        latest?.currentState?.rpcConnected
+      );
+
+      const status = String(
+        latest?.currentState?.status || ""
+      ).toLowerCase();
+
+      const healthy = (
+        rpcConnected !== false
+        && status !== "offline"
+      );
+
+      let message = (
+        `Block height advanced from `
+        + `${Number.isFinite(startingHeight)
+          ? startingHeight.toLocaleString()
+          : "the previous observation"}`
+        + ` to `
+        + `${Number.isFinite(endingHeight)
+          ? endingHeight.toLocaleString()
+          : "the latest observation"}`
+        + ` across ${ordered.length} observation${
+          ordered.length === 1 ? "" : "s"
+        }.`
+      );
+
+      if (
+        Number.isFinite(peers)
+        && peers > 0
+      ) {
+        message += ` Peer connectivity remains healthy at ${peers}.`;
+      }
+
+      return {
+        kind: "blockchain-summary",
+        state: healthy
+          ? "success"
+          : "warning",
+        kicker: "Blockchain",
+        title: healthy
+          ? "Blockchain node advancing normally"
+          : "Blockchain progress requires review",
+        message,
+        meta: (
+          `${entityId} · +${Math.max(
+            0,
+            blockIncrease
+          )} block${
+            blockIncrease === 1 ? "" : "s"
+          }`
+        ),
+        occurredAt: missionEventTime(
+          latest
+        ),
+      };
+    });
+}
+
+
+function missionOperationalEventKey(event) {
+  const type = String(
+    event?.eventType || "event"
+  );
+
+  const entityType = String(
+    event?.entityType || "resource"
+  );
+
+  const entityId = String(
+    event?.entityId || "unknown"
+  );
+
+  const currentStatus = String(
+    event?.currentState?.status
+    ?? event?.currentState?.connected
+    ?? event?.currentState?.rpcConnected
+    ?? ""
+  );
+
+  return [
+    type,
+    entityType,
+    entityId,
+    currentStatus,
+  ].join("|");
+}
+
+
+function missionDeduplicateEvents(events) {
+  const seen = new Set();
+
+  return events.filter((event) => {
+    const key = missionOperationalEventKey(
+      event
+    );
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+
+function missionOperationalEvents(events) {
+  const filtered = events.filter(
+    (event) => {
+      if (!event || typeof event !== "object") {
+        return false;
+      }
+
+      if (missionIsWorkerHashrateEvent(event)) {
+        return false;
+      }
+
+      if (missionIsBlockchainAdvance(event)) {
+        return false;
+      }
+
+      if (
+        missionIsRoutineBlockchainTelemetry(
+          event
+        )
+      ) {
+        return false;
+      }
+
+      if (missionIsMetricOnlyChange(event)) {
+        return false;
+      }
+
+      return true;
+    }
+  );
+
+  return missionDeduplicateEvents(filtered);
+}
+
+
+function missionWorkerPerformanceSummary(
+  events
+) {
+  const recentWorkerEvents = events
+    .filter(missionIsWorkerHashrateEvent)
+    .sort((left, right) => (
+      new Date(
+        missionEventTime(right) || 0
+      ).getTime()
+      - new Date(
+        missionEventTime(left) || 0
+      ).getTime()
+    ));
+
+  if (!recentWorkerEvents.length) {
+    return null;
+  }
+
+  const newestByWorker = new Map();
+
+  recentWorkerEvents.forEach((event) => {
+    const entityId = (
+      event.entityId || "worker"
+    );
+
+    if (!newestByWorker.has(entityId)) {
+      newestByWorker.set(
+        entityId,
+        event
+      );
+    }
+  });
+
+  const changes = [
+    ...newestByWorker.values(),
+  ]
+    .map((event) => {
+      const previousHashrate = Number(
+        event?.previousState
+          ?.currentHashrate
+        ?? event?.previousState?.hashrate
+      );
+
+      const currentHashrate = Number(
+        event?.currentState
+          ?.currentHashrate
+        ?? event?.currentState?.hashrate
+      );
+
+      const percent = missionPercentChange(
+        previousHashrate,
+        currentHashrate
+      );
+
+      return {
+        event,
+        previousHashrate,
+        currentHashrate,
+        percent,
+      };
+    })
+    .filter((change) => (
+      change.percent != null
+    ));
+
+  if (!changes.length) {
+    return null;
+  }
+
+  const previousTotal = changes.reduce(
+    (sum, change) => (
+      sum + change.previousHashrate
+    ),
+    0
+  );
+
+  const currentTotal = changes.reduce(
+    (sum, change) => (
+      sum + change.currentHashrate
+    ),
+    0
+  );
+
+  const aggregateChange =
+    missionPercentChange(
+      previousTotal,
+      currentTotal
+    );
+
+  const latestEvent = changes
+    .map((change) => change.event)
+    .sort((left, right) => (
+      new Date(
+        missionEventTime(right) || 0
+      ).getTime()
+      - new Date(
+        missionEventTime(left) || 0
+      ).getTime()
+    ))[0];
+
+  const significantDecline = (
+    aggregateChange != null
+    && aggregateChange <= -15
+  );
+
+  const significantIncrease = (
+    aggregateChange != null
+    && aggregateChange >= 10
+  );
+
+  let state = "info";
+  let title = "Worker output updated";
+
+  if (significantDecline) {
+    state = "warning";
+    title = "Fleet output decreased";
+  } else if (significantIncrease) {
+    state = "success";
+    title = "Fleet output increased";
+  }
+
+  const movementText = (
+    aggregateChange == null
+      ? "changed"
+      : (
+          `${aggregateChange > 0 ? "+" : ""}`
+          + `${aggregateChange.toFixed(1)}%`
+        )
+  );
+
+  return {
+    kind: "performance-summary",
+    state,
+    kicker: "Fleet Performance",
+    title,
+    message:
+      `${changes.length} worker${
+        changes.length === 1 ? "" : "s"
+      } reported recent production changes. `
+      + `Combined output ${movementText}.`,
+    meta:
+      `${changes.length} worker${
+        changes.length === 1 ? "" : "s"
+      } summarized · ${fmtHashrate(
+        currentTotal
+      )}`,
+    occurredAt: missionEventTime(
+      latestEvent
+    ),
+  };
+}
+
+
+/*
+ * Replacement for the original timeline builder.
+ *
+ * Routine measurements stay in telemetry. The Mission Timeline
+ * receives grouped operational meaning.
+ */
+function buildMissionNarrative(
+  eventsPayload,
+  recommendationsPayload
+) {
+  const allEvents = missionEventList(
+    eventsPayload
+  );
+
+  const operationalEntries =
+    missionOperationalEvents(allEvents)
+      .slice(0, 8)
+      .map(missionDescribeEvent);
+
+  const blockchainEntries =
+    missionBlockchainAdvanceGroups(
+      allEvents
+    );
+
+  const performanceEntry =
+    missionWorkerPerformanceSummary(
+      allEvents
+    );
+
+  const recommendationEntries =
+    missionRecommendationList(
+      recommendationsPayload
+    )
+      .slice(0, 3)
+      .map(
+        missionDescribeRecommendation
+      );
+
+  const narrative = [
+    ...operationalEntries,
+    ...blockchainEntries,
+    ...(performanceEntry
+      ? [performanceEntry]
+      : []),
+    ...recommendationEntries,
+  ];
+
+  return narrative
+    .filter(Boolean)
+    .sort((left, right) => (
+      new Date(
+        right.occurredAt || 0
+      ).getTime()
+      - new Date(
+        left.occurredAt || 0
+      ).getTime()
+    ))
+    .slice(0, 8);
+}
+
+/* =========================================================
+   PostgreSQL Fleet Forecast
+   ========================================================= */
+
+function fleetForecastRollups(payload) {
+  return Array.isArray(payload?.metrics)
+    ? payload.metrics
+    : [];
+}
+
+
+function fleetForecastSeries(
+  payload,
+  metricName
+) {
+  return fleetForecastRollups(payload)
+    .filter((metric) => (
+      String(metric.entityType) === "fleet"
+      && String(metric.entityId) === "primary"
+      && String(metric.metricName) === metricName
+      && Number.isFinite(
+        Number(
+          metric.lastValue
+          ?? metric.averageValue
+        )
+      )
+    ))
+    .map((metric) => ({
+      timestamp: metric.bucketStart,
+      value: Number(
+        metric.lastValue
+        ?? metric.averageValue
+      ),
+      minimum: Number(
+        metric.minimumValue
+        ?? metric.lastValue
+      ),
+      maximum: Number(
+        metric.maximumValue
+        ?? metric.lastValue
+      ),
+      samples: integerValue(
+        metric.sampleCount
+      ),
+    }))
+    .filter((point) => point.timestamp)
+    .sort((left, right) => (
+      new Date(left.timestamp).getTime()
+      - new Date(right.timestamp).getTime()
+    ));
+}
+
+
+function fleetForecastRegression(series) {
+  if (!Array.isArray(series) || series.length < 3) {
+    return null;
+  }
+
+  const points = series.map(
+    (point, index) => ({
+      x: index,
+      y: Number(point.value),
+    })
+  );
+
+  const count = points.length;
+
+  const meanX = points.reduce(
+    (sum, point) => sum + point.x,
+    0
+  ) / count;
+
+  const meanY = points.reduce(
+    (sum, point) => sum + point.y,
+    0
+  ) / count;
+
+  let numerator = 0;
+  let denominator = 0;
+
+  points.forEach((point) => {
+    numerator += (
+      (point.x - meanX)
+      * (point.y - meanY)
+    );
+
+    denominator += (
+      (point.x - meanX) ** 2
+    );
+  });
+
+  const slope = denominator
+    ? numerator / denominator
+    : 0;
+
+  const intercept = meanY - slope * meanX;
+
+  const predicted = points.map(
+    (point) => (
+      intercept + slope * point.x
+    )
+  );
+
+  const residuals = points.map(
+    (point, index) => (
+      point.y - predicted[index]
+    )
+  );
+
+  const residualVariance = (
+    residuals.reduce(
+      (sum, residual) => (
+        sum + residual ** 2
+      ),
+      0
+    )
+    / Math.max(1, count - 2)
+  );
+
+  const residualDeviation = Math.sqrt(
+    residualVariance
+  );
+
+  const totalVariation = points.reduce(
+    (sum, point) => (
+      sum + (point.y - meanY) ** 2
+    ),
+    0
+  );
+
+  const unexplainedVariation =
+    residuals.reduce(
+      (sum, residual) => (
+        sum + residual ** 2
+      ),
+      0
+    );
+
+  const rSquared = totalVariation > 0
+    ? Math.max(
+        0,
+        Math.min(
+          1,
+          1 - (
+            unexplainedVariation
+            / totalVariation
+          )
+        )
+      )
+    : 1;
+
+  const nextX = count;
+  const forecast = (
+    intercept + slope * nextX
+  );
+
+  return {
+    count,
+    slope,
+    intercept,
+    forecast,
+    residualDeviation,
+    rSquared,
+    latest: points[count - 1].y,
+    average: meanY,
+  };
+}
+
+
+function fleetForecastConfidence(
+  regression
+) {
+  if (!regression) {
+    return {
+      level: "low",
+      label: "LOW CONFIDENCE",
+      score: 0,
+    };
+  }
+
+  const sampleFactor = Math.min(
+    1,
+    regression.count / 24
+  );
+
+  const fitFactor = Math.max(
+    0.15,
+    regression.rSquared
+  );
+
+  const score = Math.round(
+    sampleFactor
+    * fitFactor
+    * 100
+  );
+
+  if (score >= 70) {
+    return {
+      level: "high",
+      label: "HIGH CONFIDENCE",
+      score,
+    };
+  }
+
+  if (score >= 40) {
+    return {
+      level: "medium",
+      label: "MEDIUM CONFIDENCE",
+      score,
+    };
+  }
+
+  return {
+    level: "low",
+    label: "LOW CONFIDENCE",
+    score,
+  };
+}
+
+
+function fleetForecastDirection(
+  regression
+) {
+  if (!regression || regression.latest === 0) {
+    return {
+      state: "stable",
+      label: "Stable",
+      percent: 0,
+    };
+  }
+
+  const percent = (
+    regression.slope
+    / Math.abs(regression.latest)
+    * 100
+  );
+
+  if (percent >= 2) {
+    return {
+      state: "rising",
+      label: "Rising",
+      percent,
+    };
+  }
+
+  if (percent <= -2) {
+    return {
+      state: "falling",
+      label: "Falling",
+      percent,
+    };
+  }
+
+  return {
+    state: "stable",
+    label: "Stable",
+    percent,
+  };
+}
+
+
+function fleetForecastStability(
+  series
+) {
+  if (!Array.isArray(series) || series.length < 2) {
+    return {
+      label: "Collecting",
+      variation: null,
+      state: "warning",
+    };
+  }
+
+  const values = series.map(
+    (point) => Number(point.value)
+  );
+
+  const average = values.reduce(
+    (sum, value) => sum + value,
+    0
+  ) / values.length;
+
+  const variance = values.reduce(
+    (sum, value) => (
+      sum + (value - average) ** 2
+    ),
+    0
+  ) / values.length;
+
+  const deviation = Math.sqrt(variance);
+
+  const coefficient = average
+    ? deviation / Math.abs(average) * 100
+    : 0;
+
+  if (coefficient <= 8) {
+    return {
+      label: "Highly stable",
+      variation: coefficient,
+      state: "healthy",
+    };
+  }
+
+  if (coefficient <= 20) {
+    return {
+      label: "Normal variation",
+      variation: coefficient,
+      state: "healthy",
+    };
+  }
+
+  return {
+    label: "Volatile",
+    variation: coefficient,
+    state: "warning",
+  };
+}
+
+
+function fleetForecastGeometry(
+  series,
+  regression
+) {
+  if (
+    !Array.isArray(series)
+    || series.length < 2
+    || !regression
+  ) {
+    return null;
+  }
+
+  const width = 640;
+  const height = 120;
+  const paddingX = 6;
+  const paddingY = 10;
+
+  const historyValues = series.map(
+    (point) => Number(point.value)
+  );
+
+  const rangePadding = (
+    regression.residualDeviation * 1.96
+  );
+
+  const lowForecast = Math.max(
+    0,
+    regression.forecast - rangePadding
+  );
+
+  const highForecast = (
+    regression.forecast + rangePadding
+  );
+
+  const allValues = [
+    ...historyValues,
+    lowForecast,
+    highForecast,
+  ];
+
+  let minimum = Math.min(...allValues);
+  let maximum = Math.max(...allValues);
+
+  if (minimum === maximum) {
+    minimum -= 1;
+    maximum += 1;
+  }
+
+  const usableWidth = width - paddingX * 2;
+  const usableHeight = height - paddingY * 2;
+
+  const totalPoints = series.length + 1;
+
+  function coordinates(index, value) {
+    const x = (
+      paddingX
+      + (
+        index
+        / Math.max(1, totalPoints - 1)
+      ) * usableWidth
+    );
+
+    const ratio = (
+      (value - minimum)
+      / (maximum - minimum)
+    );
+
+    const y = (
+      height
+      - paddingY
+      - ratio * usableHeight
+    );
+
+    return { x, y };
+  }
+
+  const historyPoints = historyValues.map(
+    (value, index) => (
+      coordinates(index, value)
+    )
+  );
+
+  const latestPoint = historyPoints[
+    historyPoints.length - 1
+  ];
+
+  const forecastPoint = coordinates(
+    series.length,
+    regression.forecast
+  );
+
+  const lowPoint = coordinates(
+    series.length,
+    lowForecast
+  );
+
+  const highPoint = coordinates(
+    series.length,
+    highForecast
+  );
+
+  const historyPath = historyPoints
+    .map((point, index) => (
+      `${index === 0 ? "M" : "L"}`
+      + `${point.x.toFixed(2)},`
+      + `${point.y.toFixed(2)}`
+    ))
+    .join(" ");
+
+  const projectionPath = (
+    `M${latestPoint.x.toFixed(2)},`
+    + `${latestPoint.y.toFixed(2)} `
+    + `L${forecastPoint.x.toFixed(2)},`
+    + `${forecastPoint.y.toFixed(2)}`
+  );
+
+  const bandPath = [
+    `M${latestPoint.x.toFixed(2)},${latestPoint.y.toFixed(2)}`,
+    `L${highPoint.x.toFixed(2)},${highPoint.y.toFixed(2)}`,
+    `L${lowPoint.x.toFixed(2)},${lowPoint.y.toFixed(2)}`,
+    "Z",
+  ].join(" ");
+
+  return {
+    width,
+    height,
+    historyPath,
+    projectionPath,
+    bandPath,
+    forecastPoint,
+    lowForecast,
+    highForecast,
+  };
+}
+
+
+function fleetForecastChart(
+  series,
+  regression
+) {
+  const geometry = fleetForecastGeometry(
+    series,
+    regression
+  );
+
+  if (!geometry) {
+    return `
+      <div class="metric-trend-empty">
+        Additional rollup samples are required
+      </div>
+    `;
+  }
+
+  return `
+    <svg
+      class="fleet-forecast-chart"
+      viewBox="0 0 ${geometry.width} ${geometry.height}"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label="Fleet hashrate forecast"
+    >
+      <line
+        class="fleet-forecast-chart-grid"
+        x1="0"
+        y1="40"
+        x2="${geometry.width}"
+        y2="40"
+      ></line>
+
+      <line
+        class="fleet-forecast-chart-grid"
+        x1="0"
+        y1="80"
+        x2="${geometry.width}"
+        y2="80"
+      ></line>
+
+      <path
+        class="fleet-forecast-chart-band"
+        d="${geometry.bandPath}"
+      ></path>
+
+      <path
+        class="fleet-forecast-chart-history"
+        d="${geometry.historyPath}"
+      ></path>
+
+      <path
+        class="fleet-forecast-chart-projection"
+        d="${geometry.projectionPath}"
+      ></path>
+
+      <circle
+        class="fleet-forecast-chart-point"
+        cx="${geometry.forecastPoint.x.toFixed(2)}"
+        cy="${geometry.forecastPoint.y.toFixed(2)}"
+        r="4"
+      ></circle>
+    </svg>
+  `;
+}
+
+
+function fleetForecastHealthOutlook(
+  payload
+) {
+  const series = fleetForecastSeries(
+    payload,
+    "fleet_health"
+  );
+
+  const latest = series.length
+    ? series[series.length - 1].value
+    : null;
+
+  const minimum = series.length
+    ? Math.min(
+        ...series.map((point) => point.value)
+      )
+    : null;
+
+  if (latest == null) {
+    return {
+      state: "warning",
+      title: "Health history collecting",
+      detail:
+        "More fleet-health rollups are required.",
+    };
+  }
+
+  if (latest >= 95 && minimum >= 90) {
+    return {
+      state: "healthy",
+      title: "Healthy outlook",
+      detail:
+        `Fleet health is ${latest.toFixed(1)}% `
+        + `with a ${minimum.toFixed(1)}% window minimum.`,
+    };
+  }
+
+  return {
+    state: "warning",
+    title: "Health variability detected",
+    detail:
+      `Fleet health is ${latest.toFixed(1)}% `
+      + `with a ${minimum.toFixed(1)}% window minimum.`,
+  };
+}
+
+
+function renderFleetForecast(payload) {
+  const body = byId("fleetForecastBody");
+  const confidenceBadge = byId(
+    "fleetForecastConfidence"
+  );
+  const subtitle = byId(
+    "fleetForecastSubtitle"
+  );
+  const source = byId(
+    "fleetForecastSource"
+  );
+  const updated = byId(
+    "fleetForecastUpdated"
+  );
+
+  if (
+    !body
+    || !confidenceBadge
+    || !subtitle
+    || !source
+    || !updated
+  ) {
+    return;
+  }
+
+  const hashrateSeries = fleetForecastSeries(
+    payload,
+    "fleet_hashrate"
+  ).slice(-24);
+
+  const regression = fleetForecastRegression(
+    hashrateSeries
+  );
+
+  const confidence =
+    fleetForecastConfidence(
+      regression
+    );
+
+  confidenceBadge.className = (
+    `fleet-forecast-confidence ${confidence.level}`
+  );
+
+  confidenceBadge.textContent = (
+    `${confidence.label} · ${confidence.score}%`
+  );
+
+  source.textContent = (
+    payload?.source
+    || "nexus-postgresql-telemetry"
+  );
+
+  const latestTimestamp = hashrateSeries[
+    hashrateSeries.length - 1
+  ]?.timestamp;
+
+  updated.textContent = latestTimestamp
+    ? `Latest rollup ${priorityAge(latestTimestamp)}`
+    : "No rollups available";
+
+  if (!regression) {
+    subtitle.textContent = (
+      "Waiting for enough PostgreSQL rollups "
+      + "to calculate a reliable forecast."
+    );
+
+    body.innerHTML = `
+      <div class="home-v2-empty">
+        At least three fleet-hashrate rollups are required.
+      </div>
+    `;
+
+    return;
+  }
+
+  const direction = fleetForecastDirection(
+    regression
+  );
+
+  const stability = fleetForecastStability(
+    hashrateSeries
+  );
+
+  const healthOutlook =
+    fleetForecastHealthOutlook(
+      payload
+    );
+
+  const rangePadding = (
+    regression.residualDeviation * 1.96
+  );
+
+  const lowForecast = Math.max(
+    0,
+    regression.forecast - rangePadding
+  );
+
+  const highForecast = (
+    regression.forecast + rangePadding
+  );
+
+  subtitle.textContent = (
+    "Statistical next-hour outlook derived from "
+    + `${hashrateSeries.length} PostgreSQL rollups.`
+  );
+
+  body.innerHTML = `
+    <div class="fleet-forecast-primary">
+      <div class="fleet-forecast-primary-top">
+        <div>
+          <div class="fleet-forecast-label">
+            Expected Next-Hour Hashrate
+          </div>
+
+          <div class="fleet-forecast-value">
+            ${escapeHtml(
+              fmtHashrate(
+                Math.max(
+                  0,
+                  regression.forecast
+                )
+              )
+            )}
+          </div>
+
+          <div class="fleet-forecast-range">
+            Expected range:
+            ${escapeHtml(
+              fmtHashrate(lowForecast)
+            )}
+            –
+            ${escapeHtml(
+              fmtHashrate(highForecast)
+            )}
+          </div>
+        </div>
+
+        <span class="fleet-forecast-direction ${escapeHtml(
+          direction.state
+        )}">
+          ${direction.state === "rising"
+            ? "↑"
+            : direction.state === "falling"
+              ? "↓"
+              : "→"}
+          ${escapeHtml(direction.label)}
+        </span>
+      </div>
+
+      ${fleetForecastChart(
+        hashrateSeries,
+        regression
+      )}
+
+      <div class="fleet-forecast-stats">
+        <div class="fleet-forecast-stat">
+          <div class="fleet-forecast-stat-label">
+            Current
+          </div>
+
+          <div class="fleet-forecast-stat-value">
+            ${escapeHtml(
+              fmtHashrate(
+                regression.latest
+              )
+            )}
+          </div>
+        </div>
+
+        <div class="fleet-forecast-stat">
+          <div class="fleet-forecast-stat-label">
+            Window Average
+          </div>
+
+          <div class="fleet-forecast-stat-value">
+            ${escapeHtml(
+              fmtHashrate(
+                regression.average
+              )
+            )}
+          </div>
+        </div>
+
+        <div class="fleet-forecast-stat">
+          <div class="fleet-forecast-stat-label">
+            Per-Bucket Trend
+          </div>
+
+          <div class="fleet-forecast-stat-value">
+            ${direction.percent > 0 ? "+" : ""}
+            ${direction.percent.toFixed(2)}%
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fleet-forecast-side">
+      <div class="fleet-forecast-card ${escapeHtml(
+        stability.state
+      )}">
+        <div class="fleet-forecast-card-label">
+          Production Stability
+        </div>
+
+        <div class="fleet-forecast-card-value">
+          ${escapeHtml(stability.label)}
+        </div>
+
+        <div class="fleet-forecast-card-detail">
+          ${stability.variation == null
+            ? "More samples are required."
+            : `${stability.variation.toFixed(1)}% variation across the forecast window.`}
+        </div>
+      </div>
+
+      <div class="fleet-forecast-card ${escapeHtml(
+        healthOutlook.state
+      )}">
+        <div class="fleet-forecast-card-label">
+          Health Outlook
+        </div>
+
+        <div class="fleet-forecast-card-value">
+          ${escapeHtml(
+            healthOutlook.title
+          )}
+        </div>
+
+        <div class="fleet-forecast-card-detail">
+          ${escapeHtml(
+            healthOutlook.detail
+          )}
+        </div>
+      </div>
+
+      <div class="fleet-forecast-card">
+        <div class="fleet-forecast-card-label">
+          Forecast Quality
+        </div>
+
+        <div class="fleet-forecast-card-value">
+          ${confidence.score}% confidence
+        </div>
+
+        <div class="fleet-forecast-card-detail">
+          ${hashrateSeries.length} rollups analyzed ·
+          ${(regression.rSquared * 100).toFixed(1)}%
+          trend fit.
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+
+function renderFleetForecastError(error) {
+  const body = byId("fleetForecastBody");
+  const confidence = byId(
+    "fleetForecastConfidence"
+  );
+
+  if (confidence) {
+    confidence.className =
+      "fleet-forecast-confidence low";
+
+    confidence.textContent =
+      "FORECAST UNAVAILABLE";
+  }
+
+  if (body) {
+    body.innerHTML = `
+      <div class="home-v2-empty">
+        Unable to build fleet forecast:
+        ${escapeHtml(
+          error?.message || error
+        )}
+      </div>
+    `;
+  }
+}
+
+
+async function loadFleetForecast() {
+  const button = byId(
+    "fleetForecastRefresh"
+  );
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Calculating...";
+  }
+
+  try {
+    const response = await fetch(
+      "/api/platform/metrics/rollups",
+      {
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Metric rollups returned HTTP ${response.status}`
+      );
+    }
+
+    const payload = await response.json();
+
+    homeV2State.fleetForecast = payload;
+
+    renderFleetForecast(payload);
+  } catch (error) {
+    console.error(
+      "Unable to load Fleet Forecast:",
+      error
+    );
+
+    renderFleetForecastError(error);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Refresh";
+    }
+  }
+}
+
+
+function setupFleetForecast() {
+  byId(
+    "fleetForecastRefresh"
+  )?.addEventListener(
+    "click",
+    loadFleetForecast
   );
 }
