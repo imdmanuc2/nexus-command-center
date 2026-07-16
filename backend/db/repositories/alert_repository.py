@@ -168,7 +168,7 @@ def open_or_update_alert(
                 )
                 VALUES (
                     %s,
-                    NULL,
+                    %s,
                     %s,
                     %s,
                     %s,
@@ -190,6 +190,7 @@ def open_or_update_alert(
                 """,
                 (
                     _alert_id(grouping_key),
+                    None,
                     None,
                     rule_id,
                     severity,
