@@ -1,0 +1,42 @@
+{
+  "pools": [
+    {
+      "enabled": true,
+      "poolId": "pool-192-168-1-169-3333-btc",
+      "nativePoolId": "btc-solo",
+      "name": "Bitcoin Solo · CKPool",
+      "instanceName": "CKPool Bitcoin Solo",
+      "software": "ckpool",
+      "coin": "BTC",
+      "mode": "solo",
+      "visibility": "private",
+      "host": "192.168.1.169",
+      "stratumPorts": [
+        3333,
+        3334,
+        3335
+      ],
+      "blockchainAssetId": "asset-82ac3c36",
+      "workers": [
+        {
+          "sourceWorkerId": "bc1qasa0lk6l7s47sw9wusqdpug4scryckjjgacepv",
+          "workerName": "avalon",
+          "displayName": "Nano 3s",
+          "workerType": "asic",
+          "hardwareType": "ASIC",
+          "assetId": "asset-28a5a306",
+          "active": true
+        },
+        {
+          "sourceWorkerId": "bc1q8ucazpveqtml7kq0k08z20zm3hzyqae0d2tvjf",
+          "workerName": "cpu-miner",
+          "displayName": "CPU Mining VM",
+          "workerType": "cpu",
+          "hardwareType": "Virtual CPU",
+          "assetId": "asset-bab403ab",
+          "active": true
+        }
+      ]
+    }
+  ]
+}

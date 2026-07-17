@@ -1,0 +1,12 @@
+{
+  "package": "011-telemetry-storage-rollups",
+  "version": "1.0.0",
+  "migration": "005_telemetry_storage_rollups.sql",
+  "routes": [
+    "/api/platform/metrics",
+    "/api/platform/metrics/current",
+    "/api/platform/metrics/history",
+    "/api/platform/metrics/rollups"
+  ],
+  "collectionFrequencySeconds": 60
+}

@@ -1,0 +1,12 @@
+{
+  "package": "012-platform-resource-persistence",
+  "version": "1.0.0",
+  "expectedCounts": {
+    "blockchainNodes": 1,
+    "miningcoreInstances": 2
+  },
+  "modifies": [
+    "backend/db/repositories/miningcore_repository.py",
+    "backend/services/miningcore_sync_service.py"
+  ]
+}

@@ -1,7 +1,8 @@
-"""Canonical Nexus infrastructure asset classification.
+"""Canonical Nexus CMDB asset classification.
 
-All APIs should use this module instead of letting each frontend page guess
-whether an object is a pool, ASIC, blockchain node, server, or unknown device.
+Every Nexus module should use this classifier instead of independently
+guessing whether an object is a pool, ASIC, compute host, GPU, VM, node,
+server, container, workload, or unknown device.
 """
 
 from __future__ import annotations
@@ -12,9 +13,30 @@ from typing import Any, Iterable
 CANONICAL_TYPES = {
     "pool",
     "asic",
+    "compute-host",
+    "cpu-device",
+    "gpu-device",
+    "virtual-machine",
+    "container",
+    "workload",
     "blockchain-node",
     "server",
     "unknown",
+}
+
+
+DISPLAY_TYPES = {
+    "pool": "Mining Pool",
+    "asic": "ASIC Miner",
+    "compute-host": "Compute Host",
+    "cpu-device": "CPU Device",
+    "gpu-device": "GPU Device",
+    "virtual-machine": "Virtual Machine",
+    "container": "Container",
+    "workload": "Workload",
+    "blockchain-node": "Blockchain Node",
+    "server": "Server",
+    "unknown": "Unknown Asset",
 }
 
 
@@ -67,16 +89,49 @@ def normalize_asset_type(value: Any) -> str | None:
     raw = str(value or "").strip().lower().replace("_", "-")
 
     aliases = {
+        # Pools
         "pool": "pool",
+        "pool-host": "pool",
         "mining-pool": "pool",
         "solo-pool": "pool",
         "public-pool": "pool",
 
+        # Dedicated ASIC hardware
         "asic": "asic",
-        "miner": "asic",
         "asic-miner": "asic",
         "mining-device": "asic",
 
+        # General compute hosts
+        "compute": "compute-host",
+        "compute-host": "compute-host",
+        "compute-node": "compute-host",
+        "gpu-rig": "compute-host",
+        "gpu-server": "compute-host",
+        "cpu-miner": "compute-host",
+        "gpu-miner": "compute-host",
+
+        # Components
+        "cpu": "cpu-device",
+        "cpu-device": "cpu-device",
+        "processor": "cpu-device",
+        "gpu": "gpu-device",
+        "gpu-device": "gpu-device",
+        "graphics-card": "gpu-device",
+        "accelerator": "gpu-device",
+
+        # Virtualization and workloads
+        "vm": "virtual-machine",
+        "virtual-machine": "virtual-machine",
+        "virtual-server": "virtual-machine",
+        "container": "container",
+        "docker-container": "container",
+        "podman-container": "container",
+        "workload": "workload",
+        "mining-workload": "workload",
+        "ai-workload": "workload",
+        "rental-workload": "workload",
+
+        # Blockchain nodes
         "blockchain": "blockchain-node",
         "blockchain-node": "blockchain-node",
         "coin-node": "blockchain-node",
@@ -85,10 +140,10 @@ def normalize_asset_type(value: Any) -> str | None:
         "btc-node": "blockchain-node",
         "bch-node": "blockchain-node",
 
+        # Infrastructure
         "server": "server",
         "host": "server",
         "infrastructure-node": "server",
-
         "unknown": "unknown",
     }
 
@@ -106,7 +161,7 @@ def classify_asset(
     services: Any = None,
     properties: dict[str, Any] | None = None,
 ) -> str:
-    """Return one canonical Nexus asset type."""
+    """Return one canonical Nexus CMDB asset type."""
 
     properties = properties or {}
 
@@ -117,22 +172,48 @@ def classify_asset(
         properties.get("canonicalType"),
         properties.get("canonical_type"),
         properties.get("deviceType"),
+        properties.get("computeType"),
     )
 
     for candidate in explicit_candidates:
         normalized = normalize_asset_type(candidate)
+
         if normalized:
             return normalized
 
-    raw_type = str(object_type or "").strip().lower().replace("_", "-")
+    raw_type = (
+        str(object_type or "")
+        .strip()
+        .lower()
+        .replace("_", "-")
+    )
+
     object_id = str(node_id or "").strip().lower()
 
-    # Native graph object identity wins over relationship text.
+    # Native object identity is stronger than descriptive text.
     if raw_type == "pool" or object_id.startswith("pool-"):
         return "pool"
 
     if raw_type == "asic":
         return "asic"
+
+    if raw_type in {"gpu-device", "gpu"}:
+        return "gpu-device"
+
+    if raw_type in {"cpu-device", "cpu"}:
+        return "cpu-device"
+
+    if raw_type in {"compute-host", "compute-node"}:
+        return "compute-host"
+
+    if raw_type in {"vm", "virtual-machine"}:
+        return "virtual-machine"
+
+    if raw_type in {"container", "docker-container"}:
+        return "container"
+
+    if raw_type in {"workload", "mining-workload", "ai-workload"}:
+        return "workload"
 
     if raw_type in {"blockchain-node", "coin-node-rpc"}:
         return "blockchain-node"
@@ -145,10 +226,17 @@ def classify_asset(
             _text(properties.get("primaryRole")),
             _text(properties.get("primary_role")),
             _text(properties.get("hostname")),
+            _text(properties.get("manufacturer")),
+            _text(properties.get("model")),
+            _text(properties.get("hypervisor")),
+            _text(properties.get("runtime")),
+            _text(properties.get("capabilities")),
+            _text(properties.get("components")),
+            _text(properties.get("computeProfile")),
         ]
     ).lower()
 
-    detected_ports = set()
+    detected_ports: set[int] = set()
     detected_ports.update(_ports(open_ports))
     detected_ports.update(_ports(services))
     detected_ports.update(_ports(properties.get("openPorts")))
@@ -157,6 +245,7 @@ def classify_asset(
     detected_ports.update(_ports(properties.get("rpcPort")))
     detected_ports.update(_ports(properties.get("p2pPort")))
 
+    # Blockchain classification takes precedence over generic server terms.
     if (
         "blockchain" in searchable
         or "bitcoin core" in searchable
@@ -168,13 +257,74 @@ def classify_asset(
     ):
         return "blockchain-node"
 
+    # Virtualization must be recognized before general compute/server terms.
+    if (
+        "virtual machine" in searchable
+        or "virtual-machine" in searchable
+        or "kvm guest" in searchable
+        or "vmware guest" in searchable
+        or "virtualbox" in searchable
+        or raw_type == "vm"
+    ):
+        return "virtual-machine"
+
+    if (
+        "docker container" in searchable
+        or "podman container" in searchable
+        or "containerd" in searchable
+        or raw_type == "container"
+    ):
+        return "container"
+
+    # Dedicated hardware components.
+    if (
+        "nvidia" in searchable
+        or "geforce" in searchable
+        or "tesla gpu" in searchable
+        or "quadro" in searchable
+        or "radeon" in searchable
+        or "amd gpu" in searchable
+        or "intel arc" in searchable
+        or "graphics processor" in searchable
+        or "gpu device" in searchable
+        or "cuda" in searchable
+        or "rocm" in searchable
+    ):
+        return "gpu-device"
+
+    if (
+        "cpu device" in searchable
+        or "processor device" in searchable
+    ):
+        return "cpu-device"
+
+    # Dedicated ASIC appliances.
     if (
         "asic" in searchable
         or "nano 3" in searchable
+        or "antminer" in searchable
+        or "whatsminer" in searchable
+        or "avalonminer" in searchable
+        or "iceriver" in searchable
+        or "goldshell" in searchable
         or "mining system" in searchable
-        or "miner" in searchable
     ):
         return "asic"
+
+    # CPU/GPU mining describes a workload on general compute.
+    if (
+        "cpu miner" in searchable
+        or "cpu mining" in searchable
+        or "gpu miner" in searchable
+        or "gpu mining" in searchable
+        or "ai compute" in searchable
+        or "ai rental" in searchable
+        or "inference server" in searchable
+        or "training server" in searchable
+        or "compute rig" in searchable
+        or "gpu rig" in searchable
+    ):
+        return "compute-host"
 
     if (
         "solo pool" in searchable
@@ -191,7 +341,7 @@ def classify_asset(
 
 
 def classify_graph_node(node: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of a graph node with canonical classification fields."""
+    """Return a graph node with canonical CMDB classification."""
 
     result = dict(node)
     properties = dict(result.get("properties") or {})
@@ -215,27 +365,23 @@ def classify_graph_node(node: dict[str, Any]) -> dict[str, Any]:
         properties=properties,
     )
 
-    display_types = {
-        "pool": "Mining Pool",
-        "asic": "ASIC Miner",
-        "blockchain-node": "Blockchain Node",
-        "server": "Server",
-        "unknown": "Unknown Asset",
-    }
-
     properties["assetType"] = canonical_type
-    properties["displayType"] = display_types[canonical_type]
+    properties["displayType"] = DISPLAY_TYPES[canonical_type]
 
     result["properties"] = properties
+
     return result
 
 
-def classify_graph_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Add canonical classification to every node in a graph payload."""
+def classify_graph_payload(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Add canonical CMDB classification to graph nodes."""
 
     result = dict(payload)
     result["nodes"] = [
         classify_graph_node(node)
         for node in payload.get("nodes", [])
     ]
+
     return result

@@ -1,0 +1,26 @@
+{
+  "package": "016-recommendation-engine",
+  "version": "1.0.0",
+  "requires": [
+    "015-ai-context-layer"
+  ],
+  "migration": "010_recommendation_engine.sql",
+  "tables": [
+    "nexus.recommendations",
+    "nexus.recommendation_engine_state"
+  ],
+  "rules": [
+    "worker-offline",
+    "worker-zero-hashrate",
+    "blockchain-rpc-offline",
+    "blockchain-node-not-synced",
+    "miningcore-offline",
+    "miningcore-console-offline",
+    "critical-alert-review"
+  ],
+  "routes": [
+    "/api/platform/recommendations",
+    "/api/platform/recommendations/high-priority",
+    "/api/platform/recommendations/summary"
+  ]
+}

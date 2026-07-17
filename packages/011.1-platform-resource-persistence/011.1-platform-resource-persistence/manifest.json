@@ -1,0 +1,9 @@
+{
+  "package": "011.1-platform-resource-persistence",
+  "version": "1.0.0",
+  "migration": "006_platform_resource_persistence.sql",
+  "routes": [
+    "/api/platform/nodes",
+    "/api/platform/miningcore"
+  ]
+}

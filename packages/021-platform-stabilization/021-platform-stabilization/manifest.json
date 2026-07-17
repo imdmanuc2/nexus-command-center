@@ -1,0 +1,12 @@
+{
+  "package": "021-platform-stabilization",
+  "version": "1.0.0",
+  "requires": ["020-canonical-worker-propagation"],
+  "fixes": [
+    "Correct nexus.alerts INSERT parameter alignment",
+    "Keep Platform event IDs in alert JSON",
+    "Keep legacy nexus.events foreign key NULL",
+    "Normalize Decimal and datetime values before JSONB writes",
+    "Verify full integrated Platform sync"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "package": "010-automatic-sync-stale-reconciliation",
+  "version": "1.0.0",
+  "requires": [
+    "005-platform-inventory",
+    "006-platform-services"
+  ],
+  "installs": [
+    "backend/jobs/platform_sync_job.py",
+    "/etc/systemd/system/nexus-platform-sync.service",
+    "/etc/systemd/system/nexus-platform-sync.timer"
+  ],
+  "schedule": {
+    "frequencySeconds": 60,
+    "staleAfterSeconds": 300
+  },
+  "behavior": [
+    "Synchronize pools, workers, workloads, and relationships",
+    "Mark unseen workers offline and stale",
+    "Mark stale worker workloads offline",
+    "Deactivate stale worker relationships",
+    "Mark unseen pools offline"
+  ]
+}

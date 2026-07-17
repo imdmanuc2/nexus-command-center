@@ -1597,6 +1597,11 @@ function renderCanvas() {
 
         const relationshipClass = [
           mining ? "mining" : "default-relationship",
+          mining && activity.active
+            ? "active-mining"
+            : mining
+              ? "idle-mining"
+              : "",
           `telemetry-path-${activity.kind}`,
           activity.active ? "telemetry-active" : "telemetry-idle",
           highlighted ? "active" : "",

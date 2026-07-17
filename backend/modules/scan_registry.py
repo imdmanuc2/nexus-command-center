@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from backend.core import discovery as discovery_core
-from backend.core.asset_manager import upsert_managed_asset
+from backend.core.reconciliation_engine import reconcile_observation
 
 
 LAST_SCAN = Path("backend/data/discovery/last_scan.json")
@@ -90,4 +90,25 @@ def scan_targets(targets):
 
 def add_system(system):
     classified = classify(system)
-    return upsert_managed_asset(classified)
+
+    result = reconcile_observation(
+        classified,
+        source="discovery-add-system",
+        observer_id="nexus-discovery",
+        approve_new=True,
+        actor_id="operator",
+    )
+
+    asset = result.get("asset")
+
+    if not asset:
+        return {
+            "success": False,
+            "status": result.get("status"),
+            "decision": result.get("decision"),
+            "confidence": result.get("confidence"),
+            "identity": result.get("identity"),
+            "observation": result.get("observation"),
+        }
+
+    return asset

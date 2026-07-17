@@ -1,0 +1,11 @@
+{
+  "package": "020-canonical-worker-propagation",
+  "version": "1.0.0",
+  "requires": [
+    "019-identity-reconciliation"
+  ],
+  "purpose": "Propagate canonical worker_id returned by upsert_worker into workloads and relationships.",
+  "filesModified": [
+    "scripts/sync_platform_inventory.py"
+  ]
+}

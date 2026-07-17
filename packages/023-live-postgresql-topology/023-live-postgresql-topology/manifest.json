@@ -1,0 +1,17 @@
+{
+  "package": "023-live-postgresql-topology",
+  "version": "1.0.0",
+  "baseline": "package-023-source.zip",
+  "migration": "015_live_postgresql_topology.sql",
+  "relationships": [
+    "asset|worker -> pool : mines-on",
+    "pool -> blockchain asset : backed-by"
+  ],
+  "rules": [
+    "One physical asset node per CMDB asset",
+    "Matched workers are folded into physical assets",
+    "Only unbound active workers become worker nodes",
+    "Only active approved relationships are emitted",
+    "No orphan or duplicate topology edges"
+  ]
+}

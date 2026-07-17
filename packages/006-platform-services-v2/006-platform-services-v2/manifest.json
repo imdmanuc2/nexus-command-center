@@ -1,0 +1,15 @@
+{
+  "package": "006-platform-services",
+  "version": "2.0.0",
+  "requires": [
+    "005-platform-inventory"
+  ],
+  "routes": [
+    "/api/platform/fleet",
+    "/api/platform/workers",
+    "/api/platform/pools",
+    "/api/platform/workloads",
+    "/api/platform/relationships",
+    "/api/platform/topology"
+  ]
+}

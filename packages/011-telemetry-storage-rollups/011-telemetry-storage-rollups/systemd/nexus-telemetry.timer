@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect Nexus Platform telemetry every minute
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=60s
+AccuracySec=10s
+Persistent=true
+Unit=nexus-telemetry.service
+[Install]
+WantedBy=timers.target

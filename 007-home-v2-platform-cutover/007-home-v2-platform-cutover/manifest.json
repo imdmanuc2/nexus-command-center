@@ -1,0 +1,18 @@
+{
+  "package": "007-home-v2-platform-cutover",
+  "version": "1.0.0",
+  "requires": [
+    "006-platform-services"
+  ],
+  "consumes": [
+    "/api/platform/fleet",
+    "/api/platform/pools",
+    "/api/platform/workers"
+  ],
+  "modifies": [
+    "frontend/home-v2.html"
+  ],
+  "installs": [
+    "frontend/js/nexus-platform-home.js"
+  ]
+}

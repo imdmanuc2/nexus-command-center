@@ -1,0 +1,15 @@
+{
+  "package": "019-identity-reconciliation",
+  "version": "1.0.0",
+  "requires": [
+    "018-operations-timeline"
+  ],
+  "migration": "013_identity_reconciliation.sql",
+  "canonicalWorkerIdentity": [
+    "source_system",
+    "source_worker_id"
+  ],
+  "tables": [
+    "nexus.identity_reconciliation_audit"
+  ]
+}

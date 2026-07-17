@@ -1,0 +1,260 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Nexus Operations Center</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link
+    rel="stylesheet"
+    href="/css/operations-center.css"
+  >
+</head>
+
+<body class="operations-center-body">
+  <main class="wrap operations-center-wrap">
+    <header class="operations-center-header">
+      <div>
+        <div class="operations-center-title-row">
+          <h1>Nexus Operations Center</h1>
+
+          <span class="operations-center-pill">
+            LIVE PLATFORM
+          </span>
+        </div>
+
+        <p>
+          Alerts, recommendations, automation, and operational history
+          from the PostgreSQL Platform.
+        </p>
+      </div>
+
+      <div class="operations-center-live">
+        <span
+          id="operationsLiveDot"
+          class="operations-live-dot"
+        ></span>
+
+        <span id="operationsUpdated">
+          Connecting…
+        </span>
+      </div>
+    </header>
+
+    <nav
+      id="topNav"
+      class="nav"
+    ></nav>
+
+    <section
+      id="operationsHero"
+      class="operations-hero status-unknown"
+    >
+      <div class="operations-health-main">
+        <div class="operations-eyebrow">
+          Platform Health
+        </div>
+
+        <div class="operations-health-row">
+          <strong id="operationsHealthScore">
+            —
+          </strong>
+
+          <div>
+            <div
+              id="operationsOverallStatus"
+              class="operations-status-label"
+            >
+              CONNECTING
+            </div>
+
+            <small id="operationsHealthExplanation">
+              Loading operational state…
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <div class="operations-hero-metrics">
+        <div>
+          <span>Fleet Health</span>
+          <strong id="operationsFleetHealth">—</strong>
+        </div>
+
+        <div>
+          <span>Critical Alerts</span>
+          <strong id="operationsCriticalAlerts">—</strong>
+        </div>
+
+        <div>
+          <span>High Priority</span>
+          <strong id="operationsHighRecommendations">—</strong>
+        </div>
+
+        <div>
+          <span>Running</span>
+          <strong id="operationsRunning">—</strong>
+        </div>
+      </div>
+    </section>
+
+    <section class="operations-grid operations-summary-grid">
+      <article class="operations-card">
+        <div class="operations-card-header">
+          <div>
+            <span class="operations-card-eyebrow">
+              Infrastructure
+            </span>
+            <h2>Live Estate</h2>
+          </div>
+
+          <a href="/graph.html">
+            Open Explorer
+          </a>
+        </div>
+
+        <div
+          id="operationsInfrastructure"
+          class="operations-stat-grid"
+        ></div>
+      </article>
+
+      <article class="operations-card">
+        <div class="operations-card-header">
+          <div>
+            <span class="operations-card-eyebrow">
+              Mining
+            </span>
+            <h2>Current Output</h2>
+          </div>
+
+          <a href="/pools.html">
+            View Pools
+          </a>
+        </div>
+
+        <div
+          id="operationsMining"
+          class="operations-stat-grid"
+        ></div>
+      </article>
+    </section>
+
+    <section class="operations-grid operations-work-grid">
+      <article class="operations-card operations-alerts-card">
+        <div class="operations-card-header">
+          <div>
+            <span class="operations-card-eyebrow">
+              Attention
+            </span>
+            <h2>Active Alerts</h2>
+          </div>
+
+          <a href="/alerts.html">
+            All Alerts
+          </a>
+        </div>
+
+        <div
+          id="operationsAlerts"
+          class="operations-list"
+        ></div>
+      </article>
+
+      <article class="operations-card">
+        <div class="operations-card-header">
+          <div>
+            <span class="operations-card-eyebrow">
+              Guidance
+            </span>
+            <h2>Recommendations</h2>
+          </div>
+        </div>
+
+        <div
+          id="operationsRecommendations"
+          class="operations-list"
+        ></div>
+      </article>
+    </section>
+
+    <section class="operations-grid operations-work-grid">
+      <article class="operations-card">
+        <div class="operations-card-header">
+          <div>
+            <span class="operations-card-eyebrow">
+              Execution
+            </span>
+            <h2>Automation Queue</h2>
+          </div>
+        </div>
+
+        <div
+          id="operationsQueueSummary"
+          class="operations-queue-summary"
+        ></div>
+
+        <div
+          id="operationsRuns"
+          class="operations-list operations-compact-list"
+        ></div>
+      </article>
+
+      <article class="operations-card">
+        <div class="operations-card-header">
+          <div>
+            <span class="operations-card-eyebrow">
+              Activity
+            </span>
+            <h2>Latest Timeline</h2>
+          </div>
+
+          <a href="/timeline.html">
+            Full Timeline
+          </a>
+        </div>
+
+        <div
+          id="operationsTimeline"
+          class="operations-list operations-timeline"
+        ></div>
+      </article>
+    </section>
+
+    <section class="operations-card operations-actions-card">
+      <div class="operations-card-header">
+        <div>
+          <span class="operations-card-eyebrow">
+            Safe Actions
+          </span>
+          <h2>Quick Actions</h2>
+        </div>
+
+        <small>
+          Actions are catalog-backed and audited by the Platform.
+        </small>
+      </div>
+
+      <div
+        id="operationsQuickActions"
+        class="operations-action-grid"
+      ></div>
+    </section>
+
+    <section
+      id="operationsError"
+      class="operations-error"
+      hidden
+    ></section>
+  </main>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/operations-center.js"></script>
+</body>
+</html>

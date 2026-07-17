@@ -5780,3 +5780,27 @@ body.command-tv .command-tv-exit {
     margin-top: 4px;
   }
 }
+
+/* Generic live mining paths */
+.infra-relationship.mining.telemetry-active .infra-link,
+.infra-relationship.mining.active-mining .infra-link {
+  stroke: #34d399;
+  stroke-width: 2.7;
+  stroke-dasharray: none;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}
+
+.infra-relationship.mining.telemetry-active .infra-link-glow,
+.infra-relationship.mining.active-mining .infra-link-glow {
+  stroke: #10b981;
+  opacity: 0.28;
+  filter: url(#miningLineGlow);
+}
+
+.infra-relationship.mining .telemetry-particle,
+.infra-relationship.mining .share-pulse {
+  fill: #34d399;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}

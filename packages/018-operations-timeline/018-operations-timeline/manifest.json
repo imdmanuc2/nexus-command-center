@@ -1,0 +1,19 @@
+{
+  "package": "018-operations-timeline",
+  "version": "1.0.0",
+  "requires": [
+    "017-operations-automation-engine"
+  ],
+  "migration": "012_operations_timeline.sql",
+  "tables": [
+    "nexus.operations_timeline",
+    "nexus.asset_state_history",
+    "nexus.operator_annotations",
+    "nexus.timeline_engine_state"
+  ],
+  "routes": [
+    "/api/platform/timeline",
+    "/api/platform/timeline/latest",
+    "/api/platform/timeline/summary"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "package": "013-operations-event-engine",
+  "version": "1.0.0",
+  "requires": [
+    "012-platform-resource-persistence"
+  ],
+  "migration": "007_operations_event_engine.sql",
+  "tables": [
+    "nexus.platform_events",
+    "nexus.resource_state_snapshots",
+    "nexus.event_engine_state"
+  ],
+  "routes": [
+    "/api/platform/events",
+    "/api/platform/events/recent",
+    "/api/platform/events/summary"
+  ]
+}

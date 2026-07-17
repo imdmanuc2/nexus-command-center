@@ -1,0 +1,83 @@
+"""CMDB API-facing service functions."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from backend.core.asset_manager import get_assets_list
+from backend.core.cmdb_audit import read_events, summary as audit_summary
+
+
+def assets() -> dict[str, Any]:
+    records = get_assets_list()
+
+    return {
+        "status": "ok",
+        "source": "nexus-cmdb",
+        "count": len(records),
+        "assets": records,
+    }
+
+
+def summary() -> dict[str, Any]:
+    records = get_assets_list()
+
+    by_type: dict[str, int] = {}
+    by_lifecycle: dict[str, int] = {}
+    managed = 0
+    favorites = 0
+
+    for asset in records:
+        asset_type = (
+            asset.get("assetType")
+            or asset.get("canonicalType")
+            or asset.get("type")
+            or "unknown"
+        )
+
+        lifecycle = asset.get("lifecycleStatus") or "unknown"
+
+        by_type[asset_type] = by_type.get(asset_type, 0) + 1
+        by_lifecycle[lifecycle] = (
+            by_lifecycle.get(lifecycle, 0) + 1
+        )
+
+        if asset.get("managed") is True:
+            managed += 1
+
+        if asset.get("favorite") is True:
+            favorites += 1
+
+    return {
+        "status": "ok",
+        "source": "nexus-cmdb",
+        "assetCount": len(records),
+        "managedAssetCount": managed,
+        "favoriteCount": favorites,
+        "byType": by_type,
+        "byLifecycle": by_lifecycle,
+        "audit": audit_summary(),
+    }
+
+
+def audit_events(
+    *,
+    asset_id: str | None = None,
+    action: str | None = None,
+    source: str | None = None,
+    correlation_id: str | None = None,
+    limit: int = 200,
+) -> dict[str, Any]:
+    events = read_events(
+        asset_id=asset_id,
+        action=action,
+        source=source,
+        correlation_id=correlation_id,
+        limit=limit,
+    )
+
+    return {
+        "status": "ok",
+        "count": len(events),
+        "events": events,
+    }

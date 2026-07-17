@@ -1,0 +1,13 @@
+{
+  "package": "017-operations-automation-engine",
+  "version": "1.0.0",
+  "requires": [
+    "016-recommendation-engine"
+  ],
+  "migration": "011_operations_automation_engine.sql",
+  "routes": [
+    "/api/platform/automation/actions",
+    "/api/platform/automation/runs",
+    "/api/platform/automation/summary"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "package": "009-smart-topology-presentation",
+  "version": "1.0.0",
+  "requires": [
+    "006-platform-services",
+    "008-infrastructure-explorer-platform-cutover"
+  ],
+  "modifies": [
+    "frontend/js/graph.js"
+  ],
+  "overview": {
+    "hide": [
+      "worker",
+      "workload"
+    ],
+    "preserveManagedAssets": true,
+    "clusterAsicsAbove": 50
+  },
+  "engineering": {
+    "showAllPlatformLayers": true
+  }
+}

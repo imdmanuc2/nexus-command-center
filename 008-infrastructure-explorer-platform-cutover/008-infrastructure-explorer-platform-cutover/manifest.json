@@ -1,0 +1,17 @@
+{
+  "package": "008-infrastructure-explorer-platform-cutover",
+  "version": "1.0.0",
+  "requires": [
+    "006-platform-services"
+  ],
+  "consumes": [
+    "/api/platform/topology",
+    "/api/platform/workers"
+  ],
+  "modifies": [
+    "frontend/graph.html"
+  ],
+  "installs": [
+    "frontend/js/nexus-platform-explorer.js"
+  ]
+}

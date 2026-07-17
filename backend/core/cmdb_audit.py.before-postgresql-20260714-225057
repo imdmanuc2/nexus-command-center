@@ -1,0 +1,210 @@
+"""Append-only audit trail for Nexus CMDB changes."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
+
+
+AUDIT_DB = Path("backend/data/cmdb/audit-events.jsonl")
+
+# Fields that change constantly and would make the audit trail useless.
+DEFAULT_IGNORED_FIELDS = {
+    "updatedAt",
+    "lastSeen",
+    "last_seen",
+    "observedAt",
+    "observed_at",
+    "telemetry",
+    "hashrate",
+    "temperature",
+}
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _json_safe(value: Any) -> Any:
+    """Convert values into JSON-safe structures without hiding failures."""
+    try:
+        json.dumps(value)
+        return value
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _meaningful_changes(
+    before: dict[str, Any] | None,
+    after: dict[str, Any] | None,
+    *,
+    ignored_fields: set[str] | None = None,
+) -> list[dict[str, Any]]:
+    before = before or {}
+    after = after or {}
+
+    ignored = DEFAULT_IGNORED_FIELDS | (ignored_fields or set())
+    keys = sorted(set(before) | set(after))
+
+    changes: list[dict[str, Any]] = []
+
+    for key in keys:
+        if key in ignored:
+            continue
+
+        old_value = before.get(key)
+        new_value = after.get(key)
+
+        if old_value == new_value:
+            continue
+
+        changes.append({
+            "field": key,
+            "before": _json_safe(old_value),
+            "after": _json_safe(new_value),
+        })
+
+    return changes
+
+
+def append_event(
+    *,
+    action: str,
+    asset_id: str | None = None,
+    asset_type: str | None = None,
+    asset_name: str | None = None,
+    actor_type: str = "system",
+    actor_id: str = "nexus",
+    source: str = "cmdb",
+    reason: str = "",
+    correlation_id: str | None = None,
+    confidence: int | float | None = None,
+    before: dict[str, Any] | None = None,
+    after: dict[str, Any] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """
+    Write one immutable CMDB audit event.
+
+    Returns None when an update contains no meaningful changes.
+    """
+
+    changes = _meaningful_changes(before, after)
+
+    if action == "asset.updated" and not changes:
+        return None
+
+    event = {
+        "eventId": f"audit-{uuid4().hex}",
+        "timestamp": now_iso(),
+        "category": "cmdb",
+        "action": action,
+        "assetId": asset_id or "",
+        "assetType": asset_type or "",
+        "assetName": asset_name or "",
+        "actor": {
+            "type": actor_type,
+            "id": actor_id,
+        },
+        "source": source,
+        "reason": reason,
+        "correlationId": correlation_id or f"corr-{uuid4().hex}",
+        "confidence": confidence,
+        "changes": changes,
+        "metadata": metadata or {},
+    }
+
+    AUDIT_DB.parent.mkdir(parents=True, exist_ok=True)
+
+    with AUDIT_DB.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, separators=(",", ":")) + "\n")
+
+    return event
+
+
+def read_events(
+    *,
+    asset_id: str | None = None,
+    action: str | None = None,
+    source: str | None = None,
+    correlation_id: str | None = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    if not AUDIT_DB.exists():
+        return []
+
+    safe_limit = max(1, min(int(limit), 5000))
+    events: list[dict[str, Any]] = []
+
+    try:
+        with AUDIT_DB.open("r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+
+                if not line:
+                    continue
+
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                if asset_id and event.get("assetId") != asset_id:
+                    continue
+
+                if action and event.get("action") != action:
+                    continue
+
+                if source and event.get("source") != source:
+                    continue
+
+                if (
+                    correlation_id
+                    and event.get("correlationId") != correlation_id
+                ):
+                    continue
+
+                events.append(event)
+    except OSError:
+        return []
+
+    events.sort(
+        key=lambda item: item.get("timestamp", ""),
+        reverse=True,
+    )
+
+    return events[:safe_limit]
+
+
+def summary() -> dict[str, Any]:
+    events = read_events(limit=5000)
+
+    by_action: dict[str, int] = {}
+    by_source: dict[str, int] = {}
+    changed_assets: set[str] = set()
+
+    for event in events:
+        action = event.get("action") or "unknown"
+        source = event.get("source") or "unknown"
+        asset_id = event.get("assetId")
+
+        by_action[action] = by_action.get(action, 0) + 1
+        by_source[source] = by_source.get(source, 0) + 1
+
+        if asset_id:
+            changed_assets.add(asset_id)
+
+    return {
+        "eventCount": len(events),
+        "changedAssetCount": len(changed_assets),
+        "byAction": by_action,
+        "bySource": by_source,
+        "latestEventAt": (
+            events[0].get("timestamp")
+            if events
+            else None
+        ),
+    }

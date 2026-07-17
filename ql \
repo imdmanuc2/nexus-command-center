@@ -1,0 +1,73 @@
+                                                        Table "nexus.miningcore_instances"
+        Column        |           Type           | Collation | Nullable |      Default       | Storage  | Compression | Stats target | Description 
+----------------------+--------------------------+-----------+----------+--------------------+----------+-------------+--------------+-------------
+ instance_id          | text                     |           | not null |                    | extended |             |              | 
+ asset_id             | text                     |           |          |                    | extended |             |              | 
+ site_id              | text                     |           |          |                    | extended |             |              | 
+ name                 | text                     |           | not null |                    | extended |             |              | 
+ status               | text                     |           | not null | 'unknown'::text    | extended |             |              | 
+ environment          | text                     |           | not null | 'production'::text | extended |             |              | 
+ api_base_url         | text                     |           | not null |                    | extended |             |              | 
+ console_url          | text                     |           | not null | ''::text           | extended |             |              | 
+ software_version     | text                     |           | not null | ''::text           | extended |             |              | 
+ health_score         | numeric(5,2)             |           |          |                    | main     |             |              | 
+ api_online           | boolean                  |           | not null | false              | plain    |             |              | 
+ api_latency_ms       | double precision         |           |          |                    | plain    |             |              | 
+ console_online       | boolean                  |           | not null | false              | plain    |             |              | 
+ process_uptime_sec   | bigint                   |           |          |                    | plain    |             |              | 
+ restart_count        | integer                  |           | not null | 0                  | plain    |             |              | 
+ license_status       | text                     |           | not null | 'unknown'::text    | extended |             |              | 
+ developer_fee_status | text                     |           | not null | 'unknown'::text    | extended |             |              | 
+ observed_state       | jsonb                    |           | not null | '{}'::jsonb        | extended |             |              | 
+ metadata             | jsonb                    |           | not null | '{}'::jsonb        | extended |             |              | 
+ created_at           | timestamp with time zone |           | not null | now()              | plain    |             |              | 
+ updated_at           | timestamp with time zone |           | not null | now()              | plain    |             |              | 
+ last_seen_at         | timestamp with time zone |           |          |                    | plain    |             |              | 
+ endpoint             | text                     |           | not null | ''::text           | extended |             |              | 
+ host                 | text                     |           | not null | ''::text           | extended |             |              | 
+ port                 | integer                  |           |          |                    | plain    |             |              | 
+ connected            | boolean                  |           | not null | false              | plain    |             |              | 
+ health               | text                     |           | not null | 'unknown'::text    | extended |             |              | 
+ version              | text                     |           | not null | ''::text           | extended |             |              | 
+ pool_count           | integer                  |           | not null | 0                  | plain    |             |              | 
+ first_seen_at        | timestamp with time zone |           | not null | now()              | plain    |             |              | 
+ last_changed_at      | timestamp with time zone |           | not null | now()              | plain    |             |              | 
+ raw_payload          | jsonb                    |           | not null | '{}'::jsonb        | extended |             |              | 
+Indexes:
+    "miningcore_instances_pkey" PRIMARY KEY, btree (instance_id)
+    "idx_miningcore_site" btree (site_id)
+    "idx_miningcore_status" btree (status)
+    "uq_miningcore_instances_instance_id" UNIQUE, btree (instance_id)
+Foreign-key constraints:
+    "miningcore_instances_asset_id_fkey" FOREIGN KEY (asset_id) REFERENCES nexus.assets(asset_id) ON DELETE SET NULL
+    "miningcore_instances_site_id_fkey" FOREIGN KEY (site_id) REFERENCES nexus.sites(site_id) ON DELETE SET NULL
+Referenced by:
+    TABLE "nexus.pools" CONSTRAINT "pools_instance_id_fkey" FOREIGN KEY (instance_id) REFERENCES nexus.miningcore_instances(instance_id) ON DELETE SET NULL
+Not-null constraints:
+    "miningcore_instances_instance_id_not_null" NOT NULL "instance_id"
+    "miningcore_instances_name_not_null" NOT NULL "name"
+    "miningcore_instances_status_not_null" NOT NULL "status"
+    "miningcore_instances_environment_not_null" NOT NULL "environment"
+    "miningcore_instances_api_base_url_not_null" NOT NULL "api_base_url"
+    "miningcore_instances_console_url_not_null" NOT NULL "console_url"
+    "miningcore_instances_software_version_not_null" NOT NULL "software_version"
+    "miningcore_instances_api_online_not_null" NOT NULL "api_online"
+    "miningcore_instances_console_online_not_null" NOT NULL "console_online"
+    "miningcore_instances_restart_count_not_null" NOT NULL "restart_count"
+    "miningcore_instances_license_status_not_null" NOT NULL "license_status"
+    "miningcore_instances_developer_fee_status_not_null" NOT NULL "developer_fee_status"
+    "miningcore_instances_observed_state_not_null" NOT NULL "observed_state"
+    "miningcore_instances_metadata_not_null" NOT NULL "metadata"
+    "miningcore_instances_created_at_not_null" NOT NULL "created_at"
+    "miningcore_instances_updated_at_not_null" NOT NULL "updated_at"
+    "miningcore_instances_endpoint_not_null" NOT NULL "endpoint"
+    "miningcore_instances_host_not_null" NOT NULL "host"
+    "miningcore_instances_connected_not_null" NOT NULL "connected"
+    "miningcore_instances_health_not_null" NOT NULL "health"
+    "miningcore_instances_version_not_null" NOT NULL "version"
+    "miningcore_instances_pool_count_not_null" NOT NULL "pool_count"
+    "miningcore_instances_first_seen_at_not_null" NOT NULL "first_seen_at"
+    "miningcore_instances_last_changed_at_not_null" NOT NULL "last_changed_at"
+    "miningcore_instances_raw_payload_not_null" NOT NULL "raw_payload"
+Access method: heap
+

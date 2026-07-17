@@ -1,0 +1,26 @@
+{
+  "package": "015-ai-context-layer",
+  "version": "1.0.0",
+  "requires": [
+    "014-alert-engine"
+  ],
+  "migration": "009_ai_context_layer.sql",
+  "tables": [
+    "nexus.platform_context_snapshots",
+    "nexus.ai_context_builder_state"
+  ],
+  "contexts": [
+    "overview",
+    "home",
+    "mining",
+    "infrastructure",
+    "health"
+  ],
+  "routes": [
+    "/api/platform/context",
+    "/api/platform/context/home",
+    "/api/platform/context/mining",
+    "/api/platform/context/infrastructure",
+    "/api/platform/context/health"
+  ]
+}

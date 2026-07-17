@@ -69,13 +69,24 @@
         ]
       },
       "asset": {
-        "name": "Unknown System 3",
-        "friendlyName": "Unknown System 3",
-        "purpose": "Unknown",
-        "createdAutomatically": true,
-        "id": "asset-6626af42",
+        "id": "asset-82ac3c36",
         "ip": "192.168.1.169",
-        "type": "unknown",
+        "name": "Bitcoin Core",
+        "friendlyName": "Bitcoin Core",
+        "displayName": "Bitcoin Core",
+        "type": "blockchain-node",
+        "assetType": "blockchain-node",
+        "canonicalType": "blockchain-node",
+        "purpose": "Blockchain",
+        "primaryRole": "BTC Blockchain Node",
+        "coin": "BTC",
+        "managed": true,
+        "lifecycleStatus": "managed",
+        "createdAutomatically": false,
+        "createdAt": "2026-07-12T02:34:52.370455+00:00",
+        "updatedAt": "2026-07-12T02:34:52.370469+00:00",
+        "lastSeenAt": null,
+        "retiredAt": null,
         "favorite": false,
         "notes": "",
         "tags": [],
@@ -87,20 +98,55 @@
         "serialNumber": "",
         "macAddress": "",
         "hostname": "",
+        "machineUuid": "",
+        "sshHostKey": "",
         "workerId": "",
         "poolId": "",
         "poolHost": "",
         "poolGroup": "",
-        "createdAt": "2026-07-08T22:24:22.988507+00:00",
-        "updatedAt": "2026-07-12T02:34:44.746977+00:00"
+        "openPorts": [
+          8332,
+          8333
+        ],
+        "services": [
+          {
+            "name": "BTC Blockchain Node",
+            "port": 8333
+          }
+        ],
+        "computeProfile": {},
+        "components": [],
+        "capabilities": [],
+        "allocation": {
+          "state": "unallocated",
+          "activeWorkloadId": "",
+          "activeWorkloadType": ""
+        },
+        "workloads": [],
+        "desiredState": {},
+        "observedState": {},
+        "operatingSystem": "",
+        "architecture": "",
+        "hypervisor": "",
+        "containerRuntime": "",
+        "criticality": "normal",
+        "owner": "",
+        "businessService": "",
+        "siteId": ""
       },
       "type": "blockchain-node",
+      "assetType": "blockchain-node",
+      "canonicalType": "blockchain-node",
       "coin": "BTC",
       "purpose": "Blockchain",
       "services": [
         {
           "name": "BTC Blockchain Node",
           "port": 8333
+        },
+        {
+          "name": "BTC RPC Node",
+          "port": 8332
         }
       ]
     }

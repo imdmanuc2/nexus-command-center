@@ -1,0 +1,20 @@
+{
+  "package": "024-operations-center-platform",
+  "version": "1.0.0",
+  "baseline": "package-024-source.zip",
+  "migration": "016_operations_center_platform.sql",
+  "routes": [
+    "/api/platform/operations-center",
+    "/api/platform/operations-center/status",
+    "/api/platform/operations-center/queue",
+    "/api/platform/operations-center/snapshot"
+  ],
+  "inputs": [
+    "fleet",
+    "topology",
+    "alerts",
+    "recommendations",
+    "automation",
+    "timeline"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "package": "014-alert-engine",
+  "version": "1.0.0",
+  "requires": [
+    "013-operations-event-engine"
+  ],
+  "migration": "008_alert_engine.sql",
+  "tables": [
+    "nexus.alert_rules",
+    "nexus.alerts",
+    "nexus.alert_engine_state"
+  ],
+  "routes": [
+    "/api/platform/alerts",
+    "/api/platform/alerts/active",
+    "/api/platform/alerts/summary"
+  ]
+}

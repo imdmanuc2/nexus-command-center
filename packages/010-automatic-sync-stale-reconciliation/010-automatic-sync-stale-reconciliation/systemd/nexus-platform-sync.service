@@ -1,0 +1,19 @@
+[Unit]
+Description=Nexus Platform PostgreSQL inventory synchronization
+After=network-online.target postgresql.service nexus-api.service
+Wants=network-online.target
+Requires=nexus-api.service
+
+[Service]
+Type=oneshot
+User=__NEXUS_USER__
+Group=__NEXUS_GROUP__
+WorkingDirectory=__PROJECT_ROOT__
+EnvironmentFile=-__PROJECT_ROOT__/backend/data/private/cmdb.env
+Environment=NEXUS_PLATFORM_STALE_SECONDS=300
+ExecStart=/usr/bin/python3 -m backend.jobs.platform_sync_job
+TimeoutStartSec=90
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

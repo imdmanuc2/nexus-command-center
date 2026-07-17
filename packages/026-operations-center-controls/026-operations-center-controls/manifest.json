@@ -1,0 +1,15 @@
+{
+  "package": "026-operations-center-controls",
+  "version": "1.0.0",
+  "baseline": "package-026-source.zip",
+  "migration": "017_operations_control_audit.sql",
+  "features": [
+    "Action request controls",
+    "Dry-run execution",
+    "Approval and rejection",
+    "Queued run cancellation",
+    "Queue processing",
+    "PostgreSQL control audit",
+    "Operations Center live controls"
+  ]
+}

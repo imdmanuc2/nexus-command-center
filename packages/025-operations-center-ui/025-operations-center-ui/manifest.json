@@ -1,0 +1,17 @@
+{
+  "package": "025-operations-center-ui",
+  "version": "1.0.0",
+  "baseline": "package-025-source.zip",
+  "page": "/operations-center.html",
+  "api": "/api/platform/operations-center",
+  "sections": [
+    "Platform health",
+    "Infrastructure estate",
+    "Mining output",
+    "Active alerts",
+    "Recommendations",
+    "Automation queue",
+    "Timeline",
+    "Quick action previews"
+  ]
+}

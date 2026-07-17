@@ -1,0 +1,14 @@
+{
+  "package": "022-worker-identity-activity-reconciliation",
+  "version": "1.0.0",
+  "baseline": "package-022-source.zip",
+  "migration": "014_worker_identity_activity_reconciliation.sql",
+  "invariant": "active worker count equals distinct active assets plus active unbound workers",
+  "activityStates": [
+    "active",
+    "idle",
+    "stale",
+    "offline",
+    "unknown"
+  ]
+}
