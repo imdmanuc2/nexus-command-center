@@ -1,0 +1,18 @@
+{
+  "package": "028-managed-host-transport",
+  "version": "1.0.0",
+  "migration": "019",
+  "publicContract": "typed-allow-listed-capabilities",
+  "transports": [
+    "ssh",
+    "local-internal"
+  ],
+  "capabilities": [
+    "host.identity",
+    "host.disk-usage",
+    "host.memory",
+    "service.status",
+    "service.restart",
+    "service.journal"
+  ]
+}

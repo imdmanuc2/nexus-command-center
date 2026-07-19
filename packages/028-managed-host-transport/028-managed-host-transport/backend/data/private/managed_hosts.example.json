@@ -1,0 +1,13 @@
+{
+  "hosts": [
+    {
+      "assetId": "bitcoin-node-01",
+      "enabled": true,
+      "host": "192.0.2.10",
+      "port": 22,
+      "username": "nexus-ops",
+      "identityFile": "~/.ssh/nexus_managed_hosts",
+      "knownHostsFile": "~/Projects/Seymour/nexus-command-center/backend/data/private/known_hosts"
+    }
+  ]
+}

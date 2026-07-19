@@ -11,7 +11,7 @@
     },
     "miners": {
       "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001": {
-        "hashrate": 3911490789283.1436,
+        "hashrate": 5320725613850.582,
         "id": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001",
         "name": "Nano 3s",
         "online": true,
@@ -21,20 +21,20 @@
     },
     "nodes": {
       "node-192.168.1.169": {
-        "blockHeight": 958360,
+        "blockHeight": 958455,
         "coin": "BTC",
         "host": "192.168.1.169",
         "id": "node-192.168.1.169",
         "name": "Bitcoin Core",
         "online": true,
         "peers": 10,
-        "syncPercent": 99.999733
+        "syncPercent": 99.999961
       }
     },
     "pools": {
       "pool-192-168-1-156-4000-bch": {
         "active": true,
-        "hashrate": 3911490789283.1436,
+        "hashrate": 5320725613850.582,
         "host": "192.168.1.156",
         "id": "pool-192-168-1-156-4000-bch",
         "name": "BCH Solo \u00b7 192.168.1.156",
@@ -45,7 +45,7 @@
     "summary": {
       "activePoolCount": 1,
       "criticalCount": 0,
-      "fleetHashrate": 3911490789283.1436,
+      "fleetHashrate": 5320725613850.582,
       "onlineMinerCount": 1,
       "onlineNodeCount": 1,
       "warningCount": 1
@@ -74,7 +74,7 @@
           "smc-192-168-1-156-bch": {
             "active": true,
             "connectedMiners": 1,
-            "hashrate": 3911490789283.1436,
+            "hashrate": 5320725613850.582,
             "id": "smc-192-168-1-156-bch",
             "name": "BCH Solo \u00b7 192.168.1.156",
             "stratumHealthy": true
@@ -84,5 +84,5 @@
       }
     }
   },
-  "updatedAt": "2026-07-17T04:15:32.946961+00:00"
+  "updatedAt": "2026-07-17T21:30:34.785788+00:00"
 }

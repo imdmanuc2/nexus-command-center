@@ -1,0 +1,15 @@
+{
+  "package": "027-managed-executors",
+  "version": "1.0.0",
+  "baseline": "package-027-source.zip",
+  "migration": "018_managed_executor_actions.sql",
+  "features": [
+    "Managed executor registry",
+    "Standard execution results",
+    "Bitcoin RPC test executor",
+    "Bitcoin synchronization executor",
+    "Bitcoin wallet verification executor",
+    "Bitcoin diagnostics executor",
+    "Safe MiningCore/Linux/ASIC placeholders"
+  ]
+}
