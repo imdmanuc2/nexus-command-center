@@ -1,19 +1,32 @@
+# Python
 .env
 venv/
-node_modules/
 __pycache__/
 *.pyc
 *.log
+
+# Node
+node_modules/
+
+# Build output
 dist/
 build/
+
+# Generated package archives
+package-*-source.zip
+packages/*.zip
+packages/*/*.zip
+
+# Configuration
 config/install/install-state.json
 config/database/postgresql.json
-backend/data/private/
 
 # Nexus runtime and private data
 backend/data/private/
 backend/data/events/*.json
 backend/data/telemetry/
+
+# Local databases
 *.db
 *.db-shm
 *.db-wal
