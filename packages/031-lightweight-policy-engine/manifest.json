@@ -1,0 +1,7 @@
+{
+  "package": "031-lightweight-policy-engine",
+  "version": "031.0.0",
+  "migration": "022_lightweight_policy_engine.sql",
+  "requires": ["030-enterprise-playbook-engine"],
+  "version1Scope": true
+}
