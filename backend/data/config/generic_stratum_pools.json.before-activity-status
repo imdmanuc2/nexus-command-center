@@ -4,7 +4,7 @@
       "enabled": true,
       "poolId": "pool-192-168-1-169-3333-btc",
       "nativePoolId": "btc-solo",
-      "name": "Bitcoin Solo \u00b7 CKPool",
+      "name": "Bitcoin Solo · CKPool",
       "instanceName": "CKPool Bitcoin Solo",
       "software": "ckpool",
       "coin": "BTC",
@@ -25,8 +25,7 @@
           "workerType": "asic",
           "hardwareType": "ASIC",
           "assetId": "asset-28a5a306",
-          "active": false,
-          "activityStatus": "standby"
+          "active": true
         },
         {
           "sourceWorkerId": "bc1q8ucazpveqtml7kq0k08z20zm3hzyqae0d2tvjf",
@@ -35,8 +34,7 @@
           "workerType": "cpu",
           "hardwareType": "Virtual CPU",
           "assetId": "asset-bab403ab",
-          "active": true,
-          "activityStatus": "active"
+          "active": true
         }
       ]
     }

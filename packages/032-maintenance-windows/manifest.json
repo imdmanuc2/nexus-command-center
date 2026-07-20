@@ -1,0 +1,1 @@
+{"package":"032-maintenance-windows","version":"032.0.0","migration":"023_maintenance_windows.sql","requires":["031-lightweight-policy-engine"],"version1Scope":true}

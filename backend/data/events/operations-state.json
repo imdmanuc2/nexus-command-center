@@ -11,9 +11,17 @@
     },
     "miners": {
       "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001": {
-        "hashrate": 5320725613850.582,
+        "hashrate": 6356410544239.49,
         "id": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001",
         "name": "Nano 3s",
+        "online": true,
+        "poolHost": "192.168.1.156",
+        "poolName": "BCH Solo \u00b7 192.168.1.156"
+      },
+      "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002": {
+        "hashrate": 7039899105863.128,
+        "id": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002",
+        "name": "Mining System 2",
         "online": true,
         "poolHost": "192.168.1.156",
         "poolName": "BCH Solo \u00b7 192.168.1.156"
@@ -21,32 +29,32 @@
     },
     "nodes": {
       "node-192.168.1.169": {
-        "blockHeight": 958455,
+        "blockHeight": 958940,
         "coin": "BTC",
         "host": "192.168.1.169",
         "id": "node-192.168.1.169",
         "name": "Bitcoin Core",
         "online": true,
         "peers": 10,
-        "syncPercent": 99.999961
+        "syncPercent": 99.999849
       }
     },
     "pools": {
       "pool-192-168-1-156-4000-bch": {
         "active": true,
-        "hashrate": 5320725613850.582,
+        "hashrate": 13396309650102.62,
         "host": "192.168.1.156",
         "id": "pool-192-168-1-156-4000-bch",
         "name": "BCH Solo \u00b7 192.168.1.156",
         "status": "active",
-        "workerCount": 1
+        "workerCount": 2
       }
     },
     "summary": {
       "activePoolCount": 1,
       "criticalCount": 0,
-      "fleetHashrate": 5320725613850.582,
-      "onlineMinerCount": 1,
+      "fleetHashrate": 13396309650102.62,
+      "onlineMinerCount": 2,
       "onlineNodeCount": 1,
       "warningCount": 1
     }
@@ -74,7 +82,7 @@
           "smc-192-168-1-156-bch": {
             "active": true,
             "connectedMiners": 1,
-            "hashrate": 5320725613850.582,
+            "hashrate": 13396309650102.62,
             "id": "smc-192-168-1-156-bch",
             "name": "BCH Solo \u00b7 192.168.1.156",
             "stratumHealthy": true
@@ -84,5 +92,5 @@
       }
     }
   },
-  "updatedAt": "2026-07-17T21:30:34.785788+00:00"
+  "updatedAt": "2026-07-20T23:57:42.318678+00:00"
 }

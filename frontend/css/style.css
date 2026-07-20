@@ -5804,3 +5804,36 @@ body.command-tv .command-tv-exit {
   opacity: 1;
   filter: url(#miningLineGlow);
 }
+
+/* Final active-mining path precedence */
+.infra-relationship.mining.telemetry-active .infra-link,
+.infra-relationship.mining.active-mining .infra-link {
+  stroke: #34d399;
+  stroke-width: 2.8;
+  stroke-dasharray: none;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}
+
+.infra-relationship.mining.telemetry-active .infra-link-glow,
+.infra-relationship.mining.active-mining .infra-link-glow {
+  stroke: #10b981;
+  stroke-width: 9;
+  opacity: 0.32;
+  filter: url(#miningLineGlow);
+}
+
+.infra-relationship.mining.telemetry-idle .infra-link,
+.infra-relationship.mining.idle-mining .infra-link {
+  stroke: #60a5fa;
+  stroke-width: 1.8;
+  stroke-dasharray: 8 8;
+  opacity: 0.5;
+  filter: none;
+}
+
+.infra-relationship.mining .telemetry-particle.telemetry-shares {
+  fill: #34d399;
+  opacity: 1;
+  filter: url(#miningLineGlow);
+}
