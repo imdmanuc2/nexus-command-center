@@ -2747,10 +2747,65 @@ function renderOperationsEvents(payload) {
 }
 
 
+function normalizeOperationsTimeline(payload) {
+  const entries = Array.isArray(payload?.entries)
+    ? payload.entries
+    : [];
+
+  return {
+    status: payload?.status || "ok",
+    source:
+      payload?.source
+      || "nexus-postgresql-operations-timeline",
+    generatedAt:
+      entries[0]?.occurredAt
+      || new Date().toISOString(),
+    events: entries.map((entry) => ({
+      id:
+        entry.timelineId
+        || entry.sourceId
+        || `${entry.sourceType || "timeline"}-${entry.occurredAt || "event"}`,
+      timestamp:
+        entry.occurredAt
+        || entry.timestamp
+        || null,
+      type:
+        entry.eventType
+        || entry.sourceType
+        || "operation",
+      severity:
+        entry.severity
+        || "info",
+      title:
+        entry.title
+        || "Operations event",
+      message:
+        entry.message
+        || "No additional event details.",
+      source:
+        entry.sourceType
+        || payload?.source
+        || "Nexus",
+      objectType:
+        entry.entityType
+        || entry.eventType
+        || "system",
+      objectId:
+        entry.entityId
+        || entry.sourceId
+        || null,
+      metadata:
+        entry.data
+        || {},
+    })),
+  };
+}
+
+
 async function loadOperationsEvents() {
   try {
     const response = await fetch(
-      "/api/events/operations",
+      "/api/platform/timeline/latest",
       {
         cache: "no-store",
         headers: {
@@ -2761,16 +2816,18 @@ async function loadOperationsEvents() {
 
     if (!response.ok) {
       throw new Error(
-        `Operations events returned HTTP ${response.status}`
+        `Platform timeline returned HTTP ${response.status}`
       );
     }
 
     const payload = await response.json();
 
-    renderOperationsEvents(payload);
+    renderOperationsEvents(
+      normalizeOperationsTimeline(payload)
+    );
   } catch (error) {
     console.error(
-      "Unable to load operations events:",
+      "Unable to load platform operations timeline:",
       error
     );
   }
