@@ -1,0 +1,36 @@
+{
+  "id": "linux.service-restart",
+  "name": "Linux Service Restart",
+  "version": "1.0.0",
+  "description": "Restart and verify an allow-listed systemd service.",
+  "category": "linux",
+  "riskLevel": "high",
+  "targetTypes": [
+    "host",
+    "server"
+  ],
+  "variables": {
+    "service": {
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "restart",
+      "name": "Restart service",
+      "capability": "service.restart",
+      "parameters": {
+        "service": "${service}"
+      }
+    },
+    {
+      "id": "verify",
+      "name": "Verify service",
+      "capability": "service.status",
+      "parameters": {
+        "service": "${service}"
+      },
+      "when": "previous.status == success"
+    }
+  ]
+}

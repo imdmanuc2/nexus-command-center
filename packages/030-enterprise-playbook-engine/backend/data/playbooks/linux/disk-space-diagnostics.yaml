@@ -1,0 +1,25 @@
+{
+  "id": "linux.disk-space-diagnostics",
+  "name": "Disk Space Diagnostics",
+  "version": "1.0.0",
+  "description": "Collect filesystem and memory capacity from a managed host.",
+  "category": "linux",
+  "riskLevel": "low",
+  "targetTypes": [
+    "host",
+    "server"
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "disk",
+      "name": "Read disk usage",
+      "capability": "host.disk-usage"
+    },
+    {
+      "id": "memory",
+      "name": "Read memory",
+      "capability": "host.memory"
+    }
+  ]
+}

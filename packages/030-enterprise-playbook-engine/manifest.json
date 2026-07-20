@@ -1,0 +1,1 @@
+{"package":"030-enterprise-playbook-engine","version":"030.0.0","requires":["028-managed-host-transport","029-live-operations-console"],"migration":"021_enterprise_playbook_engine.sql","entrypoints":{"doctor":"scripts/doctor.sh","install":"scripts/install.sh","verify":"scripts/verify.sh","rollback":"scripts/rollback.sh"}}

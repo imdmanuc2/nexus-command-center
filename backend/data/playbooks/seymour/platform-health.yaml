@@ -1,0 +1,30 @@
+{
+  "id": "seymour.platform-health",
+  "name": "Seymour Platform Health Check",
+  "version": "1.0.0",
+  "description": "Collect baseline host health for a Seymour platform node.",
+  "category": "seymour",
+  "riskLevel": "low",
+  "targetTypes": [
+    "host",
+    "server"
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "identity",
+      "name": "Read identity",
+      "capability": "host.identity"
+    },
+    {
+      "id": "disk",
+      "name": "Read disk usage",
+      "capability": "host.disk-usage"
+    },
+    {
+      "id": "memory",
+      "name": "Read memory",
+      "capability": "host.memory"
+    }
+  ]
+}

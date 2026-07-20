@@ -1,0 +1,41 @@
+{
+  "id": "bitcoin.rpc-diagnostics",
+  "name": "Bitcoin RPC Diagnostics",
+  "version": "1.0.0",
+  "description": "Check host identity, service state, and bounded logs for a Bitcoin node.",
+  "category": "bitcoin",
+  "riskLevel": "low",
+  "targetTypes": [
+    "blockchain-node"
+  ],
+  "variables": {
+    "service": {
+      "default": "bitcoind",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "identity",
+      "name": "Read host identity",
+      "capability": "host.identity"
+    },
+    {
+      "id": "status",
+      "name": "Check Bitcoin service",
+      "capability": "service.status",
+      "parameters": {
+        "service": "${service}"
+      }
+    },
+    {
+      "id": "logs",
+      "name": "Collect recent logs",
+      "capability": "service.journal",
+      "parameters": {
+        "service": "${service}",
+        "lines": "200"
+      }
+    }
+  ]
+}

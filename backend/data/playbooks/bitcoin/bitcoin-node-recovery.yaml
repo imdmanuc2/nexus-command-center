@@ -1,0 +1,45 @@
+{
+  "id": "bitcoin.node-recovery",
+  "name": "Bitcoin Node Recovery",
+  "version": "1.0.0",
+  "description": "Restart and verify the Bitcoin service.",
+  "category": "bitcoin",
+  "riskLevel": "high",
+  "targetTypes": [
+    "blockchain-node"
+  ],
+  "variables": {
+    "service": {
+      "default": "bitcoind",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "precheck",
+      "name": "Check service",
+      "capability": "service.status",
+      "parameters": {
+        "service": "${service}"
+      },
+      "continueOnError": true
+    },
+    {
+      "id": "restart",
+      "name": "Restart service",
+      "capability": "service.restart",
+      "parameters": {
+        "service": "${service}"
+      }
+    },
+    {
+      "id": "verify",
+      "name": "Verify service",
+      "capability": "service.status",
+      "parameters": {
+        "service": "${service}"
+      },
+      "when": "previous.status == success"
+    }
+  ]
+}

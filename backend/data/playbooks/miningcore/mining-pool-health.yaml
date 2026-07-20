@@ -1,0 +1,37 @@
+{
+  "id": "miningcore.pool-health",
+  "name": "Mining Pool Health Check",
+  "version": "1.0.0",
+  "description": "Inspect MiningCore service health and recent logs.",
+  "category": "miningcore",
+  "riskLevel": "low",
+  "targetTypes": [
+    "pool",
+    "host"
+  ],
+  "variables": {
+    "service": {
+      "default": "seymour-miningcore",
+      "required": true
+    }
+  },
+  "steps": [
+    {
+      "id": "status",
+      "name": "Check MiningCore service",
+      "capability": "service.status",
+      "parameters": {
+        "service": "${service}"
+      }
+    },
+    {
+      "id": "logs",
+      "name": "Collect MiningCore logs",
+      "capability": "service.journal",
+      "parameters": {
+        "service": "${service}",
+        "lines": "200"
+      }
+    }
+  ]
+}
