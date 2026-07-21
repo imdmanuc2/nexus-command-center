@@ -11,7 +11,7 @@
     },
     "miners": {
       "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001": {
-        "hashrate": 6356410544239.49,
+        "hashrate": 5918757273494.254,
         "id": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001",
         "name": "Nano 3s",
         "online": true,
@@ -19,7 +19,7 @@
         "poolName": "BCH Solo \u00b7 192.168.1.156"
       },
       "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002": {
-        "hashrate": 7039899105863.128,
+        "hashrate": 7153412614398.205,
         "id": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002",
         "name": "Mining System 2",
         "online": true,
@@ -29,20 +29,20 @@
     },
     "nodes": {
       "node-192.168.1.169": {
-        "blockHeight": 958940,
+        "blockHeight": 958948,
         "coin": "BTC",
         "host": "192.168.1.169",
         "id": "node-192.168.1.169",
         "name": "Bitcoin Core",
         "online": true,
         "peers": 10,
-        "syncPercent": 99.999849
+        "syncPercent": 99.999805
       }
     },
     "pools": {
       "pool-192-168-1-156-4000-bch": {
         "active": true,
-        "hashrate": 13396309650102.62,
+        "hashrate": 13072169887892.46,
         "host": "192.168.1.156",
         "id": "pool-192-168-1-156-4000-bch",
         "name": "BCH Solo \u00b7 192.168.1.156",
@@ -53,7 +53,7 @@
     "summary": {
       "activePoolCount": 1,
       "criticalCount": 0,
-      "fleetHashrate": 13396309650102.62,
+      "fleetHashrate": 13072169887892.46,
       "onlineMinerCount": 2,
       "onlineNodeCount": 1,
       "warningCount": 1
@@ -82,7 +82,7 @@
           "smc-192-168-1-156-bch": {
             "active": true,
             "connectedMiners": 1,
-            "hashrate": 13396309650102.62,
+            "hashrate": 13072169887892.46,
             "id": "smc-192-168-1-156-bch",
             "name": "BCH Solo \u00b7 192.168.1.156",
             "stratumHealthy": true
@@ -92,5 +92,5 @@
       }
     }
   },
-  "updatedAt": "2026-07-20T23:57:42.318678+00:00"
+  "updatedAt": "2026-07-21T01:05:42.006813+00:00"
 }

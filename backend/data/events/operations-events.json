@@ -1,5 +1,209 @@
 [
   {
+    "id": "evt-20260721T0056421107360000-new-block-node-192.168.1.169",
+    "message": "Bitcoin Core advanced from block 958,947 to 958,948.",
+    "metadata": {
+      "blockHeight": 958948,
+      "coin": "BTC",
+      "previousBlockHeight": 958947
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:56:42.110736+00:00",
+    "title": "New blockchain block observed",
+    "type": "new-block"
+  },
+  {
+    "id": "evt-20260721T0054419808600000-new-block-node-192.168.1.169",
+    "message": "Bitcoin Core advanced from block 958,946 to 958,947.",
+    "metadata": {
+      "blockHeight": 958947,
+      "coin": "BTC",
+      "previousBlockHeight": 958946
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:54:41.980860+00:00",
+    "title": "New blockchain block observed",
+    "type": "new-block"
+  },
+  {
+    "id": "evt-20260721T0042174681960000-peer-count-changed-node-192.168.1.169",
+    "message": "Bitcoin Core peers changed from 11 to 10.",
+    "metadata": {
+      "peers": 10,
+      "previousPeers": 11
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:42:17.468196+00:00",
+    "title": "Blockchain peer count changed",
+    "type": "peer-count-changed"
+  },
+  {
+    "id": "evt-20260721T0041273460170000-new-block-node-192.168.1.169",
+    "message": "Bitcoin Core advanced from block 958,945 to 958,946.",
+    "metadata": {
+      "blockHeight": 958946,
+      "coin": "BTC",
+      "previousBlockHeight": 958945
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:41:27.346017+00:00",
+    "title": "New blockchain block observed",
+    "type": "new-block"
+  },
+  {
+    "id": "evt-20260721T0041123677950000-peer-count-changed-node-192.168.1.169",
+    "message": "Bitcoin Core peers changed from 10 to 11.",
+    "metadata": {
+      "peers": 11,
+      "previousPeers": 10
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:41:12.367795+00:00",
+    "title": "Blockchain peer count changed",
+    "type": "peer-count-changed"
+  },
+  {
+    "id": "evt-20260721T0036023491640000-new-block-node-192.168.1.169",
+    "message": "Bitcoin Core advanced from block 958,944 to 958,945.",
+    "metadata": {
+      "blockHeight": 958945,
+      "coin": "BTC",
+      "previousBlockHeight": 958944
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:36:02.349164+00:00",
+    "title": "New blockchain block observed",
+    "type": "new-block"
+  },
+  {
+    "id": "evt-20260721T0028418956670000-new-block-node-192.168.1.169",
+    "message": "Bitcoin Core advanced from block 958,942 to 958,944.",
+    "metadata": {
+      "blockHeight": 958944,
+      "coin": "BTC",
+      "previousBlockHeight": 958942
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:28:41.895667+00:00",
+    "title": "New blockchain block observed",
+    "type": "new-block"
+  },
+  {
+    "id": "evt-20260721T0025424386230000-new-block-node-192.168.1.169",
+    "message": "Bitcoin Core advanced from block 958,941 to 958,942.",
+    "metadata": {
+      "blockHeight": 958942,
+      "coin": "BTC",
+      "previousBlockHeight": 958941
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:25:42.438623+00:00",
+    "title": "New blockchain block observed",
+    "type": "new-block"
+  },
+  {
+    "id": "evt-20260721T0016419409830000-new-block-node-192.168.1.169",
+    "message": "Bitcoin Core advanced from block 958,940 to 958,941.",
+    "metadata": {
+      "blockHeight": 958941,
+      "coin": "BTC",
+      "previousBlockHeight": 958940
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:16:41.940983+00:00",
+    "title": "New blockchain block observed",
+    "type": "new-block"
+  },
+  {
+    "id": "evt-20260721T0013420107870000-pool-hashrate-shift-pool-192-168-1-156-4000-bch",
+    "message": "BCH Solo \u00b7 192.168.1.156 hashrate fell 20.5%.",
+    "metadata": {
+      "changePercent": -20.46,
+      "hashrate": 9941392112433.596,
+      "previousHashrate": 12497962654083.572
+    },
+    "objectId": "pool-192-168-1-156-4000-bch",
+    "objectType": "mining-pool",
+    "severity": "warning",
+    "source": "192.168.1.156",
+    "timestamp": "2026-07-21T00:13:42.010787+00:00",
+    "title": "Pool hashrate changed significantly",
+    "type": "pool-hashrate-shift"
+  },
+  {
+    "id": "evt-20260721T0009420154380000-peer-count-changed-node-192.168.1.169",
+    "message": "Bitcoin Core peers changed from 11 to 10.",
+    "metadata": {
+      "peers": 10,
+      "previousPeers": 11
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:09:42.015438+00:00",
+    "title": "Blockchain peer count changed",
+    "type": "peer-count-changed"
+  },
+  {
+    "id": "evt-20260721T0008421885990000-peer-count-changed-node-192.168.1.169",
+    "message": "Bitcoin Core peers changed from 10 to 11.",
+    "metadata": {
+      "peers": 11,
+      "previousPeers": 10
+    },
+    "objectId": "node-192.168.1.169",
+    "objectType": "blockchain-node",
+    "severity": "info",
+    "source": "192.168.1.169",
+    "timestamp": "2026-07-21T00:08:42.188599+00:00",
+    "title": "Blockchain peer count changed",
+    "type": "peer-count-changed"
+  },
+  {
+    "id": "evt-20260720T2359422648710000-miner-hashrate-shift-qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002",
+    "message": "Mining System 2 hashrate increased 26.4%.",
+    "metadata": {
+      "changePercent": 26.36,
+      "hashrate": 8895266852353.965,
+      "previousHashrate": 7039899105863.128
+    },
+    "objectId": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002",
+    "objectType": "miner",
+    "severity": "info",
+    "source": "192.168.1.156",
+    "timestamp": "2026-07-20T23:59:42.264871+00:00",
+    "title": "Miner hashrate changed significantly",
+    "type": "miner-hashrate-shift"
+  },
+  {
     "id": "evt-20260720T2350421886410000-new-block-node-192.168.1.169",
     "message": "Bitcoin Core advanced from block 958,939 to 958,940.",
     "metadata": {
@@ -7652,213 +7856,5 @@
     "timestamp": "2026-07-15T22:40:40.800939+00:00",
     "title": "Seymour MiningCore console offline",
     "type": "smc-console-offline"
-  },
-  {
-    "id": "evt-20260715T2240408009430000-smc-health-changed-smc-192-168-1-154",
-    "message": "Seymour MiningCore .154 health changed from 40% to 30%.",
-    "metadata": {
-      "healthScore": 30,
-      "previousHealthScore": 40
-    },
-    "objectId": "smc-192-168-1-154",
-    "objectType": "smc-instance",
-    "severity": "warning",
-    "source": "192.168.1.154",
-    "timestamp": "2026-07-15T22:40:40.800943+00:00",
-    "title": "Seymour MiningCore health changed",
-    "type": "smc-health-changed"
-  },
-  {
-    "id": "evt-20260715T2240297375630000-smc-console-restored-smc-192-168-1-154",
-    "message": "Seymour MiningCore .154 console is online again.",
-    "metadata": {
-      "component": "console",
-      "online": true
-    },
-    "objectId": "smc-192-168-1-154",
-    "objectType": "smc-instance",
-    "severity": "recovery",
-    "source": "192.168.1.154",
-    "timestamp": "2026-07-15T22:40:29.737563+00:00",
-    "title": "Seymour MiningCore console restored",
-    "type": "smc-console-restored"
-  },
-  {
-    "id": "evt-20260715T2240297375770000-smc-health-changed-smc-192-168-1-154",
-    "message": "Seymour MiningCore .154 health changed from 30% to 40%.",
-    "metadata": {
-      "healthScore": 40,
-      "previousHealthScore": 30
-    },
-    "objectId": "smc-192-168-1-154",
-    "objectType": "smc-instance",
-    "severity": "recovery",
-    "source": "192.168.1.154",
-    "timestamp": "2026-07-15T22:40:29.737577+00:00",
-    "title": "Seymour MiningCore health changed",
-    "type": "smc-health-changed"
-  },
-  {
-    "id": "evt-20260715T2239217549490000-peer-count-changed-node-192.168.1.169",
-    "message": "Bitcoin Core peers changed from 11 to 10.",
-    "metadata": {
-      "peers": 10,
-      "previousPeers": 11
-    },
-    "objectId": "node-192.168.1.169",
-    "objectType": "blockchain-node",
-    "severity": "info",
-    "source": "192.168.1.169",
-    "timestamp": "2026-07-15T22:39:21.754949+00:00",
-    "title": "Blockchain peer count changed",
-    "type": "peer-count-changed"
-  },
-  {
-    "id": "evt-20260715T2239217549660000-smc-console-offline-smc-192-168-1-154",
-    "message": "Seymour MiningCore .154 console is unavailable.",
-    "metadata": {
-      "component": "console",
-      "online": false
-    },
-    "objectId": "smc-192-168-1-154",
-    "objectType": "smc-instance",
-    "severity": "critical",
-    "source": "192.168.1.154",
-    "timestamp": "2026-07-15T22:39:21.754966+00:00",
-    "title": "Seymour MiningCore console offline",
-    "type": "smc-console-offline"
-  },
-  {
-    "id": "evt-20260715T2239217549700000-smc-health-changed-smc-192-168-1-154",
-    "message": "Seymour MiningCore .154 health changed from 40% to 30%.",
-    "metadata": {
-      "healthScore": 30,
-      "previousHealthScore": 40
-    },
-    "objectId": "smc-192-168-1-154",
-    "objectType": "smc-instance",
-    "severity": "warning",
-    "source": "192.168.1.154",
-    "timestamp": "2026-07-15T22:39:21.754970+00:00",
-    "title": "Seymour MiningCore health changed",
-    "type": "smc-health-changed"
-  },
-  {
-    "id": "evt-20260715T2238401961810000-peer-count-changed-node-192.168.1.169",
-    "message": "Bitcoin Core peers changed from 10 to 11.",
-    "metadata": {
-      "peers": 11,
-      "previousPeers": 10
-    },
-    "objectId": "node-192.168.1.169",
-    "objectType": "blockchain-node",
-    "severity": "info",
-    "source": "192.168.1.169",
-    "timestamp": "2026-07-15T22:38:40.196181+00:00",
-    "title": "Blockchain peer count changed",
-    "type": "peer-count-changed"
-  },
-  {
-    "id": "evt-20260715T2238087836740000-pool-missing-pool-192-168-1-154-4000-bch",
-    "message": "BCH Solo \u00b7 192.168.1.154 is no longer present in Fleet telemetry.",
-    "metadata": {
-      "active": true,
-      "hashrate": 5406312103936.0,
-      "host": "192.168.1.154",
-      "id": "pool-192-168-1-154-4000-bch",
-      "name": "BCH Solo \u00b7 192.168.1.154",
-      "status": "active",
-      "workerCount": 1
-    },
-    "objectId": "pool-192-168-1-154-4000-bch",
-    "objectType": "mining-pool",
-    "severity": "critical",
-    "source": "192.168.1.154",
-    "timestamp": "2026-07-15T22:38:08.783674+00:00",
-    "title": "Mining pool disappeared",
-    "type": "pool-missing"
-  },
-  {
-    "id": "evt-20260715T2238087836830000-miner-offline-qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001",
-    "message": "Nano 3s disappeared from BCH Solo \u00b7 192.168.1.154.",
-    "metadata": {
-      "hashrate": 4633981992095.0,
-      "id": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001",
-      "name": "Nano 3s",
-      "online": true,
-      "poolHost": "192.168.1.154",
-      "poolName": "BCH Solo \u00b7 192.168.1.154"
-    },
-    "objectId": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.001",
-    "objectType": "miner",
-    "severity": "critical",
-    "source": "192.168.1.154",
-    "timestamp": "2026-07-15T22:38:08.783683+00:00",
-    "title": "Miner disconnected",
-    "type": "miner-offline"
-  },
-  {
-    "id": "evt-20260715T2238087836890000-alert-opened-warning|MiningCore-connection-issue|BCH-MiningCore-.154",
-    "message": "HTTP Error 500: Internal Server Error",
-    "metadata": {
-      "id": "warning|MiningCore connection issue|BCH MiningCore .154",
-      "message": "HTTP Error 500: Internal Server Error",
-      "severity": "warning",
-      "source": "BCH MiningCore .154",
-      "title": "MiningCore connection issue"
-    },
-    "objectId": "warning|MiningCore connection issue|BCH MiningCore .154",
-    "objectType": "alert",
-    "severity": "warning",
-    "source": "BCH MiningCore .154",
-    "timestamp": "2026-07-15T22:38:08.783689+00:00",
-    "title": "MiningCore connection issue",
-    "type": "alert-opened"
-  },
-  {
-    "id": "evt-20260715T2238087836940000-smc-api-offline-smc-192-168-1-154",
-    "message": "Seymour MiningCore .154 API is unavailable.",
-    "metadata": {
-      "component": "api",
-      "online": false
-    },
-    "objectId": "smc-192-168-1-154",
-    "objectType": "smc-instance",
-    "severity": "critical",
-    "source": "192.168.1.154",
-    "timestamp": "2026-07-15T22:38:08.783694+00:00",
-    "title": "Seymour MiningCore API offline",
-    "type": "smc-api-offline"
-  },
-  {
-    "id": "evt-20260715T2238087836980000-smc-health-changed-smc-192-168-1-154",
-    "message": "Seymour MiningCore .154 health changed from 100% to 40%.",
-    "metadata": {
-      "healthScore": 40,
-      "previousHealthScore": 100
-    },
-    "objectId": "smc-192-168-1-154",
-    "objectType": "smc-instance",
-    "severity": "warning",
-    "source": "192.168.1.154",
-    "timestamp": "2026-07-15T22:38:08.783698+00:00",
-    "title": "Seymour MiningCore health changed",
-    "type": "smc-health-changed"
-  },
-  {
-    "id": "evt-20260715T2237205402150000-miner-hashrate-shift-qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002",
-    "message": "Mining System 2 hashrate fell 37.6%.",
-    "metadata": {
-      "changePercent": -37.61,
-      "hashrate": 5033807208960.248,
-      "previousHashrate": 8067646659223.844
-    },
-    "objectId": "qqvxl558e962fry35ak5mxrglaa6umet7ysxep57e7.002",
-    "objectType": "miner",
-    "severity": "warning",
-    "source": "192.168.1.156",
-    "timestamp": "2026-07-15T22:37:20.540215+00:00",
-    "title": "Miner hashrate changed significantly",
-    "type": "miner-hashrate-shift"
   }
 ]
