@@ -56,6 +56,7 @@ from backend.modules import platform_service_membership
 from backend.modules import platform_service_impact
 from backend.modules import platform_service_maintenance
 from backend.modules import platform_change_management
+from backend.modules import platform_change_execution
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -287,6 +288,16 @@ class NexusHandler(BaseHTTPRequestHandler):
             try: status, payload = json_response(platform_service_impact.root_cause(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)}, 400)
             return self._send_json(payload, status)
+        if parsed.path == "/api/change-execution/status":
+            try: status, payload = json_response(platform_change_execution.status(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)}, 400)
+            return self._send_json(payload, status)
+
+        if parsed.path == "/api/change-execution/history":
+            try: status, payload = json_response(platform_change_execution.history(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)}, 400)
+            return self._send_json(payload, status)
+
         if parsed.path == "/api/changes":
             try: status, payload = json_response(platform_change_management.list_changes(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
