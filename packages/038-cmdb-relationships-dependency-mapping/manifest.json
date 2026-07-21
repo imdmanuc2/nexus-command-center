@@ -1,0 +1,11 @@
+{
+  "package": "038-cmdb-relationships-dependency-mapping",
+  "migration": "027_cmdb_relationship_dependency_mapping.sql",
+  "capabilities": [
+    "dependency-map",
+    "blast-radius",
+    "relationship-history",
+    "compute-capabilities",
+    "generic-workloads"
+  ]
+}
