@@ -37,3 +37,7 @@ frontend/css/*.before-*
 frontend/js/*.before-*
 backups/backend/data/events/operations-events.json
 backend/data/events/operations-state.json
+
+# Local development packages and installation backups
+packages/[0-9][0-9][0-9]-*/
+packages/backups/
