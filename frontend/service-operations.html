@@ -1,6 +1,77 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Nexus Operations Center</title><link rel="stylesheet" href="/css/styles.css"><link rel="stylesheet" href="/css/service-operations.css"></head>
-<body><header><div id="topNav"></div></header><main class="ops-shell">
-<section class="hero"><div><div class="eyebrow">NEXUS OPERATIONS</div><h1>Service Operations Center</h1><p>Live business-service health, capacity, dependencies, and incident impact.</p></div><div class="hero-actions"><button id="reconcileBtn">Reconcile Membership</button><button id="refreshBtn">Refresh</button></div></section>
-<section id="summary" class="summary-grid"></section><section class="layout"><div><h2>Business Services</h2><div id="services" class="service-grid"></div></div><aside><h2>Active Incidents</h2><div id="incidents"></div></aside></section>
-</main><script src="/js/nav.js"></script><script src="/js/service-operations.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nexus Operations Center</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/service-operations.css">
+</head>
+<body>
+<header><div id="topNav"></div></header>
+<main class="ops-shell">
+  <section class="hero">
+    <div>
+      <div class="eyebrow">NEXUS OPERATIONS</div>
+      <h1>Service Operations Center</h1>
+      <p>Live business-service health, dependencies, planned outages, and maintenance impact.</p>
+    </div>
+    <div class="hero-actions">
+      <button id="scheduleBtn">Schedule Maintenance</button>
+      <button id="reconcileBtn">Reconcile Membership</button>
+      <button id="refreshBtn">Refresh</button>
+    </div>
+  </section>
+
+  <section id="summary" class="summary-grid"></section>
+
+  <section class="layout">
+    <div>
+      <h2>Business Services</h2>
+      <div id="services" class="service-grid"></div>
+    </div>
+    <aside>
+      <h2>Active Incidents</h2>
+      <div id="incidents"></div>
+    </aside>
+  </section>
+
+  <section class="impact-panel">
+    <div class="section-heading">
+      <div><div class="eyebrow">DEPENDENCY ENGINE</div><h2>Dependency Impact Analysis</h2></div>
+    </div>
+    <div id="impact" class="impact-grid"></div>
+  </section>
+
+  <section class="maintenance-panel">
+    <div class="section-heading">
+      <div><div class="eyebrow">PLANNED OPERATIONS</div><h2>Maintenance & Planned Outages</h2></div>
+    </div>
+    <div class="maintenance-columns">
+      <div><h3>Current Maintenance</h3><div id="maintenanceActive"></div></div>
+      <div><h3>Upcoming</h3><div id="maintenanceUpcoming"></div></div>
+      <div><h3>Completed / Cancelled</h3><div id="maintenanceHistory"></div></div>
+    </div>
+  </section>
+</main>
+
+<dialog id="maintenanceDialog">
+  <form id="maintenanceForm" method="dialog" class="maintenance-form">
+    <div class="dialog-head"><h2>Schedule Maintenance</h2><button value="cancel" class="icon-btn">×</button></div>
+    <label>Business service<select id="maintenanceService" required></select></label>
+    <label>Name<input id="maintenanceName" required value="Planned service maintenance"></label>
+    <label>Reason<textarea id="maintenanceReason" rows="3" placeholder="Describe the maintenance work"></textarea></label>
+    <div class="form-grid">
+      <label>Starts<input id="maintenanceStarts" type="datetime-local" required></label>
+      <label>Ends<input id="maintenanceEnds" type="datetime-local" required></label>
+    </div>
+    <label class="check"><input id="suppressAlerts" type="checkbox" checked> Suppress expected alerts</label>
+    <div id="maintenancePreview" class="preview-box">Select a service to preview impact.</div>
+    <div class="dialog-actions"><button value="cancel">Cancel</button><button id="createMaintenanceBtn" type="submit" value="default">Schedule</button></div>
+  </form>
+</dialog>
+
+<script src="/js/nav.js"></script>
+<script src="/js/service-operations.js"></script>
+</body>
+</html>

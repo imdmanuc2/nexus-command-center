@@ -7,7 +7,7 @@ from psycopg.types.json import Jsonb
 
 from backend.db.connection import get_connection, transaction
 
-VALID_TARGET_TYPES = {"asset", "asset_type", "site", "rack", "pool", "cluster", "tag"}
+VALID_TARGET_TYPES = {"asset", "asset_type", "site", "rack", "pool", "cluster", "tag", "service"}
 
 
 def _serialize(row: dict[str, Any]) -> dict[str, Any]:

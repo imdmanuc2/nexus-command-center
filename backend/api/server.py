@@ -54,6 +54,7 @@ from backend.modules import platform_services
 from backend.modules import platform_service_operations
 from backend.modules import platform_service_membership
 from backend.modules import platform_service_impact
+from backend.modules import platform_service_maintenance
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -260,6 +261,26 @@ class NexusHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/services/root-cause":
             try: status, payload = json_response(platform_service_impact.root_cause(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)}, 400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/maintenance":
+            try: status, payload = json_response(platform_service_maintenance.windows(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/maintenance/active":
+            try: status, payload = json_response(platform_service_maintenance.active(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/maintenance/upcoming":
+            try: status, payload = json_response(platform_service_maintenance.upcoming(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/maintenance/history":
+            try: status, payload = json_response(platform_service_maintenance.history(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/maintenance/impact-preview":
+            try: status, payload = json_response(platform_service_maintenance.impact_preview(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload, status)
         if parsed.path == "/api/services/dashboard":
             try: status, payload = json_response(platform_service_operations.dashboard(query))
@@ -508,6 +529,22 @@ class NexusHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+        if parsed.path in {"/api/maintenance", "/api/maintenance/start", "/api/maintenance/complete", "/api/maintenance/cancel"}:
+            try:
+                data = self._read_json_body()
+                if parsed.path == "/api/maintenance":
+                    result = platform_service_maintenance.create(data)
+                elif parsed.path.endswith("/start"):
+                    result = platform_service_maintenance.start(data)
+                elif parsed.path.endswith("/complete"):
+                    result = platform_service_maintenance.complete(data)
+                else:
+                    result = platform_service_maintenance.cancel(data)
+                status, payload = json_response(result)
+            except Exception as exc:
+                status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+
         if parsed.path == "/api/services/membership/reconcile":
             try:
                 length = int(self.headers.get("Content-Length", "0"))
