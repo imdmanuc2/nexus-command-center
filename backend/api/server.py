@@ -60,6 +60,7 @@ from backend.modules import platform_change_execution
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
+from backend.modules import platform_change_rollback
 
 APP_NAME = "Nexus Command Center"
 
@@ -259,6 +260,8 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/mission/status": mission.status,
             "/api/timeline/latest": timeline.latest,
             "/api/platform/home": platform.home,
+    "/api/change-rollbacks/status": platform_change_rollback.status,
+    "/api/change-rollbacks/history": platform_change_rollback.history,
         }
 
         parsed = urlparse(self.path)
@@ -586,6 +589,39 @@ class NexusHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
+
+        # BEGIN PACKAGE 047 CHANGE ROLLBACK POST ROUTES
+        if parsed.path == "/api/change-rollbacks":
+            try:
+                result = platform_change_rollback.create(self._read_json_body())
+                status, payload = json_response(result, 201)
+            except Exception as exc:
+                status, payload = json_response(
+                    {"status": "error", "error": str(exc)}, 400
+                )
+            return self._send_json(payload, status)
+
+        if parsed.path == "/api/change-rollbacks/approve":
+            try:
+                result = platform_change_rollback.approve(self._read_json_body())
+                status, payload = json_response(result)
+            except Exception as exc:
+                status, payload = json_response(
+                    {"status": "error", "error": str(exc)}, 400
+                )
+            return self._send_json(payload, status)
+
+        if parsed.path == "/api/change-rollbacks/queue":
+            try:
+                result = platform_change_rollback.queue(self._read_json_body())
+                status, payload = json_response(result)
+            except Exception as exc:
+                status, payload = json_response(
+                    {"status": "error", "error": str(exc)}, 400
+                )
+            return self._send_json(payload, status)
+        # END PACKAGE 047 CHANGE ROLLBACK POST ROUTES
+
 
         if parsed.path == "/api/changes":
             try:
