@@ -53,6 +53,7 @@ from backend.modules import platform_intelligence
 from backend.modules import platform_services
 from backend.modules import platform_service_operations
 from backend.modules import platform_service_membership
+from backend.modules import platform_service_impact
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -248,6 +249,18 @@ class NexusHandler(BaseHTTPRequestHandler):
             try: status, payload = json_response(platform_service_membership.runs(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload,status)
+        if parsed.path == "/api/services/dependencies":
+            try: status, payload = json_response(platform_service_impact.dependencies(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)}, 400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/services/impact":
+            try: status, payload = json_response(platform_service_impact.impact(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)}, 400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/services/root-cause":
+            try: status, payload = json_response(platform_service_impact.root_cause(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)}, 400)
+            return self._send_json(payload, status)
         if parsed.path == "/api/services/dashboard":
             try: status, payload = json_response(platform_service_operations.dashboard(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
@@ -333,19 +346,19 @@ class NexusHandler(BaseHTTPRequestHandler):
                 status, payload = json_response(platform_deployments.packages(query))
             except Exception as exc:
                 status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(status, payload)
+            return self._send_json(payload, status)
         if parsed.path == "/api/platform/deployments/jobs":
             try:
                 status, payload = json_response(platform_deployments.jobs(query))
             except Exception as exc:
                 status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(status, payload)
+            return self._send_json(payload, status)
         if parsed.path == "/api/platform/deployments/job":
             try:
                 status, payload = json_response(platform_deployments.job(query))
             except Exception as exc:
                 status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(status, payload)
+            return self._send_json(payload, status)
         if parsed.path == "/api/platform/maintenance/windows":
             try:
                 status, payload = json_response(platform_maintenance.windows(query))
@@ -544,7 +557,7 @@ class NexusHandler(BaseHTTPRequestHandler):
                 status, payload = json_response(result)
             except Exception as exc:
                 status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(status, payload)
+            return self._send_json(payload, status)
         if self.path in {"/api/platform/maintenance/create", "/api/platform/maintenance/cancel"}:
             try:
                 length = int(self.headers.get("Content-Length", 0))
