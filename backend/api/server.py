@@ -55,6 +55,7 @@ from backend.modules import platform_service_operations
 from backend.modules import platform_service_membership
 from backend.modules import platform_service_impact
 from backend.modules import platform_service_maintenance
+from backend.modules import platform_change_management
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -110,6 +111,30 @@ class NexusHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(payload)
+
+    def _read_json_body(self):
+        length_header = self.headers.get("Content-Length", "0")
+        try:
+            content_length = int(length_header)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Invalid Content-Length header") from exc
+
+        if content_length <= 0:
+            return {}
+
+        raw = self.rfile.read(content_length)
+        if not raw:
+            return {}
+
+        try:
+            payload = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Invalid JSON body") from exc
+
+        if not isinstance(payload, dict):
+            raise ValueError("JSON body must be an object")
+
+        return payload
 
     def _send_file(self, file_path, content_type):
         try:
@@ -261,6 +286,27 @@ class NexusHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/services/root-cause":
             try: status, payload = json_response(platform_service_impact.root_cause(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)}, 400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/changes":
+            try: status, payload = json_response(platform_change_management.list_changes(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/changes/history":
+            try: status, payload = json_response(platform_change_management.history(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/changes/templates":
+            try: status, payload = json_response(platform_change_management.templates(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+        if parsed.path == "/api/changes/impact-preview":
+            try: status, payload = json_response(platform_change_management.impact_preview(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+        if parsed.path.startswith("/api/changes/"):
+            change_id = parsed.path.rsplit("/", 1)[-1]
+            try: status, payload = json_response(platform_change_management.get_change(change_id))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},404)
             return self._send_json(payload, status)
         if parsed.path == "/api/maintenance":
             try: status, payload = json_response(platform_service_maintenance.windows(query))
@@ -529,7 +575,46 @@ class NexusHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path in {"/api/maintenance", "/api/maintenance/start", "/api/maintenance/complete", "/api/maintenance/cancel"}:
+
+        if parsed.path == "/api/changes":
+            try:
+                data = self._read_json_body()
+                status, payload = json_response(platform_change_management.create(data))
+            except Exception as exc:
+                status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+
+        if parsed.path.startswith("/api/changes/"):
+            parts = [part for part in parsed.path.split("/") if part]
+            if len(parts) == 4 and parts[0] == "api" and parts[1] == "changes":
+                change_id, action = parts[2], parts[3]
+                try:
+                    data = self._read_json_body()
+                    if action == "approve":
+                        result = platform_change_management.approve(change_id, data)
+                    elif action == "execute":
+                        result = platform_change_management.execute(change_id, data)
+                    elif action == "rollback":
+                        result = platform_change_management.rollback(change_id, data)
+                    elif action == "cancel":
+                        result = platform_change_management.cancel(change_id, data)
+                    elif action == "complete":
+                        result = platform_change_management.complete(change_id, data)
+                    elif action == "fail":
+                        result = platform_change_management.fail(change_id, data)
+                    else:
+                        raise ValueError("Unsupported change action")
+                    status, payload = json_response(result)
+                except Exception as exc:
+                    status, payload = json_response({"status":"error","error":str(exc)},400)
+                return self._send_json(payload, status)
+
+        if parsed.path in {
+            "/api/maintenance",
+            "/api/maintenance/start",
+            "/api/maintenance/complete",
+            "/api/maintenance/cancel",
+        }:
             try:
                 data = self._read_json_body()
                 if parsed.path == "/api/maintenance":

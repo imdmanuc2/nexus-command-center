@@ -53,6 +53,15 @@
       <div><h3>Completed / Cancelled</h3><div id="maintenanceHistory"></div></div>
     </div>
   </section>
+
+  <section class="changes-panel">
+    <div class="section-heading">
+      <div><div class="eyebrow">CONTROLLED OPERATIONS</div><h2>Change Management</h2></div>
+      <button id="newChangeBtn">New Change Request</button>
+    </div>
+    <div id="changes" class="change-grid"></div>
+  </section>
+
 </main>
 
 <dialog id="maintenanceDialog">
@@ -68,6 +77,20 @@
     <label class="check"><input id="suppressAlerts" type="checkbox" checked> Suppress expected alerts</label>
     <div id="maintenancePreview" class="preview-box">Select a service to preview impact.</div>
     <div class="dialog-actions"><button value="cancel">Cancel</button><button id="createMaintenanceBtn" type="submit" value="default">Schedule</button></div>
+  </form>
+</dialog>
+
+
+<dialog id="changeDialog">
+  <form id="changeForm" method="dialog" class="maintenance-form">
+    <div class="dialog-head"><h2>Create Change Request</h2><button value="cancel" class="icon-btn">×</button></div>
+    <label>Template<select id="changeTemplate" required></select></label>
+    <label>Title<input id="changeTitle" required></label>
+    <label>Target asset ID<input id="changeTarget" required placeholder="asset-..."></label>
+    <label>Service context<select id="changeService"><option value="">No service selected</option></select></label>
+    <label>Description<textarea id="changeDescription" rows="3"></textarea></label>
+    <div id="changePreview" class="preview-box">Enter a target to preview impact.</div>
+    <div class="dialog-actions"><button value="cancel">Cancel</button><button type="submit" value="default">Create Change</button></div>
   </form>
 </dialog>
 
