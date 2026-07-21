@@ -35,4 +35,5 @@ backend/data/telemetry/
 frontend/*.before-*
 frontend/css/*.before-*
 frontend/js/*.before-*
-backups/
+backups/backend/data/events/operations-events.json
+backend/data/events/operations-state.json

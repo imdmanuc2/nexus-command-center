@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Nexus Assets</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/cmdb-lifecycle.css">
+  <link rel="stylesheet" href="/css/cmdb-dependencies.css">
+</head>
+<body>
+  <main class="wrap">
+  <div class="nexus-page-shell">
+    <header>
+      <div>
+        <h1>Nexus Assets</h1>
+        <p>Nexus CMDB for miners, pools, nodes, servers, and infrastructure.</p>
+      </div>
+    </header>
+
+    <nav id="topNav" class="nav"></nav>
+
+    <section class="assets-toolbar">
+      <div class="asset-search-wrap">
+        <label for="assetSearch">Search Assets</label>
+        <input id="assetSearch" class="asset-search" placeholder="Search name, IP, worker, pool, model, tags..." autocomplete="off">
+      </div>
+
+      <div class="asset-filter-pills">
+        <button class="asset-filter active" data-filter="all">All</button>
+        <button class="asset-filter" data-filter="asic">ASICs</button>
+        <button class="asset-filter" data-filter="pool-host">Pool Hosts</button>
+        <button class="asset-filter" data-filter="blockchain-node">Nodes</button>
+        <button class="asset-filter" data-filter="unassigned">Unassigned</button>
+        <button class="asset-filter" data-filter="favorite">Favorites</button>
+      </div>
+    </section>
+
+    <section id="assetSummary" class="asset-summary-grid"></section>
+
+    <section id="assetsList" class="inventory-grid">
+      Loading assets...
+    </section>
+    </div>
+</main>
+
+  <aside id="drawer" class="drawer">
+    <button id="drawerClose" class="drawer-close">×</button>
+    <div id="drawerContent"></div>
+  </aside>
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/assets.js"></script>
+  <script>renderNav("Assets");</script>
+<script src="/js/mission.js"></script>
+</body>
+</html>
