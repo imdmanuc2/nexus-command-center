@@ -18,7 +18,7 @@ def service(service_id):
 
 
 def members(service_id=None):
-    where = "WHERE m.service_id=%s" if service_id else ""
+    where = "WHERE m.service_id=%s AND m.active=TRUE" if service_id else "WHERE m.active=TRUE"
     args = (service_id,) if service_id else ()
 
     return _rows(
@@ -27,6 +27,7 @@ def members(service_id=None):
             m.*,
             a.name AS asset_name,
             a.asset_type,
+            COALESCE(a.operational_state, 'active') AS asset_status,
             COALESCE(a.operational_state, 'active') AS asset_operational_state,
             net.ip_address
         FROM nexus.business_service_members m

@@ -16,6 +16,8 @@ def _health(service, members):
         state = 'critical'
     elif degraded:
         state = 'degraded'
+    elif not members:
+        state = 'not-configured'
     elif not active:
         state = 'unknown'
     else:
@@ -41,7 +43,7 @@ def topology(_query=None):
         item['workloads'] = repo.workload_counts(sid)
         item['dependencies'] = [d for d in all_dependencies if d['service_id'] == sid]
         payload.append(item)
-    summary = {k: sum(1 for s in payload if s['health']['state'] == k) for k in ('healthy','degraded','critical','suppressed','unknown')}
+    summary = {k: sum(1 for s in payload if s['health']['state'] == k) for k in ('healthy','degraded','critical','suppressed','unknown','not-configured')}
     return {'status':'ok','source':'nexus-cmdb-business-services','summary':summary,
             'serviceCount':len(payload),'services':payload,'serviceDependencies':all_dependencies}
 

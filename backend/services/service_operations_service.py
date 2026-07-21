@@ -4,6 +4,7 @@ from backend.db.repositories import service_operations_repository as repo
 
 _BAD = {'critical', 'offline'}
 _WARN = {'degraded', 'warning', 'unknown'}
+_NON_MONITORED = {'not-configured', 'suppressed'}
 
 
 def _topology():
@@ -13,7 +14,7 @@ def _topology():
 def _service_incident(service):
     health = service.get('health', {})
     state = health.get('state', 'unknown')
-    if state not in _BAD | _WARN:
+    if state in _NON_MONITORED or state not in _BAD | _WARN:
         return None
     failed = health.get('failedAssets', [])
     severity = 'critical' if state in _BAD else 'degraded'
@@ -50,7 +51,8 @@ def dashboard(_query=None):
         persisted = repo.open_incidents()
     except Exception:
         persisted = []
-    capacity_values = [float(s.get('health', {}).get('capacityPercent', 0)) for s in services]
+    configured_services = [s for s in services if s.get('health', {}).get('state') != 'not-configured']
+    capacity_values = [float(s.get('health', {}).get('capacityPercent', 0)) for s in configured_services]
     avg_capacity = round(sum(capacity_values) / len(capacity_values), 1) if capacity_values else 0
     critical_services = [s for s in services if s.get('criticality') == 'critical']
     unavailable = [s for s in critical_services if s.get('health', {}).get('state') in _BAD]

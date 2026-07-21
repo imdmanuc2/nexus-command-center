@@ -52,6 +52,7 @@ from backend.modules import platform_dependencies
 from backend.modules import platform_intelligence
 from backend.modules import platform_services
 from backend.modules import platform_service_operations
+from backend.modules import platform_service_membership
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -238,6 +239,14 @@ class NexusHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/health":
             try: status, payload = json_response(platform_service_operations.health())
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},503)
+            return self._send_json(payload,status)
+        if parsed.path == "/api/services/membership/rules":
+            try: status, payload = json_response(platform_service_membership.rules(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload,status)
+        if parsed.path == "/api/services/membership/runs":
+            try: status, payload = json_response(platform_service_membership.runs(query))
+            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload,status)
         if parsed.path == "/api/services/dashboard":
             try: status, payload = json_response(platform_service_operations.dashboard(query))
@@ -485,6 +494,15 @@ class NexusHandler(BaseHTTPRequestHandler):
         return self._send_json(payload, status)
 
     def do_POST(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/services/membership/reconcile":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                data = json.loads(self.rfile.read(length) or b"{}")
+                status, payload = json_response(platform_service_membership.reconcile(data))
+            except Exception as exc:
+                status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload,status)
 
         if self.path == "/api/cmdb/relationships/upsert":
             try:
