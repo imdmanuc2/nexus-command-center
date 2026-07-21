@@ -46,12 +46,6 @@ from backend.modules import platform_playbooks
 from backend.modules import platform_policies
 from backend.modules import platform_maintenance
 from backend.modules import platform_deployments
-from backend.modules import platform_operational_state
-from backend.modules import platform_cmdb_lifecycle
-from backend.modules import platform_dependencies
-from backend.modules import platform_intelligence
-from backend.modules import platform_services
-from backend.modules import platform_service_operations
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -149,8 +143,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             return self._send_file("frontend/maintenance.html", "text/html")
         if self.path == "/deployments.html":
             return self._send_file("frontend/deployments.html", "text/html")
-        if self.path == "/operational-state.html":
-            return self._send_file("frontend/operational-state.html", "text/html")
         if self.path == "/operations-center.html":
             return self._send_file(
                 "frontend/operations-center.html",
@@ -235,90 +227,6 @@ class NexusHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
 
-        if parsed.path == "/api/health":
-            try: status, payload = json_response(platform_service_operations.health())
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},503)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/dashboard":
-            try: status, payload = json_response(platform_service_operations.dashboard(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/health":
-            try: status, payload = json_response(platform_service_operations.service_health(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/incidents":
-            try: status, payload = json_response(platform_service_operations.incidents(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/capacity":
-            try: status, payload = json_response(platform_service_operations.capacity(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/topology":
-            try: status, payload = json_response(platform_services.topology(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/detail":
-            try: status, payload = json_response(platform_services.detail(query))
-            except KeyError as exc: status, payload = json_response({"status":"error","error":f"Service not found: {exc}"},404)
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/intelligence/analyze":
-            try: status, payload = json_response(platform_intelligence.analyze(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/intelligence/knowledge":
-            try: status, payload = json_response(platform_intelligence.knowledge(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/cmdb/relationships/catalog":
-            try: status, payload = json_response(platform_dependencies.catalog(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/cmdb/relationships/asset":
-            try: status, payload = json_response(platform_dependencies.asset(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/cmdb/dependency-map":
-            try: status, payload = json_response(platform_dependencies.dependency_map(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/cmdb/lifecycle/asset":
-            try: status, payload = json_response(platform_cmdb_lifecycle.asset(query))
-            except KeyError as exc: status, payload = json_response({"status":"error","error":str(exc)},404)
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/cmdb/lifecycle/history":
-            try: status, payload = json_response(platform_cmdb_lifecycle.history(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/platform/operational-state/assets":
-            try:
-                status, payload = json_response(platform_operational_state.assets(query))
-            except Exception as exc:
-                status, payload = json_response({"status":"error","error":str(exc)}, 400)
-            return self._send_json(payload, status)
-        if parsed.path == "/api/platform/operational-state/asset":
-            try:
-                status, payload = json_response(platform_operational_state.asset(query))
-            except KeyError as exc:
-                status, payload = json_response({"status":"error","error":str(exc)}, 404)
-            except Exception as exc:
-                status, payload = json_response({"status":"error","error":str(exc)}, 400)
-            return self._send_json(payload, status)
-        if parsed.path == "/api/platform/operational-state/summary":
-            try:
-                status, payload = json_response(platform_operational_state.summary())
-            except Exception as exc:
-                status, payload = json_response({"status":"error","error":str(exc)}, 400)
-            return self._send_json(payload, status)
-        if parsed.path == "/api/platform/operational-state/history":
-            try:
-                status, payload = json_response(platform_operational_state.history(query))
-            except Exception as exc:
-                status, payload = json_response({"status":"error","error":str(exc)}, 400)
-            return self._send_json(payload, status)
         if parsed.path == "/api/platform/deployments/packages":
             try:
                 status, payload = json_response(platform_deployments.packages(query))
@@ -485,34 +393,6 @@ class NexusHandler(BaseHTTPRequestHandler):
         return self._send_json(payload, status)
 
     def do_POST(self):
-
-        if self.path == "/api/cmdb/relationships/upsert":
-            try:
-                length=int(self.headers.get("Content-Length","0")); data=json.loads(self.rfile.read(length) or b"{}")
-                status,payload=json_response(platform_dependencies.upsert(data))
-            except Exception as exc: status,payload=json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-
-        if self.path == "/api/cmdb/lifecycle/update":
-            try:
-                length=int(self.headers.get("Content-Length","0")); data=json.loads(self.rfile.read(length) or b"{}")
-                status,payload=json_response(platform_cmdb_lifecycle.update(data))
-            except KeyError as exc: status,payload=json_response({"status":"error","error":str(exc)},404)
-            except Exception as exc: status,payload=json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-
-        if self.path in {"/api/platform/operational-state/set", "/api/platform/operational-state/bulk-set"}:
-            try:
-                length = int(self.headers.get("Content-Length", "0"))
-                data = json.loads(self.rfile.read(length) or b"{}")
-                result = (platform_operational_state.set_state(data)
-                          if self.path.endswith("/set") else platform_operational_state.bulk_set_state(data))
-                status, payload = json_response(result)
-            except KeyError as exc:
-                status, payload = json_response({"status":"error","error":str(exc)}, 404)
-            except Exception as exc:
-                status, payload = json_response({"status":"error","error":str(exc)}, 400)
-            return self._send_json(payload, status)
 
         if self.path in {"/api/platform/deployments/register-package", "/api/platform/deployments/create", "/api/platform/deployments/transition"}:
             try:

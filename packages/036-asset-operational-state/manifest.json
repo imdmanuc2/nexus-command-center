@@ -1,0 +1,10 @@
+{
+  "package": "036-asset-operational-state",
+  "migration": "025_asset_operational_state.sql",
+  "requires": [
+    "032-maintenance-windows",
+    "035-remote-deployment-software-management"
+  ],
+  "install": "scripts/install.sh",
+  "verify": "scripts/verify.sh"
+}

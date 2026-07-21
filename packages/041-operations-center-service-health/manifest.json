@@ -1,0 +1,1 @@
+{"package":"041-operations-center-service-health","migration":"030_operations_center_service_health.sql","requires":"040-service-topology-business-services","healthEndpoint":"/api/health","api":["/api/services/dashboard","/api/services/health","/api/services/incidents","/api/services/capacity"]}

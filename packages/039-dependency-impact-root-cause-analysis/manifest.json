@@ -1,0 +1,1 @@
+{"package":"039-dependency-impact-root-cause-analysis","version":"1.0.0","requires":["038-cmdb-relationships-dependency-mapping"],"migration":"028_dependency_impact_root_cause_analysis.sql","services":["nexus-api.service"]}

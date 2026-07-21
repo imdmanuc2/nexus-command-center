@@ -51,7 +51,6 @@ from backend.modules import platform_cmdb_lifecycle
 from backend.modules import platform_dependencies
 from backend.modules import platform_intelligence
 from backend.modules import platform_services
-from backend.modules import platform_service_operations
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
@@ -235,26 +234,6 @@ class NexusHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
 
-        if parsed.path == "/api/health":
-            try: status, payload = json_response(platform_service_operations.health())
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},503)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/dashboard":
-            try: status, payload = json_response(platform_service_operations.dashboard(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/health":
-            try: status, payload = json_response(platform_service_operations.service_health(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/incidents":
-            try: status, payload = json_response(platform_service_operations.incidents(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
-        if parsed.path == "/api/services/capacity":
-            try: status, payload = json_response(platform_service_operations.capacity(query))
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload,status)
         if parsed.path == "/api/services/topology":
             try: status, payload = json_response(platform_services.topology(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)

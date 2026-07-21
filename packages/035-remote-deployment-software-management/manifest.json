@@ -1,0 +1,10 @@
+{
+  "package": "035-remote-deployment-software-management",
+  "version": "1.0.0",
+  "migration": "024_remote_deployments.sql",
+  "requires": [
+    "PostgreSQL",
+    "Package 028 managed host transport",
+    "Package 030 playbook engine"
+  ]
+}
