@@ -22,3 +22,19 @@ function renderNav(active) {
     <a class="${label === active ? "active" : ""}" href="${href}">${label}</a>
   `).join("");
 }
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    const nav =
+        document.querySelector("nav") ||
+        document.getElementById("nexusNav");
+
+    if (!nav) return;
+    if (nav.querySelector('a[href="/operations-center.html"]')) return;
+
+    const a = document.createElement("a");
+    a.href = "/operations-center.html";
+    a.textContent = "Operations Center";
+
+    nav.appendChild(a);
+});
