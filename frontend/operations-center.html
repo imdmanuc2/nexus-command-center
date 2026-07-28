@@ -1,9 +1,305 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus Operations Center</title><link rel="stylesheet" href="/css/operations-center.css"></head>
-<body><div id="nexusNav"></div><main class="ops-shell">
-<header class="ops-header"><div><p class="eyebrow">Nexus Command Center</p><h1>Operations Center</h1><p>Execution, verification, rollback, recovery, and operational evidence.</p></div><div class="header-actions"><span id="workerState" class="pill">Worker status unknown</span><button id="refreshButton">Refresh</button></div></header>
-<section class="metrics"><article><span>Recent</span><strong id="metricRecent">0</strong></article><article><span>Failed</span><strong id="metricFailed">0</strong></article><article><span>Pending</span><strong id="metricPending">0</strong></article><article><span>Rollbacks</span><strong id="metricRollbacks">0</strong></article></section>
-<section class="toolbar"><input id="searchInput" type="search" placeholder="Search operations"><select id="statusFilter"><option value="">All statuses</option><option>failed</option><option>error</option><option>warning</option><option>running</option><option>pending</option><option>passed</option><option>completed</option><option>succeeded</option><option>rolled-back</option></select><select id="typeFilter"><option value="">All types</option><option>execution</option><option>verification</option><option>rollback</option></select><input id="assetFilter" placeholder="Asset ID"></section>
-<section class="panel"><div class="panel-heading"><div><h2>Evidence Timeline</h2><p id="resultSummary">Loading…</p></div></div><div id="opsTimeline" class="timeline"></div><div id="emptyState" class="empty" hidden>No evidence matches the filters.</div></section>
-<aside id="opsDrawer" class="drawer" aria-hidden="true"><div class="drawer-head"><h2 id="drawerTitle">Evidence detail</h2><button id="drawerClose">×</button></div><div id="drawerBody"></div></aside>
-</main><script src="/js/nav.js"></script><script src="/js/evidence-client.js"></script><script src="/js/operations-center.js"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Nexus Operations Center</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/home-v2.css">
+  <link rel="stylesheet" href="/css/operations-center.css">
+</head>
+
+<body class="home-v2-body operations-center-body">
+
+  <main class="wrap command-wrap home-v2-wrap operations-center-wrap">
+    <section class="nexus-panel home-v2-panel operations-center-panel">
+
+      <header class="nexus-header home-v2-header operations-center-header">
+        <div>
+          <div class="home-v2-title-row">
+            <h1>⚙️ Nexus Operations Center</h1>
+
+            <span class="version-pill">
+              OPERATIONS
+            </span>
+          </div>
+
+          <p>
+            Execution, verification, rollback, recovery, and operational evidence
+          </p>
+        </div>
+
+        <div class="home-v2-header-status operations-header-status">
+          <span
+            id="workerState"
+            class="operations-worker-state"
+          >
+            Worker status unknown
+          </span>
+
+          <button
+            id="refreshButton"
+            class="operations-refresh-button"
+            type="button"
+          >
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      <nav
+        id="topNav"
+        class="nav"
+      ></nav>
+
+      <section class="operations-status-strip">
+        <div class="operations-status-chip">
+          <span class="operations-status-dot"></span>
+          <span>EXECUTION</span>
+        </div>
+
+        <div class="operations-status-chip">
+          <span class="operations-status-dot"></span>
+          <span>VERIFICATION</span>
+        </div>
+
+        <div class="operations-status-chip">
+          <span class="operations-status-dot"></span>
+          <span>ROLLBACK</span>
+        </div>
+
+        <div class="operations-status-chip">
+          <span class="operations-status-dot"></span>
+          <span>RECOVERY</span>
+        </div>
+
+        <div class="operations-status-chip">
+          <span class="operations-status-dot"></span>
+          <span>EVIDENCE</span>
+        </div>
+      </section>
+
+      <section class="operations-metrics">
+        <article class="operations-metric-card">
+          <div class="operations-metric-label">Recent</div>
+
+          <div
+            id="metricRecent"
+            class="operations-metric-value"
+          >
+            0
+          </div>
+
+          <div class="operations-metric-caption">
+            Captured operations
+          </div>
+        </article>
+
+        <article class="operations-metric-card">
+          <div class="operations-metric-label">Failed</div>
+
+          <div
+            id="metricFailed"
+            class="operations-metric-value danger"
+          >
+            0
+          </div>
+
+          <div class="operations-metric-caption">
+            Require investigation
+          </div>
+        </article>
+
+        <article class="operations-metric-card">
+          <div class="operations-metric-label">Pending</div>
+
+          <div
+            id="metricPending"
+            class="operations-metric-value warning"
+          >
+            0
+          </div>
+
+          <div class="operations-metric-caption">
+            Waiting or running
+          </div>
+        </article>
+
+        <article class="operations-metric-card">
+          <div class="operations-metric-label">Rollbacks</div>
+
+          <div
+            id="metricRollbacks"
+            class="operations-metric-value"
+          >
+            0
+          </div>
+
+          <div class="operations-metric-caption">
+            Recovery actions
+          </div>
+        </article>
+      </section>
+
+      <section class="nexus-card operations-toolbar-card">
+        <div class="operations-section-heading">
+          <div>
+            <div class="operations-section-eyebrow">
+              Evidence Search
+            </div>
+
+            <h2>Filter operational activity</h2>
+          </div>
+        </div>
+
+        <div class="operations-toolbar">
+          <label class="operations-field operations-field-wide">
+            <span>Search</span>
+
+            <input
+              id="searchInput"
+              type="search"
+              placeholder="Search operations, summaries, assets, or correlation IDs"
+            >
+          </label>
+
+          <label class="operations-field">
+            <span>Status</span>
+
+            <select id="statusFilter">
+              <option value="">All statuses</option>
+              <option>failed</option>
+              <option>error</option>
+              <option>warning</option>
+              <option>running</option>
+              <option>pending</option>
+              <option>passed</option>
+              <option>completed</option>
+              <option>succeeded</option>
+              <option>rolled-back</option>
+            </select>
+          </label>
+
+          <label class="operations-field">
+            <span>Operation type</span>
+
+            <select id="typeFilter">
+              <option value="">All types</option>
+              <option>execution</option>
+              <option>verification</option>
+              <option>rollback</option>
+            </select>
+          </label>
+
+          <label class="operations-field">
+            <span>Asset</span>
+
+            <input
+              id="assetFilter"
+              type="search"
+              placeholder="Asset ID"
+            >
+          </label>
+        </div>
+      </section>
+
+      <section class="nexus-card operations-evidence-panel">
+        <div class="operations-panel-heading">
+          <div>
+            <div class="operations-section-eyebrow">
+              Operational History
+            </div>
+
+            <h2>Evidence Timeline</h2>
+
+            <p id="resultSummary">
+              Loading evidence…
+            </p>
+          </div>
+
+          <div class="operations-timeline-legend">
+            <span>
+              <i class="legend-dot success"></i>
+              Successful
+            </span>
+
+            <span>
+              <i class="legend-dot warning"></i>
+              Pending
+            </span>
+
+            <span>
+              <i class="legend-dot failed"></i>
+              Failed
+            </span>
+          </div>
+        </div>
+
+        <div
+          id="opsTimeline"
+          class="operations-timeline"
+        ></div>
+
+        <div
+          id="emptyState"
+          class="operations-empty-state"
+          hidden
+        >
+          <div class="operations-empty-icon">◎</div>
+
+          <h3>No evidence matches the filters</h3>
+
+          <p>
+            Change the selected filters or wait for the next operational
+            action to be recorded.
+          </p>
+        </div>
+      </section>
+
+      <aside
+        id="opsDrawer"
+        class="operations-drawer"
+        aria-hidden="true"
+      >
+        <div class="operations-drawer-head">
+          <div>
+            <div class="operations-section-eyebrow">
+              Operational Evidence
+            </div>
+
+            <h2 id="drawerTitle">
+              Evidence detail
+            </h2>
+          </div>
+
+          <button
+            id="drawerClose"
+            class="operations-drawer-close"
+            type="button"
+            aria-label="Close evidence drawer"
+          >
+            ×
+          </button>
+        </div>
+
+        <div id="drawerBody"></div>
+      </aside>
+
+    </section>
+  </main>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/evidence-client.js"></script>
+  <script src="/js/operations-center.js"></script>
+
+  <script>
+    renderNav("Operations Center");
+  </script>
+</body>
+</html>
