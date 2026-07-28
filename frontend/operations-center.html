@@ -59,30 +59,100 @@
       ></nav>
 
       <section class="operations-status-strip">
-        <div class="operations-status-chip">
+        <article
+          id="executionStatusChip"
+          class="operations-status-chip unknown"
+        >
           <span class="operations-status-dot"></span>
-          <span>EXECUTION</span>
-        </div>
 
-        <div class="operations-status-chip">
-          <span class="operations-status-dot"></span>
-          <span>VERIFICATION</span>
-        </div>
+          <div class="operations-status-content">
+            <span class="operations-status-label">EXECUTION</span>
 
-        <div class="operations-status-chip">
-          <span class="operations-status-dot"></span>
-          <span>ROLLBACK</span>
-        </div>
+            <strong id="executionStatusValue">
+              No activity
+            </strong>
 
-        <div class="operations-status-chip">
-          <span class="operations-status-dot"></span>
-          <span>RECOVERY</span>
-        </div>
+            <small id="executionStatusMeta">
+              Waiting for evidence
+            </small>
+          </div>
+        </article>
 
-        <div class="operations-status-chip">
+        <article
+          id="verificationStatusChip"
+          class="operations-status-chip unknown"
+        >
           <span class="operations-status-dot"></span>
-          <span>EVIDENCE</span>
-        </div>
+
+          <div class="operations-status-content">
+            <span class="operations-status-label">VERIFICATION</span>
+
+            <strong id="verificationStatusValue">
+              No activity
+            </strong>
+
+            <small id="verificationStatusMeta">
+              Waiting for evidence
+            </small>
+          </div>
+        </article>
+
+        <article
+          id="rollbackStatusChip"
+          class="operations-status-chip unknown"
+        >
+          <span class="operations-status-dot"></span>
+
+          <div class="operations-status-content">
+            <span class="operations-status-label">ROLLBACK</span>
+
+            <strong id="rollbackStatusValue">
+              No activity
+            </strong>
+
+            <small id="rollbackStatusMeta">
+              No rollback records
+            </small>
+          </div>
+        </article>
+
+        <article
+          id="recoveryStatusChip"
+          class="operations-status-chip unknown"
+        >
+          <span class="operations-status-dot"></span>
+
+          <div class="operations-status-content">
+            <span class="operations-status-label">RECOVERY</span>
+
+            <strong id="recoveryStatusValue">
+              No activity
+            </strong>
+
+            <small id="recoveryStatusMeta">
+              No recovery records
+            </small>
+          </div>
+        </article>
+
+        <article
+          id="evidenceStatusChip"
+          class="operations-status-chip unknown"
+        >
+          <span class="operations-status-dot"></span>
+
+          <div class="operations-status-content">
+            <span class="operations-status-label">EVIDENCE</span>
+
+            <strong id="evidenceStatusValue">
+              Loading
+            </strong>
+
+            <small id="evidenceStatusMeta">
+              Checking evidence worker
+            </small>
+          </div>
+        </article>
       </section>
 
       <section class="operations-metrics">

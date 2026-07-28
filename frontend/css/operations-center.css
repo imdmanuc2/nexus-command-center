@@ -647,3 +647,117 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Live Operations Center status indicators */
+
+.operations-status-chip {
+  min-height: 68px;
+  border-radius: 16px;
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.operations-status-chip:hover {
+  transform: translateY(-2px);
+}
+
+.operations-status-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.operations-status-label {
+  color: var(--nx-text);
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.operations-status-content strong {
+  overflow: hidden;
+  color: #9fd0ff;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operations-status-content small {
+  overflow: hidden;
+  color: var(--nx-muted);
+  font-size: 0.62rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operations-status-chip.healthy {
+  border-color: rgba(57, 255, 136, 0.27);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 8px 20px rgba(0, 0, 0, 0.14),
+    0 0 20px rgba(57, 255, 136, 0.04);
+}
+
+.operations-status-chip.healthy .operations-status-dot {
+  background: var(--nx-green);
+  box-shadow:
+    0 0 9px rgba(57, 255, 136, 0.9),
+    0 0 18px rgba(57, 255, 136, 0.3);
+}
+
+.operations-status-chip.healthy
+.operations-status-content strong {
+  color: var(--nx-green);
+}
+
+.operations-status-chip.warning {
+  border-color: rgba(250, 204, 21, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 8px 20px rgba(0, 0, 0, 0.14),
+    0 0 20px rgba(250, 204, 21, 0.05);
+}
+
+.operations-status-chip.warning .operations-status-dot {
+  background: var(--nx-gold);
+  box-shadow:
+    0 0 9px rgba(250, 204, 21, 0.85),
+    0 0 18px rgba(250, 204, 21, 0.24);
+}
+
+.operations-status-chip.warning
+.operations-status-content strong {
+  color: var(--nx-gold);
+}
+
+.operations-status-chip.critical {
+  border-color: rgba(251, 113, 133, 0.38);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 8px 20px rgba(0, 0, 0, 0.14),
+    0 0 20px rgba(251, 113, 133, 0.06);
+}
+
+.operations-status-chip.critical .operations-status-dot {
+  background: var(--nx-red);
+  box-shadow:
+    0 0 9px rgba(251, 113, 133, 0.85),
+    0 0 18px rgba(251, 113, 133, 0.28);
+}
+
+.operations-status-chip.critical
+.operations-status-content strong {
+  color: var(--nx-red);
+}
+
+.operations-status-chip.unknown .operations-status-dot {
+  background: var(--nx-blue);
+  box-shadow:
+    0 0 9px rgba(96, 165, 250, 0.75),
+    0 0 18px rgba(96, 165, 250, 0.22);
+}
