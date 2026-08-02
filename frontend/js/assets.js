@@ -274,3 +274,216 @@ window.addEventListener("DOMContentLoaded", () => {
 
   loadAssets();
 });
+
+/* Package 056: CMDB foundation and PostgreSQL platform consolidation. */
+let cmdbPlatformData = {
+  inventory: null,
+  pools: null,
+  workers: null,
+  workloads: null,
+  relationships: null,
+  topology: null,
+  audit: null,
+  discovery: null
+};
+
+async function cmdbFetchJson(url) {
+  try {
+    const response = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (_) {
+    return null;
+  }
+}
+
+function cmdbArray(value, keys = []) {
+  if (Array.isArray(value)) return value;
+  for (const key of keys) {
+    if (Array.isArray(value?.[key])) return value[key];
+  }
+  return [];
+}
+
+function cmdbAssetRecord(item) {
+  const raw = item?.asset || item || {};
+  const ip = raw.ip || raw.ipAddress || raw.host || item?.ip || "";
+  return {
+    ip,
+    primaryRole: raw.primaryRole || raw.role || raw.purpose || raw.assetType || raw.type,
+    profile: item?.profile || {},
+    asset: {
+      ...raw,
+      id: raw.id || raw.assetId,
+      friendlyName: raw.friendlyName || raw.displayName || raw.name || raw.hostname,
+      name: raw.name || raw.displayName || raw.friendlyName,
+      ip,
+      type: raw.type || raw.assetType || raw.classification || "unknown",
+      operationalState: raw.operationalState || raw.activityState || raw.status,
+      lifecycleStatus: raw.lifecycleStatus || raw.managementState || raw.reconciliationStatus,
+      poolId: raw.poolId || raw.poolInstanceId,
+      poolGroup: raw.poolGroup || raw.poolName,
+      workerId: raw.workerId,
+      tags: Array.isArray(raw.tags) ? raw.tags : []
+    }
+  };
+}
+
+function cmdbInventoryAssets(payload) {
+  const rows = cmdbArray(payload, ["assets", "items", "inventory", "systems"]);
+  return rows.map(cmdbAssetRecord).filter(row => row.asset.id || row.ip || row.asset.friendlyName);
+}
+
+function cmdbCount(payload, keys = []) {
+  if (typeof payload?.count === "number") return payload.count;
+  if (typeof payload?.total === "number") return payload.total;
+  return cmdbArray(payload, keys).length;
+}
+
+function cmdbStatusClass(value) {
+  const status = String(value || "unknown").toLowerCase();
+  if (["online", "active", "healthy", "managed", "observed", "connected"].includes(status)) return "healthy";
+  if (["warning", "partial", "idle", "standby", "unknown"].includes(status)) return "warning";
+  if (["offline", "failed", "critical", "unmanaged"].includes(status)) return "critical";
+  return "neutral";
+}
+
+function cmdbObjectHref(objectType, objectId) {
+  if (!objectId) return "";
+  return `/cmdb-object.html?type=${encodeURIComponent(objectType || "object")}&id=${encodeURIComponent(objectId)}`;
+}
+
+function cmdbObjectCard(title, type, status, details = [], href = "") {
+  const body = `<div class="cmdb-object-head"><div><span>${safe(type, "Object")}</span><h3>${safe(title)}</h3></div><b class="cmdb-state-pill ${cmdbStatusClass(status)}">${safe(status, "Unknown")}</b></div>
+    <dl>${details.filter(([, value]) => value !== undefined && value !== null && value !== "").map(([label, value]) => `<div><dt>${label}</dt><dd>${safe(value)}</dd></div>`).join("") || "<div><dt>Details</dt><dd>Awaiting reconciliation</dd></div>"}</dl>`;
+  return href
+    ? `<a class="cmdb-object-card cmdb-object-link" href="${href}">${body}<span class="cmdb-open-object">Open CMDB object →</span></a>`
+    : `<article class="cmdb-object-card">${body}</article>`;
+}
+
+function cmdbRenderOverview() {
+  const assets = latestSystems;
+  const pools = cmdbArray(cmdbPlatformData.pools, ["pools", "items"]);
+  const workloads = cmdbArray(cmdbPlatformData.workloads, ["workloads", "items"]);
+  const relationships = cmdbArray(cmdbPlatformData.relationships, ["relationships", "items"]);
+  const nodes = assets.filter(row => String(row.asset?.type).toLowerCase() === "blockchain-node");
+  const services = latestFound;
+  const discovered = cmdbArray(cmdbPlatformData.discovery?.discovery || cmdbPlatformData.discovery, ["systems", "found", "items"]);
+  const audit = cmdbArray(cmdbPlatformData.audit, ["audit", "events", "items", "changes"]);
+
+  const cards = [
+    ["Assets", assets.length, "Authoritative records", "assets"],
+    ["Pools", pools.length, "Mining pool instances", "pools"],
+    ["Blockchain Nodes", nodes.length, "Chain infrastructure", "nodes"],
+    ["Services", services.length, "Observed endpoints", "services"],
+    ["Workloads", workloads.length, "Assigned operations", "workloads"],
+    ["Relationships", relationships.length, "Mapped dependencies", "relationships"],
+    ["Discovery", discovered.length, "Observed candidates", "discovery"],
+    ["Recent Changes", audit.length, "Audit records loaded", "audit"]
+  ];
+  byId("cmdbOverviewCards").innerHTML = cards.map(([label, count, text, sectionName]) => `
+    <button class="cmdb-overview-card" data-open-section="${sectionName}"><span>${label}</span><strong>${count}</strong><small>${text}</small></button>
+  `).join("");
+
+  const byType = {};
+  assets.forEach(row => { const type = safe(row.asset?.type, "unknown"); byType[type] = (byType[type] || 0) + 1; });
+  byId("cmdbInventorySnapshot").innerHTML = Object.entries(byType).sort((a,b) => b[1]-a[1]).map(([type,count]) => `<div><span>${type.replaceAll("-", " ")}</span><b>${count}</b></div>`).join("") || "<p>No CMDB assets loaded.</p>";
+
+  byId("cmdbRelationshipSnapshot").innerHTML = relationships.slice(0, 6).map(rel => `<div><span>${safe(rel.relationshipType || rel.relationship_type || rel.relationship, "relationship").replaceAll("_", " ")}</span><b><a href="${safe(rel.sourceHref || cmdbObjectHref(rel.sourceType, rel.sourceId))}">${safe(rel.sourceName || rel.sourceId || "?")}</a> → <a href="${safe(rel.targetHref || cmdbObjectHref(rel.targetType, rel.targetId))}">${safe(rel.targetName || rel.targetId || "?")}</a></b></div>`).join("") || "<p>No platform relationships loaded.</p>";
+
+  document.querySelectorAll("[data-open-section]").forEach(button => button.onclick = () => cmdbOpenSection(button.dataset.openSection));
+}
+
+function cmdbRenderPools() {
+  const rows = cmdbArray(cmdbPlatformData.pools, ["pools", "items"]);
+  byId("cmdbPoolsList").innerHTML = rows.map(pool => cmdbObjectCard(
+    pool.name || pool.displayName || pool.nativePoolId || pool.id,
+    `${safe(pool.coin?.symbol || pool.coin, "Mining")} ${safe(pool.mode, "Pool")}`,
+    pool.status || (pool.online ? "online" : "unknown"),
+    [["Host", pool.host || pool.poolHost], ["Workers", pool.onlineWorkerCount ?? pool.workerCount ?? pool.connectedMiners], ["Hashrate", pool.hashrate ? `${Number(pool.hashrate).toLocaleString()} H/s` : null], ["Stratum", Array.isArray(pool.stratumPorts) ? pool.stratumPorts.join(", ") : pool.stratumPort]],
+    cmdbObjectHref("pool", pool.poolInstanceId || pool.poolId || pool.id)
+  )).join("") || '<div class="empty-state"><h2>No pool records loaded.</h2><p>Pool instances will appear after platform reconciliation.</p></div>';
+}
+
+function cmdbRenderNodes() {
+  const rows = latestSystems.filter(row => String(row.asset?.type).toLowerCase() === "blockchain-node");
+  byId("cmdbNodesList").innerHTML = rows.map(row => cmdbObjectCard(assetLabel(row.asset, row), "Blockchain Node", row.asset.operationalState || row.asset.status, [["IP", row.asset.ip || row.ip], ["Purpose", row.asset.purpose], ["Lifecycle", row.asset.lifecycleStatus]], cmdbObjectHref("asset", row.asset.id || row.asset.assetId))).join("") || '<div class="empty-state"><h2>No blockchain nodes loaded.</h2></div>';
+}
+
+function cmdbRenderServices() {
+  byId("cmdbServicesList").innerHTML = latestFound.map(service => cmdbObjectCard(service.service || service.name, "Service", service.status || "observed", [["Host", service.ip || service.host], ["Port", service.port], ["Protocol", service.protocol]])).join("") || '<div class="empty-state"><h2>No discovered services loaded.</h2></div>';
+}
+
+function cmdbRenderWorkloads() {
+  const rows = cmdbArray(cmdbPlatformData.workloads, ["workloads", "items"]);
+  byId("cmdbWorkloadsList").innerHTML = rows.map(workload => cmdbObjectCard(workload.workloadName || workload.workload_name || workload.name || workload.id, workload.workloadCategory || workload.workload_category || workload.type || "Workload", workload.status || workload.activityState, [["Asset", workload.assetId || workload.asset_id], ["Pool", workload.poolInstanceId || workload.pool_instance_id], ["Coin", workload.coin]], cmdbObjectHref("workload", workload.workloadId || workload.workload_id || workload.id))).join("") || '<div class="empty-state"><h2>No workload records loaded.</h2></div>';
+}
+
+function cmdbRenderRelationships() {
+  const rows = cmdbArray(cmdbPlatformData.relationships, ["relationships", "items"]);
+  byId("cmdbRelationshipsList").innerHTML = rows.length ? `<div class="cmdb-rel-row cmdb-rel-head"><span>Source</span><span>Relationship</span><span>Target</span><span>State</span></div>${rows.map(rel => `<div class="cmdb-rel-row"><span><a href="${safe(rel.sourceHref || cmdbObjectHref(rel.sourceType, rel.sourceId || rel.source_id))}">${safe(rel.sourceName || rel.sourceId || rel.source_id || rel.fromId)}</a></span><b>${safe(rel.relationshipType || rel.relationship_type || rel.relationship).replaceAll("_", " ")}</b><span><a href="${safe(rel.targetHref || cmdbObjectHref(rel.targetType, rel.targetId || rel.target_id))}">${safe(rel.targetName || rel.targetId || rel.target_id || rel.toId)}</a></span><em>${safe(rel.status || rel.state || rel.reconciliationStatus, "mapped")}</em></div>`).join("")}` : '<div class="empty-state"><h2>No relationships loaded.</h2></div>';
+}
+
+function cmdbRenderDiscovery() {
+  const discovery = cmdbPlatformData.discovery?.discovery || cmdbPlatformData.discovery || {};
+  const systems = cmdbArray(discovery, ["systems", "items"]);
+  const found = cmdbArray(discovery, ["found", "services"]);
+  const rows = [...systems.map(system => ({ title: system.hostname || system.name || system.ip, type: "Discovered Device", status: system.status || "observed", details: [["IP", system.ip], ["Role", system.primaryRole]] })), ...found.map(service => ({ title: service.service || service.name, type: "Discovered Service", status: "observed", details: [["Host", service.ip], ["Port", service.port]] }))];
+  byId("cmdbDiscoveryList").innerHTML = rows.map(row => cmdbObjectCard(row.title, row.type, row.status, row.details)).join("") || '<div class="empty-state"><h2>No discovery candidates loaded.</h2></div>';
+}
+
+function cmdbRenderAudit() {
+  const rows = cmdbArray(cmdbPlatformData.audit, ["audit", "events", "items", "changes"]);
+  byId("cmdbAuditList").innerHTML = rows.map(row => `<article><div><b>${safe(row.eventType || row.action || row.fieldName || row.type, "CMDB change")}</b><span>${safe(row.assetName || row.assetId || row.asset_id || row.entityId, "Platform")}</span></div><p>${safe(row.message || row.reason || row.summary, "Recorded platform change")}</p><time>${row.changedAt || row.createdAt || row.timestamp ? new Date(row.changedAt || row.createdAt || row.timestamp).toLocaleString() : "Time unavailable"}</time></article>`).join("") || '<div class="empty-state"><h2>No audit records loaded.</h2></div>';
+}
+
+function cmdbOpenSection(name) {
+  document.querySelectorAll(".cmdb-section-tab").forEach(tab => tab.classList.toggle("active", tab.dataset.section === name));
+  document.querySelectorAll(".cmdb-section-panel").forEach(panel => panel.classList.toggle("active", panel.dataset.panel === name));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function cmdbRenderAll() {
+  renderSummary();
+  renderAssets();
+  cmdbRenderOverview();
+  cmdbRenderPools();
+  cmdbRenderNodes();
+  cmdbRenderServices();
+  cmdbRenderWorkloads();
+  cmdbRenderRelationships();
+  cmdbRenderDiscovery();
+  cmdbRenderAudit();
+}
+
+async function loadAssets() {
+  const [inventory, pools, workers, workloads, relationships, topology, audit, discovery] = await Promise.all([
+    cmdbFetchJson("/api/platform/inventory"),
+    cmdbFetchJson("/api/platform/pools"),
+    cmdbFetchJson("/api/platform/workers"),
+    cmdbFetchJson("/api/platform/workloads"),
+    cmdbFetchJson("/api/platform/relationships"),
+    cmdbFetchJson("/api/platform/topology"),
+    cmdbFetchJson("/api/cmdb/audit"),
+    cmdbFetchJson("/api/discovery/scan")
+  ]);
+
+  cmdbPlatformData = { inventory, pools, workers, workloads, relationships, topology, audit, discovery };
+  const platformAssets = cmdbInventoryAssets(inventory);
+  const discoveryPayload = discovery?.discovery || discovery || {};
+  const discoveryAssets = cmdbArray(discoveryPayload, ["systems"]).map(cmdbAssetRecord);
+  latestSystems = platformAssets.length ? platformAssets : discoveryAssets;
+  latestFound = cmdbArray(discoveryPayload, ["found", "services"]);
+  latestRelationships = relationships || { relationships: [], pools: cmdbArray(pools, ["pools", "items"]), assets: latestSystems.map(row => row.asset) };
+
+  const sourceState = byId("cmdbSourceState");
+  if (sourceState) {
+    sourceState.textContent = platformAssets.length ? "PostgreSQL CMDB · authoritative" : "Discovery fallback · platform inventory unavailable";
+    sourceState.classList.toggle("warning", !platformAssets.length);
+  }
+  cmdbRenderAll();
+}
+
+window.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".cmdb-section-tab").forEach(tab => tab.addEventListener("click", () => cmdbOpenSection(tab.dataset.section)));
+});
