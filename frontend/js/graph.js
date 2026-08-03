@@ -10,6 +10,7 @@ const canvasAssetCategories = new Set([
   "asic",
   "blockchain",
   "server",
+  "service",
   "unknown"
 ]);
 let liveWorkers = [];
@@ -279,6 +280,17 @@ function canonicalAssetType(node) {
   }
 
   if (
+    type === "service" ||
+    role.includes("mining-engine-service") ||
+    role.includes("mining engine") ||
+    label.includes("pool engine") ||
+    label.includes("ckpool") ||
+    label.includes("miningcore")
+  ) {
+    return "service";
+  }
+
+  if (
     type === "server" ||
     type === "host" ||
     type === "infrastructure-node"
@@ -328,6 +340,7 @@ function inventoryTypeLabel(node) {
   if (category === "pool") return "Mining Pool";
   if (category === "asic") return "ASIC Miner";
   if (category === "server") return "Server";
+  if (category === "service") return "Mining Engine";
 
   return "Unknown Asset";
 }
@@ -428,7 +441,8 @@ function normalizedInventoryNodes() {
       pool: 2,
       asic: 3,
       server: 4,
-      unknown: 5
+      service: 5,
+      unknown: 6
     };
 
     const categoryDifference =

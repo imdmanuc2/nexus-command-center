@@ -22,6 +22,7 @@ from backend.services.timeline_service import build_timeline
 from backend.services.operations_center_service import build_operations_center
 from backend.services.worker_activity_reconciliation_service import reconcile_worker_activity
 from backend.services.topology_reconciliation_service import reconcile_live_topology
+from backend.services.seymour_pool_sync_service import synchronize_seymour_pool_engine
 
 
 LOGGER = logging.getLogger("nexus.platform-sync")
@@ -208,6 +209,8 @@ def run_once(
         stale_seconds=stale_seconds,
     )
 
+    seymour = synchronize_seymour_pool_engine()
+
     stale = reconcile_stale_state(
         stale_seconds=stale_seconds,
         dry_run=dry_run,
@@ -242,6 +245,7 @@ def run_once(
             3,
         ),
         "resourcePersistence": resources,
+        "seymourPoolEngine": seymour,
         "workerActivityReconciliation": worker_activity,
         "topologyReconciliation": topology_reconciliation,
         "eventEngine": events,

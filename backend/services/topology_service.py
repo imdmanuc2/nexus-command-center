@@ -116,7 +116,53 @@ def topology() -> dict[str, Any]:
             "currentSession": worker.get("currentSession"),
         })
 
-    nodes = list(asset_map.values())
+    engine_nodes: dict[str, dict[str, Any]] = {}
+    pool_engine_ids: dict[str, str] = {}
+    pool_blockchain_ids: dict[str, str] = {}
+
+    for pool in pools:
+        configuration = pool.get("configuration") or {}
+        observed = pool.get("observedState") or {}
+        implementation = str(
+            configuration.get("implementation")
+            or configuration.get("software")
+            or observed.get("software")
+            or pool.get("instanceName")
+            or "mining-engine"
+        ).strip()
+        host = str(pool.get("host") or "").strip()
+        ports = pool.get("stratumPorts") or []
+        primary_port = pool.get("apiPort") or (ports[0] if ports else "")
+        engine_id = str(configuration.get("engineServiceId") or "").strip()
+        if not engine_id:
+            clean = "-".join(part for part in (implementation, host, str(primary_port)) if part)
+            engine_id = "service-" + "".join(ch if ch.isalnum() else "-" for ch in clean.lower())
+        pool_id = str(pool.get("poolId") or "")
+        pool_engine_ids[pool_id] = engine_id
+        blockchain_id = str(configuration.get("blockchainAssetId") or "").strip()
+        if blockchain_id:
+            pool_blockchain_ids[pool_id] = blockchain_id
+        engine_nodes[engine_id] = {
+            "id": engine_id,
+            "nodeType": "service",
+            "assetType": "mining-engine-service",
+            "label": pool.get("instanceName") or implementation.replace("-", " ").title(),
+            "status": pool.get("status") or "unknown",
+            "properties": {
+                "assetType": "mining-engine-service",
+                "serviceType": "mining-engine",
+                "implementation": implementation,
+                "host": host,
+                "apiPort": pool.get("apiPort"),
+                "stratumPorts": ports,
+                "poolId": pool_id,
+                "operationalPoolName": pool.get("name"),
+                "telemetryAuthority": (pool.get("metadata") or {}).get("telemetryAuthority"),
+                "observedState": observed,
+            },
+        }
+
+    nodes = list(asset_map.values()) + list(engine_nodes.values())
 
     for pool in pools:
         nodes.append({
@@ -164,12 +210,48 @@ def topology() -> dict[str, Any]:
     edge_keys: set[tuple[str, str, str]] = set()
     edges = []
 
+    # Canonical live path: miner -> operational pool -> engine -> blockchain node.
+    for pool_id, engine_id in pool_engine_ids.items():
+        if pool_id not in node_ids or engine_id not in node_ids:
+            continue
+        key = (pool_id, engine_id, "served-by")
+        edge_keys.add(key)
+        edges.append({
+            "id": f"topology-{pool_id}-served-by-{engine_id}",
+            "source": pool_id,
+            "target": engine_id,
+            "type": "served-by",
+            "status": "active",
+            "confidence": 100,
+            "properties": {"canonical": True},
+        })
+        blockchain_id = pool_blockchain_ids.get(pool_id)
+        if blockchain_id and blockchain_id in node_ids:
+            key = (engine_id, blockchain_id, "uses-blockchain-node")
+            edge_keys.add(key)
+            edges.append({
+                "id": f"topology-{engine_id}-uses-{blockchain_id}",
+                "source": engine_id,
+                "target": blockchain_id,
+                "type": "uses-blockchain-node",
+                "status": "active",
+                "confidence": 100,
+                "properties": {"canonical": True},
+            })
+
     for relationship in relationships:
         source_id = relationship["sourceId"]
         target_id = relationship["targetId"]
         relationship_type = relationship["relationshipType"]
 
         if source_id not in node_ids or target_id not in node_ids:
+            continue
+
+        if (
+            source_id in pool_engine_ids
+            and relationship_type in {"backed-by", "depends-on", "uses-blockchain-node"}
+            and target_id == pool_blockchain_ids.get(source_id)
+        ):
             continue
 
         key = (source_id, target_id, relationship_type)
@@ -205,6 +287,7 @@ def topology() -> dict[str, Any]:
             ),
             "activePhysicalAssets": len(active_asset_ids),
             "pools": len(pools),
+            "services": len(engine_nodes),
             "blockchainNodes": len(blockchain_nodes),
             "workloads": sum(
                 1

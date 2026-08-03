@@ -96,6 +96,44 @@ def object_registry() -> dict[str, dict[str, Any]]:
             raw=pool,
         )
 
+    # Mining engines are first-class CMDB services. The operational pool
+    # identity remains stable when its implementation changes.
+    for pool in _safe_list(list_pools):
+        configuration = pool.get("configuration") or {}
+        observed = pool.get("observedState") or {}
+        implementation = _text(
+            configuration.get("implementation")
+            or configuration.get("software")
+            or observed.get("software")
+            or pool.get("instanceName")
+        )
+        if not implementation:
+            continue
+        host = _first(pool, "host")
+        port = pool.get("apiPort") or (pool.get("stratumPorts") or [None])[0]
+        object_id = _text(configuration.get("engineServiceId"))
+        if not object_id:
+            clean = "-".join(part for part in (implementation, host, str(port or "")) if part)
+            object_id = "service-" + "".join(ch if ch.isalnum() else "-" for ch in clean.lower())
+        registry[object_id] = _object(
+            object_id=object_id,
+            object_type="service",
+            display_name=(pool.get("instanceName") or implementation),
+            status=_first(pool, "status") or "unknown",
+            subtitle="Mining Engine Service",
+            raw={
+                "serviceId": object_id,
+                "serviceType": "mining-engine",
+                "implementation": implementation,
+                "host": host,
+                "apiPort": pool.get("apiPort"),
+                "stratumPorts": pool.get("stratumPorts") or [],
+                "poolId": pool.get("poolId"),
+                "configuration": configuration,
+                "observedState": observed,
+            },
+        )
+
     for worker in _safe_list(list_workers):
         object_id = _first(worker, "workerId", "id")
         if not object_id:
@@ -190,10 +228,27 @@ def object_detail(object_type: str, object_id: str) -> dict[str, Any]:
             "targetObject": target,
         })
 
+    raw = resolved.get("raw") or {}
+    current_hashrate = raw.get("currentHashrate") or (raw.get("observedState") or {}).get("hashrate") or 0
+    summary = {
+        "identity": resolved.get("displayName"),
+        "type": resolved.get("objectType"),
+        "status": resolved.get("status"),
+        "mission": raw.get("purpose") or raw.get("mission") or (
+            "Provide mining services" if resolved.get("objectType") in {"pool", "service"}
+            else "Participate in the managed Nexus environment"
+        ),
+        "currentHashrate": current_hashrate,
+        "coin": raw.get("coin"),
+        "host": raw.get("host") or raw.get("ip") or raw.get("poolHost"),
+        "lastObservedAt": raw.get("lastSeenAt") or raw.get("lastShareAt") or raw.get("updatedAt"),
+    }
+
     return {
         "status": "ok",
         "source": "nexus-postgresql-cmdb",
         "object": resolved,
+        "summary": summary,
         "relationships": relationships,
         "relationshipCount": len(relationships),
     }
