@@ -47,6 +47,7 @@ from backend.modules import platform_policies
 from backend.modules import platform_maintenance
 from backend.modules import platform_deployments
 from backend.modules import platform_operational_state
+from backend.modules import platform_operational_profile
 from backend.modules import platform_cmdb_lifecycle
 from backend.modules import platform_dependencies
 from backend.modules import platform_intelligence
@@ -478,6 +479,15 @@ class NexusHandler(BaseHTTPRequestHandler):
             try: status, payload = json_response(platform_cmdb_lifecycle.history(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload,status)
+        if parsed.path == "/api/cmdb/operational-profile":
+            try:
+                status, payload = json_response(platform_operational_profile.asset(query))
+            except KeyError as exc:
+                status, payload = json_response({"status":"error","error":str(exc)},404)
+            except Exception as exc:
+                status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
+
         if parsed.path == "/api/platform/operational-state/assets":
             try:
                 status, payload = json_response(platform_operational_state.assets(query))
@@ -813,6 +823,15 @@ class NexusHandler(BaseHTTPRequestHandler):
             except KeyError as exc: status,payload=json_response({"status":"error","error":str(exc)},404)
             except Exception as exc: status,payload=json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload,status)
+
+        if self.path == "/api/cmdb/operational-profile/update":
+            try:
+                status, payload = json_response(platform_operational_profile.update(self._read_json_body()))
+            except KeyError as exc:
+                status, payload = json_response({"status":"error","error":str(exc)},404)
+            except Exception as exc:
+                status, payload = json_response({"status":"error","error":str(exc)},400)
+            return self._send_json(payload, status)
 
         if self.path in {"/api/platform/operational-state/set", "/api/platform/operational-state/bulk-set"}:
             try:

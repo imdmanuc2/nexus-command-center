@@ -35,6 +35,23 @@
           <dl id="objectDetails" class="cmdb-detail-grid"></dl>
         </article>
 
+        <article class="cmdb-object-main cmdb-profile-panel">
+          <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Purpose & State</p><h2>Operational Profile</h2></div></div>
+          <form id="operationalProfileForm" class="cmdb-profile-form">
+            <label>Mission<input id="profileMission" type="text" placeholder="Primary BTC production"></label>
+            <label>Role<input id="profileRole" type="text" placeholder="Production ASIC miner"></label>
+            <label>Management<select id="profileManagement"><option value="nexus-managed">Nexus Managed</option><option value="customer-managed">Customer Managed</option><option value="observed">Observed</option></select></label>
+            <label>Lifecycle<select id="profileLifecycle"><option value="discovered">Discovered</option><option value="provisioning">Provisioning</option><option value="commissioning">Commissioning</option><option value="production">Production</option><option value="maintenance">Maintenance</option><option value="decommissioning">Decommissioning</option><option value="retired">Retired</option></select></label>
+            <label>Desired State<input id="profileDesired" type="text" placeholder="automatic, mining, maintenance"></label>
+            <label>Observed State<input id="profileObserved" type="text" placeholder="mining"></label>
+            <label>Health<select id="profileHealth"><option value="healthy">Healthy</option><option value="warning">Warning</option><option value="critical">Critical</option><option value="unknown">Unknown</option></select></label>
+            <label>Connectivity<select id="profileConnectivity"><option value="connected">Connected</option><option value="disconnected">Disconnected</option><option value="intermittent">Intermittent</option><option value="unknown">Unknown</option></select></label>
+            <label class="cmdb-profile-reason">Change reason<input id="profileReason" type="text" placeholder="Operator update"></label>
+            <button type="submit">Save Operational Profile</button>
+            <span id="profileMessage" role="status"></span>
+          </form>
+        </article>
+
         <aside class="cmdb-object-sidebar">
           <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Operational Graph</p><h2>Relationships</h2></div><span id="relationshipCount">0</span></div>
           <div id="objectRelationships" class="cmdb-object-relationships"></div>

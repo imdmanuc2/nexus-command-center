@@ -916,13 +916,19 @@ function canvasDisplayMetric(node) {
     props.allocation?.activeWorkloadType ===
       "crypto-mining";
 
+  const observed = String(
+    props.observedOperationalState || props.activityState || status || "unknown"
+  ).toUpperCase();
+
   if (miningAsset && hashrate > 0) {
-    return `${status} · ${formatHashrate(hashrate)}`;
+    return `MINING · ${formatHashrate(hashrate)}`;
   }
 
-  return hashrate > 0
-    ? formatHashrate(hashrate)
-    : status;
+  if (miningAsset && ["SUBMITTING-SHARES", "HASHRATE-STABILIZING", "STABLE"].includes(observed)) {
+    return observed === "HASHRATE-STABILIZING" ? "HASHRATE STABILIZING" : "MINING";
+  }
+
+  return hashrate > 0 ? formatHashrate(hashrate) : observed;
 }
 
 function renderCanvasModeControls() {
@@ -2343,6 +2349,7 @@ function liveHashrateForNode(node) {
     );
 
     return Number(
+      worker?.currentHashrate ||
       worker?.hashrate ||
       worker?.hashRate ||
       props.liveHashrate ||
@@ -2357,45 +2364,19 @@ function liveHashrateForNode(node) {
       ""
     ).toLowerCase();
 
-    const poolHost = String(
-      props.host ||
-      props.poolHost ||
-      ""
-    );
-
+    // Pool instances are distinct operational objects even when they share a
+    // native pool ID such as "btc-solo". Match only the canonical instance ID
+    // so Seymour telemetry can never leak into the CKPool card (or vice versa).
     return liveWorkers
-      .filter(worker => {
-        const workerPoolId = String(
-          worker.poolId ||
-          worker.pool ||
-          ""
-        ).toLowerCase();
-
-        const workerPoolHost = String(
-          worker.poolHost ||
-          worker.host ||
-          ""
-        );
-
-        const workerPoolSuffix =
-          workerPoolId.split("-").pop();
-
-        const idMatches = (
-          workerPoolId === poolId ||
-          workerPoolId.endsWith(`-${poolId}`) ||
-          workerPoolSuffix === poolId
-        );
-
-        const hostMatches = (
-          !poolHost ||
-          workerPoolHost === poolHost
-        );
-
-        return idMatches && hostMatches;
-      })
+      .filter(worker => String(
+        worker.poolInstanceId ||
+        worker.poolId ||
+        ""
+      ).toLowerCase() === poolId)
       .reduce(
         (sum, worker) =>
           sum + Number(
+            worker.currentHashrate ||
             worker.hashrate ||
             worker.hashRate ||
             0
@@ -2499,29 +2480,12 @@ function inspectorPoolWorkers(node) {
 
   return liveWorkers.filter(worker => {
     const workerPool = String(
+      worker.poolInstanceId ||
       worker.poolId ||
-      worker.pool ||
       ""
     ).toLowerCase();
 
-    const workerHost = String(
-      worker.poolHost ||
-      worker.host ||
-      ""
-    );
-
-    const poolMatches =
-      !poolId ||
-      workerPool === poolId ||
-      workerPool.includes(poolId) ||
-      poolId.includes(workerPool);
-
-    const hostMatches =
-      !poolHost ||
-      !workerHost ||
-      workerHost === poolHost;
-
-    return poolMatches && hostMatches;
+    return !poolId || workerPool === poolId;
   });
 }
 
