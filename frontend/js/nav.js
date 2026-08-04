@@ -5,7 +5,7 @@ function renderNav(active) {
   const items = [
     ["Command Center", "/"],
     ["Operations Center", "/service-operations.html"],
-        ["Assets", "/assets.html"],
+        ["CMDB", "/assets.html"],
     ["Pools", "/pools.html"],
     ["Discovery", "/discovery.html"],
     ["Infrastructure Explorer", "/graph.html"],

@@ -143,9 +143,16 @@ function renderAssets() {
   `;
 
   document.querySelectorAll(".asset-card").forEach(card => {
-    card.addEventListener("click", () => {
+    card.addEventListener("click", (event) => {
       const system = latestSystems.find(s => s.ip === card.dataset.ip);
-      if (system) openDrawer(system);
+      if (!system) return;
+      const asset = system.asset || {};
+      const objectId = asset.id || asset.assetId;
+      if (event.altKey || !objectId) {
+        openDrawer(system);
+        return;
+      }
+      window.location.href = cmdbObjectHref("asset", objectId);
     });
   });
 }

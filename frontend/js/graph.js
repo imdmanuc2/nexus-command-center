@@ -979,13 +979,37 @@ function canvasDisplayMetric(node) {
   ).toUpperCase();
 
   if (inventoryCategory(node) === "pool") {
-    const activeWorkers = livePoolWorkers(node).length;
-    if (activeWorkers > 0) {
-      return hashrate > 0
-        ? `ACCEPTING · ${formatHashrate(hashrate)}`
+    const canonicalWorkers = Number(
+      props.onlineWorkerCount ||
+      props.observedState?.activeWorkers ||
+      0
+    );
+    const activeWorkers = Math.max(
+      livePoolWorkers(node).length,
+      canonicalWorkers
+    );
+    const canonicalHashrate = Number(
+      props.currentHashrate ||
+      props.observedState?.hashrate ||
+      0
+    );
+    const poolHashrate = Math.max(hashrate, canonicalHashrate);
+    const poolState = String(
+      props.observedOperationalState ||
+      props.observedState?.observedOperationalState ||
+      node.status ||
+      "online"
+    ).toLowerCase();
+
+    if (poolState === "offline") return "OFFLINE";
+    if (poolState === "degraded") return "DEGRADED";
+    if (poolState === "hashrate-stabilizing") return "HASHRATE STABILIZING";
+    if (poolState === "accepting-shares" || activeWorkers > 0) {
+      return poolHashrate > 0
+        ? `ACCEPTING · ${formatHashrate(poolHashrate)}`
         : `ACCEPTING · ${activeWorkers} WORKER${activeWorkers === 1 ? "" : "S"}`;
     }
-    return "IDLE";
+    return "ONLINE";
   }
 
   if (miningAsset && hashrate > 0) {
@@ -2010,7 +2034,16 @@ function renderCanvas() {
         selectedNodeId
       );
 
-      openInspector(node, impact);
+      if (event.altKey) {
+        openInspector(node, impact);
+        return;
+      }
+
+      const objectType = String(
+        node?.nodeType || node?.type || "object"
+      ).toLowerCase();
+      window.location.href =
+        `/cmdb-object.html?type=${encodeURIComponent(objectType)}&id=${encodeURIComponent(selectedNodeId)}`;
     });
   });
 }
