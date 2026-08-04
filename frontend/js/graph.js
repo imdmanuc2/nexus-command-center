@@ -736,15 +736,70 @@ function canvasBuildPoolCluster(poolNode, members) {
   };
 }
 
+// PACKAGE 063: Live Canvas renders canonical topology edges without rebuilding them.
+function canvasCanonicalLiveEdges(nodes = graph.nodes) {
+  /*
+   * The Platform topology service owns relationship truth. Live mode must not
+   * infer or reconstruct MINES_ON paths from worker telemetry because doing so
+   * duplicates backend reconciliation and can resurrect stale pool history.
+   *
+   * Time Machine snapshots preserve their recorded edges exactly. Live mode
+   * keeps only active canonical edges whose endpoints exist in the current
+   * topology payload.
+   */
+  if (timeMachineMode) {
+    return graph.edges.map(edge => ({ ...edge }));
+  }
+
+  const nodeIds = new Set(nodes.map(node => node.id));
+
+  return graph.edges
+    .filter(edge => {
+      const status = String(edge?.status || "active")
+        .trim()
+        .toLowerCase();
+
+      return status === "active";
+    })
+    .filter(edge =>
+      nodeIds.has(edge.source) &&
+      nodeIds.has(edge.target)
+    )
+    .filter(edge => {
+      if (!canvasMiningRelationship(edge)) {
+        return true;
+      }
+
+      const properties = edge?.properties || {};
+      const currentSession = properties.currentSession;
+      const activityState = String(
+        properties.activityState || "active"
+      ).trim().toLowerCase();
+
+      return (
+        currentSession !== false &&
+        ![
+          "stale",
+          "offline",
+          "retired",
+          "disconnected",
+          "inactive"
+        ].includes(activityState)
+      );
+    })
+    .map(edge => ({ ...edge }));
+}
+
 function canvasBuildModel() {
   const allNodes = canvasManagedNodes();
   const mode = resolvedCanvasViewMode(allNodes);
+  const canonicalEdges = canvasCanonicalLiveEdges(allNodes);
 
   if (mode === "engineering") {
     return {
       mode,
       nodes: allNodes,
-      edges: graph.edges.map(edge => ({ ...edge }))
+      edges: canonicalEdges.map(edge => ({ ...edge }))
     };
   }
 
@@ -781,7 +836,7 @@ function canvasBuildModel() {
     return {
       mode,
       nodes: operationalNodes,
-      edges: graph.edges
+      edges: canonicalEdges
         .filter(edge =>
           visibleIds.has(edge.source) &&
           visibleIds.has(edge.target)
@@ -842,8 +897,8 @@ function canvasBuildModel() {
     visibleNodes.map(node => node.id)
   );
 
-  const retainedEdges = graph.edges.filter(edge =>
-    String(edge.type || "").toUpperCase() !== "MINES_ON" &&
+  const retainedEdges = canonicalEdges.filter(edge =>
+    canvasRelationshipType(edge) !== "MINES_ON" &&
     visibleIds.has(edge.source) &&
     visibleIds.has(edge.target)
   );
@@ -922,6 +977,16 @@ function canvasDisplayMetric(node) {
   const observed = String(
     props.observedOperationalState || props.activityState || status || "unknown"
   ).toUpperCase();
+
+  if (inventoryCategory(node) === "pool") {
+    const activeWorkers = livePoolWorkers(node).length;
+    if (activeWorkers > 0) {
+      return hashrate > 0
+        ? `ACCEPTING · ${formatHashrate(hashrate)}`
+        : `ACCEPTING · ${activeWorkers} WORKER${activeWorkers === 1 ? "" : "S"}`;
+    }
+    return "IDLE";
+  }
 
   if (miningAsset && hashrate > 0) {
     return `MINING · ${formatHashrate(hashrate)}`;
@@ -1155,7 +1220,9 @@ function canvasRelationshipGeometry(edge) {
 function canvasRelationshipType(edge) {
   return String(edge?.type || "")
     .trim()
-    .toUpperCase();
+    .toUpperCase()
+    .replaceAll("-", "_")
+    .replaceAll(" ", "_");
 }
 
 function canvasMiningRelationship(edge) {
@@ -2361,30 +2428,38 @@ function liveHashrateForNode(node) {
     );
   }
 
-  if (node.type === "pool") {
+  if (node.type === "pool" || inventoryCategory(node) === "pool") {
     const poolId = String(
       props.id ||
+      props.poolInstanceId ||
       props.poolId ||
+      node.id ||
       ""
     ).toLowerCase();
 
-    // Pool instances are distinct operational objects even when they share a
-    // native pool ID such as "btc-solo". Match only the canonical instance ID
-    // so Seymour telemetry can never leak into the CKPool card (or vice versa).
+    // Pool cards represent operational instances. Only current, non-stale
+    // workers assigned to the exact pool instance contribute live telemetry.
     return liveWorkers
-      .filter(worker => String(
-        worker.poolInstanceId ||
-        worker.poolId ||
-        ""
-      ).toLowerCase() === poolId)
+      .filter(worker => {
+        const workerPoolId = String(
+          worker.poolInstanceId ||
+          worker.observedState?.currentPool ||
+          worker.poolId ||
+          ""
+        ).toLowerCase();
+        const status = String(worker.status || "").toLowerCase();
+        const activity = String(worker.activityState || "").toLowerCase();
+        return (
+          workerPoolId === poolId &&
+          worker.currentSession === true &&
+          !["stale", "offline", "retired", "disconnected"].includes(status) &&
+          !["stale", "offline", "retired", "disconnected"].includes(activity)
+        );
+      })
       .reduce(
-        (sum, worker) =>
-          sum + Number(
-            worker.currentHashrate ||
-            worker.hashrate ||
-            worker.hashRate ||
-            0
-          ),
+        (sum, worker) => sum + Number(
+          worker.currentHashrate || worker.hashrate || worker.hashRate || 0
+        ),
         0
       );
   }
@@ -2392,10 +2467,38 @@ function liveHashrateForNode(node) {
   return 0;
 }
 
+function livePoolWorkers(node) {
+  if (!node || inventoryCategory(node) !== "pool") return [];
+  const props = node.properties || {};
+  const poolId = String(
+    props.id || props.poolInstanceId || props.poolId || node.id || ""
+  ).toLowerCase();
+
+  return liveWorkers.filter(worker => {
+    const workerPoolId = String(
+      worker.poolInstanceId ||
+      worker.observedState?.currentPool ||
+      worker.poolId ||
+      ""
+    ).toLowerCase();
+    const status = String(worker.status || "").toLowerCase();
+    const activity = String(worker.activityState || "").toLowerCase();
+    return (
+      workerPoolId === poolId &&
+      worker.currentSession === true &&
+      !["stale", "offline", "retired", "disconnected"].includes(status) &&
+      !["stale", "offline", "retired", "disconnected"].includes(activity)
+    );
+  });
+}
+
 function liveNodeStatus(node) {
   const h = liveHashrateForNode(node);
-  if (["worker", "asic", "pool"].includes(node.type)) {
-    return h > 0 ? "mining" : "idle";
+  if (inventoryCategory(node) === "pool") {
+    return livePoolWorkers(node).length > 0 ? "accepting-shares" : "idle";
+  }
+  if (["worker", "asic"].includes(node.type) || inventoryCategory(node) === "asic") {
+    return h > 0 ? "mining" : (node.status || "idle");
   }
   return node.status || "online";
 }
