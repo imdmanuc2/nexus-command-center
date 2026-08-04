@@ -41,3 +41,18 @@ backend/data/events/operations-state.json
 # Local development packages and installation backups
 packages/[0-9][0-9][0-9]-*/
 packages/backups/
+
+# Nexus generated runtime state
+backend/data/events/live.json
+backend/data/graph/live.json
+backend/data/graph/layout.json
+backend/data/snapshots/
+
+# Package installer state and backups
+.package-*-last-backup
+backups/
+packages/*/
+packages/backend/
+
+# Installer-created source backups
+*.before-*
