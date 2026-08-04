@@ -5847,3 +5847,17 @@ body.command-tv .command-tv-exit {
 .cmdb-open-object{display:inline-flex;margin-top:12px;color:#7dd3fc;font-size:.72rem;font-weight:850}
 .cmdb-rel-row a,.cmdb-snapshot-list a{color:#8fc8ff;text-decoration:none;font-weight:750}
 .cmdb-rel-row a:hover,.cmdb-snapshot-list a:hover{text-decoration:underline}
+
+/* Package 065: active pool state uses the same production green as miners. */
+.infra-node.status-accepting-shares .infra-node-metric,
+.infra-node.status-active .infra-node-metric {
+  fill: #39ff88;
+}
+.infra-node.status-accepting-shares circle {
+  fill: #39ff88;
+  filter: drop-shadow(0 0 8px rgba(57,255,136,.75));
+  animation: miningPulse 1.4s ease-in-out infinite;
+}
+.infra-node.status-accepting-shares rect {
+  filter: drop-shadow(0 0 12px rgba(57,255,136,.35));
+}

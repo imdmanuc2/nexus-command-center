@@ -242,6 +242,12 @@ def object_detail(object_type: str, object_id: str) -> dict[str, Any]:
         "coin": raw.get("coin"),
         "host": raw.get("host") or raw.get("ip") or raw.get("poolHost"),
         "lastObservedAt": raw.get("lastSeenAt") or raw.get("lastShareAt") or raw.get("updatedAt"),
+        "observedOperationalState": raw.get("observedOperationalState") or raw.get("activityState") or resolved.get("status"),
+        "health": raw.get("health") or raw.get("healthState") or "unknown",
+        "connectivity": raw.get("connectivity") or raw.get("connectivityState") or ("connected" if raw.get("connectionConfirmed") else "unknown"),
+        "currentPoolId": raw.get("livePoolId") or raw.get("poolInstanceId") or (raw.get("observedState") or {}).get("currentPool") or raw.get("poolId"),
+        "acceptedShares": raw.get("acceptedShares") or (raw.get("observedState") or {}).get("acceptedShares"),
+        "rejectedShares": raw.get("rejectedShares") or (raw.get("observedState") or {}).get("rejectedShares"),
     }
 
     return {
