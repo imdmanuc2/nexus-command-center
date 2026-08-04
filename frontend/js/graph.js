@@ -881,10 +881,13 @@ function canvasDisplayName(node) {
 }
 
 function canvasDisplayType(node) {
-  if (node.type === "asic-cluster") {
-    return "MINER CLUSTER";
-  }
-
+  if (node.type === "asic-cluster") return "MINER CLUSTER";
+  const worker = workerForNode(node);
+  const workerType = String(worker?.workerType || "").toLowerCase();
+  if (workerType === "cpu") return "CPU MINER";
+  if (workerType === "gpu") return "GPU MINER";
+  if (workerType === "fpga") return "FPGA MINER";
+  if (workerType === "asic") return "ASIC MINER";
   return inventoryTypeLabel(node);
 }
 
@@ -2333,8 +2336,9 @@ function liveHashrateForNode(node) {
     return Number(props.hashrate || workerForNode(node)?.hashrate || 0);
   }
 
-  if (node.type === "asic") {
+  if (["asic", "server", "virtual-machine", "asset"].includes(node.type) || inventoryCategory(node) === "server") {
     const worker = liveWorkers.find(worker =>
+      worker.assetId === (props.id || props.assetId || node.id) ||
       worker.assetName === node.label ||
       worker.displayName === node.label ||
       worker.assetIp === props.ip ||

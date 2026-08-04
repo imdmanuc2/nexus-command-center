@@ -18,6 +18,9 @@ from backend.db.repositories.pool_repository import upsert_pool
 from backend.db.repositories.worker_repository import upsert_worker
 from backend.db.repositories.workload_repository import upsert_workload
 from backend.db.repositories.relationship_repository import upsert_relationship
+from backend.services.worker_identity_classification_service import (
+    asset_display_name, build_asset_indexes, classify_worker, resolve_worker_asset,
+)
 
 CONFIG_PATH = Path("backend/data/config/seymour_pool_engine.json")
 ACTIVE_PHASES = {"submitting-shares", "hashrate-stabilizing", "stable"}
@@ -57,9 +60,19 @@ def _iso_recent(value: Any, max_age_seconds: int) -> bool:
         return False
 
 
-def _assets_by_ip() -> dict[str, str]:
-    result: dict[str, str] = {}
+def _asset_identity_indexes() -> tuple[dict[str, str], dict[str, str]]:
+    """Build stable CMDB identity indexes for live worker reconciliation.
+
+    Miner IPs may change and older CMDB records can retain historical IPs.
+    The configured worker suffix is therefore the preferred stable identity,
+    with remote IP used as supporting evidence.
+    """
+    by_ip: dict[str, str] = {}
+    by_suffix: dict[str, str] = {}
     for asset in list_assets():
+        asset_id = str(asset.get("id") or asset.get("assetId") or "").strip()
+        if not asset_id:
+            continue
         candidates = [
             asset.get("ip"),
             (asset.get("observedState") or {}).get("ip"),
@@ -68,8 +81,12 @@ def _assets_by_ip() -> dict[str, str]:
         for candidate in candidates:
             value = str(candidate or "").strip()
             if value:
-                result[value] = str(asset.get("id") or asset.get("assetId"))
-    return result
+                by_ip[value] = asset_id
+
+        worker_suffix = str(asset.get("workerId") or "").strip().lower()
+        if worker_suffix:
+            by_suffix[worker_suffix] = asset_id
+    return by_ip, by_suffix
 
 
 def _relationship(source_type: str, source_id: str, rel_type: str,
@@ -205,7 +222,8 @@ def synchronize_seymour_pool_engine() -> dict[str, Any]:
         },
     })
 
-    asset_by_ip = _assets_by_ip()
+    assets = list_assets()
+    identity_indexes = build_asset_indexes(assets)
     worker_results = []
     for item in active_workers:
         worker_name = str(item.get("workerName") or "").strip()
@@ -214,21 +232,31 @@ def synchronize_seymour_pool_engine() -> dict[str, Any]:
         remote_host = str(item.get("remoteHost") or "").strip()
         suffix = worker_name.rsplit(".", 1)[-1] if "." in worker_name else worker_name[-3:]
         worker_id = f"worker-seymour-btc-{suffix}"
-        asset_id = asset_by_ip.get(remote_host)
+        asset, classification_source, classification_confidence = resolve_worker_asset(
+            worker_name=worker_name, remote_host=remote_host,
+            config=config, indexes=identity_indexes,
+        )
+        asset_id = str((asset or {}).get("id") or (asset or {}).get("assetId") or "") or None
+        worker_type, hardware_type, role_label = classify_worker(
+            worker_name=worker_name, asset=asset,
+        )
         phase = str(item.get("phase") or "stable")
         worker_hashrate = float(item.get("hashrate") or 0)
-        display_name = str(item.get("displayName") or ("Nano 3s" if suffix == "001" else "Mining System 2" if suffix == "002" else worker_name))
+        fallback_name = "Nano 3s" if suffix == "001" else "Mining System 2" if suffix == "002" else worker_name
+        display_name = asset_display_name(asset, str(item.get("displayName") or fallback_name))
 
         upsert_worker({
             "workerId": worker_id,
             "sourceSystem": "seymour-native-stratum",
             "sourceWorkerId": worker_name,
-            "workerType": "asic",
-            "hardwareType": "ASIC",
+            "workerType": worker_type,
+            "hardwareType": hardware_type,
             "displayName": display_name,
             "assetId": asset_id,
             "assetMatched": bool(asset_id),
             "reconciliationStatus": "matched" if asset_id else "unmatched",
+            "classificationSource": classification_source,
+            "classificationConfidence": classification_confidence,
             "poolId": native_pool_id,
             "nativePoolId": native_pool_id,
             "poolInstanceId": pool_id,
@@ -251,6 +279,8 @@ def synchronize_seymour_pool_engine() -> dict[str, Any]:
                 "workerName": worker_name,
                 "remoteHost": remote_host,
                 "sessionId": item.get("sessionId"),
+                "assetId": asset_id,
+                "classification": worker_type,
             },
             "observedState": {
                 **item,
@@ -262,6 +292,8 @@ def synchronize_seymour_pool_engine() -> dict[str, Any]:
                 "implementation": "seymour-pool-engine",
                 "phase": phase,
                 "remoteHost": remote_host,
+                "roleLabel": role_label,
+                "identityResolution": classification_source,
                 "telemetryUrl": f"{base}/api/v1/statistics/workers/{worker_name}?window=5m",
             },
         })

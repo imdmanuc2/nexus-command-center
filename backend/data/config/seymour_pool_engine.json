@@ -8,5 +8,11 @@
   "nativePoolId": "btc-solo",
   "name": "Seymour Bitcoin Solo",
   "blockchainAssetId": "asset-82ac3c36",
-  "activeRecencySeconds": 300
+  "activeRecencySeconds": 300,
+  "workerAssetMappings": {
+    "001": "asset-28a5a306",
+    "002": "asset-b63808dd",
+    "cpu01": "asset-bab403ab",
+    "192.168.1.161": "asset-bab403ab"
+  }
 }
