@@ -23,6 +23,7 @@ from backend.services.operations_center_service import build_operations_center
 from backend.services.worker_activity_reconciliation_service import reconcile_worker_activity
 from backend.services.topology_reconciliation_service import reconcile_live_topology
 from backend.services.seymour_pool_sync_service import synchronize_seymour_pool_engine
+from backend.services.operational_state_engine import reconcile_operational_state
 
 
 LOGGER = logging.getLogger("nexus.platform-sync")
@@ -217,6 +218,7 @@ def run_once(
     )
 
     worker_activity = reconcile_worker_activity()
+    operational_state = reconcile_operational_state()
     topology_reconciliation = reconcile_live_topology()
 
     events = evaluate_platform_state()
@@ -247,6 +249,7 @@ def run_once(
         "resourcePersistence": resources,
         "seymourPoolEngine": seymour,
         "workerActivityReconciliation": worker_activity,
+        "operationalStateEngine": operational_state,
         "topologyReconciliation": topology_reconciliation,
         "eventEngine": events,
         "alertEngine": alerts,

@@ -23,6 +23,19 @@ def _positive(value: Any) -> bool:
         return False
 
 
+def _recent_timestamp(value: Any, max_age_seconds: int = 600) -> bool:
+    if not value:
+        return False
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - parsed.astimezone(timezone.utc)).total_seconds()
+        return 0 <= age <= max_age_seconds
+    except (TypeError, ValueError):
+        return False
+
+
 def derive_activity(worker: dict[str, Any]) -> dict[str, Any]:
     source_system = str(worker.get("sourceSystem") or "miningcore").lower()
     status = str(worker.get("status") or "unknown").lower()
@@ -46,20 +59,21 @@ def derive_activity(worker: dict[str, Any]) -> dict[str, Any]:
         or metadata.get("connectionConfirmed")
     )
 
+    recent_share = _recent_timestamp(last_share_at)
+
     telemetry_available = bool(
         worker.get("telemetryAvailable")
         or observed.get("telemetryAvailable")
         or observed.get("liveWorkerTelemetry")
         or _positive(current_hashrate)
         or _positive(shares_per_second)
-        or last_share_at
+        or recent_share
     )
-
     live_evidence = bool(
         connection_confirmed
         or _positive(current_hashrate)
         or _positive(shares_per_second)
-        or last_share_at
+        or recent_share
     )
 
     if status in {"offline", "stale", "down", "error"}:
@@ -180,6 +194,44 @@ def upsert_worker(worker: dict[str, Any]) -> dict[str, Any]:
             )
             existing = cursor.fetchone()
 
+            # Hand off the unique current-session slot before binding a live
+            # session from a new telemetry authority to the same physical asset.
+            # The full reconciliation pass still chooses the final winner, but
+            # this prevents the partial unique index from rejecting the update.
+            if (
+                values["asset_id"]
+                and values["activity_state"] in ACTIVE_STATES
+            ):
+                cursor.execute(
+                    """
+                    UPDATE nexus.workers
+                    SET
+                        current_session = FALSE,
+                        retired_at = COALESCE(retired_at, NOW()),
+                        activity_state = CASE
+                            WHEN activity_state IN ('active', 'idle')
+                                THEN 'stale'
+                            ELSE activity_state
+                        END,
+                        status = CASE
+                            WHEN status IN ('online', 'active', 'connected', 'mining')
+                              OR activity_state IN ('active', 'idle')
+                                THEN 'stale'
+                            ELSE status
+                        END,
+                        current_hashrate = 0,
+                        shares_per_second = 0,
+                        updated_at = NOW()
+                    WHERE asset_id = %(asset_id)s
+                      AND current_session = TRUE
+                      AND NOT (
+                          source_system = %(source_system)s
+                          AND source_worker_id = %(source_worker_id)s
+                      )
+                    """,
+                    values,
+                )
+
             if existing:
                 canonical = existing["worker_id"]
                 cursor.execute(
@@ -222,6 +274,14 @@ def upsert_worker(worker: dict[str, Any]) -> dict[str, Any]:
                             %(last_hashrate_at)s::TIMESTAMPTZ,
                         last_connected_at =
                             %(last_connected_at)s::TIMESTAMPTZ,
+                        current_session = CASE
+                            WHEN %(activity_state)s IN ('active', 'idle') THEN TRUE
+                            ELSE FALSE
+                        END,
+                        retired_at = CASE
+                            WHEN %(activity_state)s IN ('active', 'idle') THEN NULL
+                            ELSE retired_at
+                        END,
                         last_seen_at = NOW(),
                         updated_at = NOW()
                     WHERE worker_id = %(canonical)s
@@ -272,7 +332,8 @@ def upsert_worker(worker: dict[str, Any]) -> dict[str, Any]:
                         %(telemetry_available)s,
                         %(last_hashrate_at)s::TIMESTAMPTZ,
                         %(last_connected_at)s::TIMESTAMPTZ,
-                        FALSE, NOW(), NOW(), NOW(), NOW()
+                        CASE WHEN %(activity_state)s IN ('active', 'idle') THEN TRUE ELSE FALSE END,
+                        NOW(), NOW(), NOW(), NOW()
                     )
                     RETURNING *
                     """,
