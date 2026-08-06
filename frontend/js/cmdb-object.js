@@ -93,12 +93,93 @@
     const state = rel.status || rel.activityState || "mapped";
     return `<a class="cmdb-relationship-card" href="${esc(href)}"><span>${outgoing ? "Outgoing" : "Incoming"} · ${esc(label(rel.relationshipType || "related-to"))}</span><strong>${esc(neighbor?.displayName || (outgoing ? rel.targetName : rel.sourceName))}</strong><small>${esc(neighbor?.subtitle || label(neighbor?.objectType || "CMDB object"))}</small><em class="${statusClass(state)}">${esc(formatState(state))}</em></a>`;
   }
-  function operations(object) {
+  function operationCatalog(object, raw, summary) {
     const q = `type=${encodeURIComponent(object.objectType)}&id=${encodeURIComponent(object.objectId)}`;
-    const common = [["Open in Explorer", `/graph.html?focus=${encodeURIComponent(object.objectId)}`],["View Timeline", `/timeline.html?${q}`],["Open Operations", `/operations.html?${q}`]];
-    if (["asset","worker"].includes(object.objectType)) common.splice(1,0,["Run Diagnostics", `/operations.html?action=diagnostics&${q}`]);
-    if (object.objectType === "pool") common.splice(1,0,["Pool Readiness", `/operations.html?action=pool-readiness&${q}`]);
-    return common.map(([name,href]) => `<a href="${esc(href)}">${esc(name)}<span>→</span></a>`).join("");
+    const kind = norm(raw.assetType || raw.canonicalType || raw.workerType || object.objectType);
+    const common = [
+      ["Open in Explorer", `/graph.html?focus=${encodeURIComponent(object.objectId)}`, "Inspect topology and blast radius"],
+      ["View Timeline", `/timeline.html?${q}`, "Review recent state changes and evidence"],
+      ["Open Operations", `/operations-center.html?${q}`, "Open the full Operations Center"]
+    ];
+    if (object.objectType === "pool") {
+      common.splice(1, 0,
+        ["Pool Readiness", `/operations.html?action=pool-readiness&${q}`, "Test API, Stratum, workers, RPC, and share flow"],
+        ["Worker Sessions", `/operations-center.html?view=sessions&${q}`, "Inspect active and historical pool sessions"],
+        ["Share Statistics", `/operations-center.html?view=shares&${q}`, "Review accepted, rejected, and recent shares"]
+      );
+    } else if (kind.includes("blockchain") || kind.includes("bitcoin")) {
+      common.splice(1, 0,
+        ["Test RPC", `/operations.html?action=bitcoin-rpc-test&${q}`, "Verify RPC credentials, chain, peers, and synchronization"],
+        ["Peer Health", `/operations-center.html?view=peers&${q}`, "Review peer count and network health"],
+        ["View Logs", `/operations-center.html?view=logs&${q}`, "Inspect recent Bitcoin Core service events"]
+      );
+    } else if (["asset","worker"].includes(object.objectType)) {
+      common.splice(1, 0,
+        ["Run Diagnostics", `/operations.html?action=diagnostics&${q}`, "Check connectivity, hashrate, pool assignment, and shares"],
+        ["Pool Connectivity", `/operations-center.html?view=pool-connectivity&${q}`, "Verify the current Stratum path"],
+        ["Maintenance Mode", `/operations-center.html?view=maintenance&${q}`, "Prepare this object for controlled maintenance"]
+      );
+    }
+    return common;
+  }
+  function operations(object, raw, summary) {
+    return operationCatalog(object, raw, summary).map(([name,href,detail]) => `<a href="${esc(href)}"><strong>${esc(name)}</strong><small>${esc(detail)}</small><span>→</span></a>`).join("");
+  }
+  function recommendationMatches(rec, object) {
+    const entityId = String(rec.entityId || rec.assetId || "");
+    const entityType = norm(rec.entityType || "");
+    const objectType = norm(object.objectType || "");
+    if (entityId && entityId === object.objectId) return true;
+    if (rec.evidence && Object.values(rec.evidence).some((value) => String(value) === object.objectId)) return true;
+    return entityType === objectType && entityId === object.objectId;
+  }
+  function recommendationCard(rec, object) {
+    const priority = norm(rec.priority || "normal");
+    const q = `type=${encodeURIComponent(object.objectType)}&id=${encodeURIComponent(object.objectId)}`;
+    return `<article class="cmdb-recommendation-card priority-${esc(priority)}">
+      <div><span>${esc(label(priority))}</span><strong>${esc(rec.title || "Operational recommendation")}</strong></div>
+      <p>${esc(rec.explanation || rec.recommendedAction || "Review this object's current state.")}</p>
+      <small>${esc(rec.recommendedAction || "Open Operations Center for next steps.")}</small>
+      <a href="/operations-center.html?recommendation=${encodeURIComponent(rec.recommendationId || "")}&${q}">Review recommendation <span>→</span></a>
+    </article>`;
+  }
+  async function loadOperationsCenter(object, raw, summary) {
+    const recommendationTarget = byId("objectRecommendations");
+    const evidenceTarget = byId("operationsEvidence");
+    const state = summary.observedOperationalState || object.status || "unknown";
+    byId("operationsObjectState").textContent = formatState(state).toUpperCase();
+    byId("operationsObjectState").className = `cmdb-ops-state ${statusClass(state)}`;
+    try {
+      const [recommendationsResponse, automationResponse] = await Promise.all([
+        fetch("/api/platform/recommendations", {cache:"no-store"}),
+        fetch("/api/platform/automation/summary", {cache:"no-store"})
+      ]);
+      const recommendationsPayload = recommendationsResponse.ok ? await recommendationsResponse.json() : {};
+      const automation = automationResponse.ok ? await automationResponse.json() : {};
+      const recommendations = (recommendationsPayload.recommendations || []).filter((rec) => recommendationMatches(rec, object) && norm(rec.status || "open") === "open");
+      byId("recommendationCount").textContent = recommendations.length;
+      recommendationTarget.innerHTML = recommendations.length
+        ? recommendations.slice(0, 4).map((rec) => recommendationCard(rec, object)).join("")
+        : '<div class="cmdb-ops-clear"><strong>No open recommendations</strong><span>This Digital Twin has no object-specific operational guidance right now.</span></div>';
+      const running = Number(automation.running || 0);
+      const queued = Number(automation.queued || 0);
+      const failed = Number(automation.failed || 0);
+      byId("automationState").textContent = running ? "RUNNING" : queued ? "QUEUED" : failed ? "ATTENTION" : "READY";
+      evidenceTarget.innerHTML = `
+        <div class="cmdb-evidence-grid">
+          ${metric("Running", formatNumber(running), running ? "active" : "neutral")}
+          ${metric("Queued", formatNumber(queued), queued ? "warning" : "neutral")}
+          ${metric("Completed", formatNumber(automation.completed || 0), "healthy")}
+          ${metric("Failed", formatNumber(failed), failed ? "critical" : "neutral")}
+        </div>
+        <div class="cmdb-evidence-links">
+          <a href="/operations-center.html?type=${encodeURIComponent(object.objectType)}&id=${encodeURIComponent(object.objectId)}">Open Operations Center <span>→</span></a>
+          <a href="/timeline.html?type=${encodeURIComponent(object.objectType)}&id=${encodeURIComponent(object.objectId)}">View execution timeline <span>→</span></a>
+        </div>`;
+    } catch (error) {
+      recommendationTarget.innerHTML = `<div class="cmdb-object-empty">Recommendations unavailable: ${esc(error.message)}</div>`;
+      evidenceTarget.innerHTML = '<div class="cmdb-object-empty">Operational evidence is temporarily unavailable.</div>';
+    }
   }
   function timeline(summary, raw, relationships) {
     const rows = [];
@@ -141,7 +222,7 @@
       byId("objectDetails").innerHTML = identityRows(object, raw) || '<div><dt>Record</dt><dd>No structured identity fields available.</dd></div>';
       byId("liveMetrics").innerHTML = liveMetrics(object, summary, raw); byId("healthMetrics").innerHTML = healthMetrics(summary, raw);
       byId("relationshipCount").textContent = relationships.length; byId("objectRelationships").innerHTML = relationships.length ? relationships.map((r) => relationshipCard(r, objectId)).join("") : '<div class="cmdb-object-empty">No CMDB relationships currently map to this object.</div>';
-      byId("operationLinks").innerHTML = operations(object); byId("timeline").innerHTML = timeline(summary, raw, relationships); byId("objectRaw").textContent = JSON.stringify(raw, null, 2);
+      byId("operationLinks").innerHTML = operations(object, raw, summary); await loadOperationsCenter(object, raw, summary); byId("timeline").innerHTML = timeline(summary, raw, relationships); byId("objectRaw").textContent = JSON.stringify(raw, null, 2);
       await loadProfile(object.objectType === "asset" ? objectId : ""); byId("objectContent").hidden = false; byId("rawSection").hidden = false;
     } catch (error) { byId("objectError").hidden = false; byId("objectError").textContent = error.message; }
   }

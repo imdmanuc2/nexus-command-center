@@ -494,3 +494,296 @@ async function loadAssets() {
 window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll(".cmdb-section-tab").forEach(tab => tab.addEventListener("click", () => cmdbOpenSection(tab.dataset.section)));
 });
+
+/* Package 068: Fleet Operations Center. */
+let fleetView = "overview";
+let fleetQuickFilter = "all";
+let fleetSearchQuery = "";
+const fleetExpandedGroups = new Set(
+  JSON.parse(localStorage.getItem("nexusFleetExpandedGroups") || "[]")
+);
+const fleetVisibleLimit = new Map();
+
+function fleetNormalizeState(value) {
+  return String(value || "unknown").trim().toLowerCase().replaceAll("_", "-");
+}
+
+function fleetFormatHashrate(value) {
+  const number = Number(value || 0);
+  if (number >= 1e15) return `${(number / 1e15).toFixed(2)} PH/s`;
+  if (number >= 1e12) return `${(number / 1e12).toFixed(2)} TH/s`;
+  if (number >= 1e9) return `${(number / 1e9).toFixed(2)} GH/s`;
+  if (number >= 1e6) return `${(number / 1e6).toFixed(2)} MH/s`;
+  if (number > 0) return `${number.toFixed(0)} H/s`;
+  return "—";
+}
+
+function fleetRelativeTime(value) {
+  if (!value) return "Not observed";
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return "Not observed";
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
+
+function fleetWorkers() {
+  const payload = cmdbPlatformData.workers || {};
+  return cmdbArray(payload, ["activeWorkers", "workers", "items"]);
+}
+
+function fleetTopologyNodes() {
+  return cmdbArray(cmdbPlatformData.topology, ["nodes", "items"]);
+}
+
+function fleetWorkerForAsset(assetId, label = "") {
+  const candidates = fleetWorkers().filter(worker => {
+    const state = fleetNormalizeState(worker.activityState || worker.status);
+    return worker.assetId === assetId && !["stale", "retired", "offline", "disconnected"].includes(state);
+  });
+  if (candidates.length) {
+    return candidates.sort((a, b) => Date.parse(b.lastSeenAt || b.updatedAt || 0) - Date.parse(a.lastSeenAt || a.updatedAt || 0))[0];
+  }
+  return fleetWorkers().find(worker => String(worker.displayName || "").toLowerCase() === String(label || "").toLowerCase()) || null;
+}
+
+function fleetCategory(node) {
+  const props = node?.properties || {};
+  const type = fleetNormalizeState(node?.assetType || node?.nodeType || props.assetType || props.type || node?.type);
+  const role = String(props.primaryRole || props.role || "").toLowerCase();
+  if (node?.nodeType === "pool" || type === "pool") return "pools";
+  if (type.includes("blockchain") || role.includes("blockchain") || role.includes("bitcoin core")) return "blockchain";
+  if (type === "asic" || role.includes("asic")) return "asic";
+  if (type.includes("virtual-machine") && (role.includes("mining") || (props.capabilities || []).includes("crypto-mining"))) return "cpu";
+  if (node?.nodeType === "service" || type.includes("service")) return "services";
+  return "infrastructure";
+}
+
+function fleetStatusForNode(node, worker) {
+  const props = node?.properties || {};
+  const category = fleetCategory(node);
+  if (category === "pools") {
+    const state = fleetNormalizeState(props.operationalState || props.observedOperationalState || node.status || props.status);
+    const activeWorkers = fleetWorkers().filter(item => item.currentSession === true && item.poolInstanceId === node.id).length;
+    if (activeWorkers > 0) return "accepting-shares";
+    return state;
+  }
+  if (worker?.currentSession === true) {
+    const hashrate = Number(worker.currentHashrate || worker.hashrate || 0);
+    return hashrate > 0 ? "mining" : fleetNormalizeState(worker.activityState || worker.status || "connected");
+  }
+  return fleetNormalizeState(props.observedOperationalState || props.activityState || node.status || props.status);
+}
+
+function fleetPoolName(worker) {
+  if (!worker) return "Not assigned";
+  const id = worker.poolInstanceId || worker.poolId;
+  const pool = fleetTopologyNodes().find(node => node.id === id);
+  return pool?.label || pool?.properties?.name || worker.poolName || id || "Not assigned";
+}
+
+function fleetRecordFromNode(node) {
+  const props = node.properties || {};
+  const category = fleetCategory(node);
+  const objectType = node.nodeType || (category === "pools" ? "pool" : "asset");
+  const worker = ["asic", "cpu"].includes(category) ? fleetWorkerForAsset(node.id, node.label) : null;
+  const status = fleetStatusForNode(node, worker);
+  const lifecycle = fleetNormalizeState(props.lifecycleStage || props.lifecycleStatus || "production");
+  const management = fleetNormalizeState(props.managementModel || props.lifecycleStatus || (props.managed === false ? "observed" : "nexus-managed"));
+  const coin = String(worker?.coin || props.coin?.symbol || props.coin || props.observedState?.coin?.symbol || "").toUpperCase();
+  const activePoolWorkers = category === "pools" ? fleetWorkers().filter(item => item.currentSession === true && item.poolInstanceId === node.id) : [];
+  const hashrate = category === "pools"
+    ? activePoolWorkers.reduce((sum, item) => sum + Number(item.currentHashrate || item.hashrate || 0), 0) || Number(props.observedState?.hashrate || props.hashrate || 0)
+    : Number(worker?.currentHashrate || worker?.hashrate || props.liveHashrate || 0);
+  const health = fleetNormalizeState(props.health || (status === "offline" ? "offline" : "healthy"));
+  const lastSeen = worker?.lastSeenAt || node.lastSeenAt || props.lastSeenAt || props.updatedAt || node.updatedAt;
+  return {
+    id: node.id,
+    objectType,
+    label: node.label || props.displayName || props.name || node.id,
+    category,
+    status,
+    health,
+    lifecycle,
+    management,
+    coin,
+    hashrate,
+    poolName: fleetPoolName(worker),
+    workerCount: category === "pools" ? activePoolWorkers.length : null,
+    ip: props.ip || props.host || props.poolHost || "",
+    lastSeen,
+    href: cmdbObjectHref(objectType, node.id),
+    searchText: [node.id, node.label, category, status, health, lifecycle, management, coin, props.ip, props.host, fleetPoolName(worker), JSON.stringify(props.tags || [])].join(" ").toLowerCase()
+  };
+}
+
+function fleetRecords() {
+  return fleetTopologyNodes()
+    .filter(node => ["asset", "pool", "service"].includes(String(node.nodeType || "").toLowerCase()))
+    .map(fleetRecordFromNode);
+}
+
+function fleetIsAttention(record) {
+  return ["offline", "failed", "fault", "critical", "warning", "degraded", "unknown"].includes(record.status) ||
+    ["offline", "critical", "warning", "degraded"].includes(record.health);
+}
+
+function fleetMatchesView(record) {
+  if (fleetView === "overview") return true;
+  if (fleetView === "mining") return ["asic", "cpu"].includes(record.category);
+  if (fleetView === "pools") return record.category === "pools";
+  if (fleetView === "blockchain") return record.category === "blockchain";
+  if (fleetView === "infrastructure") return ["infrastructure", "services"].includes(record.category);
+  if (fleetView === "attention") return fleetIsAttention(record);
+  if (fleetView === "maintenance") return record.lifecycle === "maintenance" || record.status === "maintenance";
+  return true;
+}
+
+function fleetMatchesQuickFilter(record) {
+  if (fleetQuickFilter === "all") return true;
+  if (fleetQuickFilter === "mining") return record.status === "mining";
+  if (fleetQuickFilter === "idle") return ["idle", "online", "standby"].includes(record.status);
+  if (fleetQuickFilter === "offline") return record.status === "offline";
+  if (fleetQuickFilter === "maintenance") return record.status === "maintenance" || record.lifecycle === "maintenance";
+  if (fleetQuickFilter === "btc" || fleetQuickFilter === "bch") return record.coin.toLowerCase() === fleetQuickFilter;
+  if (fleetQuickFilter === "managed") return record.management.includes("managed");
+  if (fleetQuickFilter === "observed") return record.management.includes("observed");
+  return true;
+}
+
+function fleetFilteredRecords() {
+  const query = fleetSearchQuery.trim().toLowerCase();
+  return fleetRecords().filter(record => fleetMatchesView(record) && fleetMatchesQuickFilter(record) && (!query || record.searchText.includes(query)));
+}
+
+function fleetStateLabel(status) {
+  const labels = {
+    "accepting-shares": "Accepting Shares",
+    mining: "Mining",
+    synchronized: "Synchronized",
+    online: "Online",
+    active: "Active",
+    idle: "Idle",
+    standby: "Standby",
+    maintenance: "Maintenance",
+    degraded: "Degraded",
+    warning: "Warning",
+    offline: "Offline",
+    unknown: "Unknown"
+  };
+  return labels[status] || status.replaceAll("-", " ").replace(/\b\w/g, character => character.toUpperCase());
+}
+
+function fleetStatusTone(record) {
+  if (["mining", "accepting-shares", "synchronized", "online", "active", "healthy"].includes(record.status)) return "healthy";
+  if (["warning", "degraded", "maintenance", "idle", "standby", "unknown"].includes(record.status)) return "warning";
+  if (["offline", "failed", "fault", "critical"].includes(record.status)) return "critical";
+  return "neutral";
+}
+
+function fleetCard(record) {
+  const metric = record.hashrate > 0 ? fleetFormatHashrate(record.hashrate) : record.category === "pools" ? `${record.workerCount || 0} active worker${record.workerCount === 1 ? "" : "s"}` : record.ip || fleetRelativeTime(record.lastSeen);
+  const context = ["asic", "cpu"].includes(record.category) ? record.poolName : record.category === "pools" ? [record.coin, record.ip].filter(Boolean).join(" · ") : [record.ip, record.coin].filter(Boolean).join(" · ");
+  return `<a class="fleet-object-card tone-${fleetStatusTone(record)}" href="${record.href}">
+    <div class="fleet-card-head">
+      <span class="fleet-card-state-dot" aria-hidden="true"></span>
+      <div><small>${record.category.replaceAll("-", " ")}</small><h3>${safe(record.label)}</h3></div>
+      <span class="fleet-card-status">${fleetStateLabel(record.status)}</span>
+    </div>
+    <strong class="fleet-card-metric">${metric}</strong>
+    <p>${safe(context, "No current assignment")}</p>
+    <footer><span>${record.lifecycle}</span><span>${record.management.replaceAll("-", " ")}</span><span>${fleetRelativeTime(record.lastSeen)}</span></footer>
+  </a>`;
+}
+
+function fleetGroupLabel(category) {
+  return ({ pools: "Mining Pools", asic: "ASIC Miners", cpu: "CPU Miners", blockchain: "Blockchain Nodes", services: "Managed Services", infrastructure: "Infrastructure" })[category] || category;
+}
+
+function fleetRenderSummary(records) {
+  const all = fleetRecords();
+  const activeMiners = all.filter(record => ["asic", "cpu"].includes(record.category) && record.status === "mining");
+  const pools = all.filter(record => record.category === "pools");
+  const blockchain = all.filter(record => record.category === "blockchain");
+  const attention = all.filter(fleetIsAttention);
+  const hashrate = activeMiners.reduce((sum, record) => sum + record.hashrate, 0);
+  const cards = [
+    ["Fleet Hashrate", fleetFormatHashrate(hashrate), `${activeMiners.length} active miner${activeMiners.length === 1 ? "" : "s"}`, "hashrate"],
+    ["CMDB Objects", all.length, `${records.length} in current view`, "objects"],
+    ["Pools", pools.length, `${pools.filter(record => record.status === "accepting-shares").length} accepting shares`, "pools"],
+    ["Blockchain", blockchain.length, `${blockchain.filter(record => ["online", "synchronized", "active"].includes(record.status)).length} healthy`, "blockchain"],
+    ["Needs Attention", attention.length, attention.length ? "Review recommended" : "Fleet healthy", attention.length ? "attention" : "healthy"],
+    ["Last Sync", fleetRelativeTime(cmdbPlatformData.topology?.generatedAt || cmdbPlatformData.topology?.updatedAt || new Date().toISOString()), "PostgreSQL platform", "sync"]
+  ];
+  byId("fleetSummaryCards").innerHTML = cards.map(([label, value, detail, kind]) => `<article class="fleet-summary-card kind-${kind}"><span>${label}</span><strong>${value}</strong><small>${detail}</small></article>`).join("");
+}
+
+function fleetRenderQuickFilters(records) {
+  const filters = [["all", "All"], ["mining", "Mining"], ["idle", "Idle"], ["offline", "Offline"], ["maintenance", "Maintenance"], ["btc", "BTC"], ["bch", "BCH"], ["managed", "Managed"], ["observed", "Observed"]];
+  byId("fleetQuickFilters").innerHTML = filters.map(([value, label]) => `<button type="button" class="fleet-quick-filter ${fleetQuickFilter === value ? "active" : ""}" data-fleet-filter="${value}">${label}</button>`).join("");
+  byId("fleetQuickFilters").querySelectorAll("[data-fleet-filter]").forEach(button => button.addEventListener("click", () => {
+    fleetQuickFilter = button.dataset.fleetFilter;
+    fleetRender();
+  }));
+}
+
+function fleetRenderGroups(records) {
+  const order = ["pools", "asic", "cpu", "blockchain", "services", "infrastructure"];
+  const grouped = Object.groupBy ? Object.groupBy(records, record => record.category) : records.reduce((result, record) => ((result[record.category] ||= []).push(record), result), {});
+  const sections = order.filter(category => grouped[category]?.length).map(category => {
+    const rows = grouped[category];
+    const collapsed = !fleetExpandedGroups.has(category) && records.length > 12;
+    const limit = fleetVisibleLimit.get(category) || 24;
+    const visible = collapsed ? [] : rows.slice(0, limit);
+    return `<section class="fleet-group ${collapsed ? "collapsed" : ""}" data-fleet-group="${category}">
+      <button type="button" class="fleet-group-heading" data-toggle-fleet-group="${category}" aria-expanded="${!collapsed}">
+        <span><b>${fleetGroupLabel(category)}</b><small>${rows.length} object${rows.length === 1 ? "" : "s"}</small></span>
+        <span class="fleet-group-summary">${rows.filter(record => ["mining", "accepting-shares", "online", "synchronized", "active"].includes(record.status)).length} active <i>⌄</i></span>
+      </button>
+      ${collapsed ? "" : `<div class="fleet-object-grid">${visible.map(fleetCard).join("")}</div>${rows.length > visible.length ? `<button type="button" class="fleet-show-more" data-fleet-more="${category}">Show ${Math.min(24, rows.length - visible.length)} more</button>` : ""}`}
+    </section>`;
+  }).join("");
+  byId("fleetGroups").innerHTML = sections || `<div class="fleet-empty"><h3>No fleet objects match.</h3><p>Clear a filter or try a broader search.</p></div>`;
+  byId("fleetGroups").querySelectorAll("[data-toggle-fleet-group]").forEach(button => button.addEventListener("click", () => {
+    const category = button.dataset.toggleFleetGroup;
+    if (fleetExpandedGroups.has(category)) fleetExpandedGroups.delete(category); else fleetExpandedGroups.add(category);
+    localStorage.setItem("nexusFleetExpandedGroups", JSON.stringify([...fleetExpandedGroups]));
+    fleetRender();
+  }));
+  byId("fleetGroups").querySelectorAll("[data-fleet-more]").forEach(button => button.addEventListener("click", () => {
+    const category = button.dataset.fleetMore;
+    fleetVisibleLimit.set(category, (fleetVisibleLimit.get(category) || 24) + 24);
+    fleetExpandedGroups.add(category);
+    fleetRender();
+  }));
+}
+
+function fleetRender() {
+  const records = fleetFilteredRecords();
+  fleetRenderSummary(records);
+  fleetRenderQuickFilters(records);
+  fleetRenderGroups(records);
+  const summary = byId("fleetResultSummary");
+  if (summary) summary.textContent = `${records.length} object${records.length === 1 ? "" : "s"} shown · ${fleetView.replaceAll("-", " ")} view`;
+  document.querySelectorAll("[data-fleet-view]").forEach(button => button.classList.toggle("active", button.dataset.fleetView === fleetView));
+}
+
+const cmdbRenderOverviewBase = cmdbRenderOverview;
+cmdbRenderOverview = function cmdbRenderFleetOverview() {
+  cmdbRenderOverviewBase();
+  fleetRender();
+};
+
+window.addEventListener("DOMContentLoaded", () => {
+  byId("fleetSearch")?.addEventListener("input", event => {
+    fleetSearchQuery = event.target.value;
+    fleetRender();
+  });
+  document.querySelectorAll("[data-fleet-view]").forEach(button => button.addEventListener("click", () => {
+    fleetView = button.dataset.fleetView || "overview";
+    fleetQuickFilter = "all";
+    fleetRender();
+  }));
+});

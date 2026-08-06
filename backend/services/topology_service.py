@@ -15,6 +15,7 @@ from backend.db.repositories.worker_repository import (
     list_active_workers,
 )
 from backend.db.repositories.workload_repository import list_workloads
+from backend.services.operational_state_engine import derive_pool_operational_state
 
 
 def _asset_status(asset: dict[str, Any]) -> str:
@@ -33,6 +34,10 @@ def topology() -> dict[str, Any]:
     workloads = list_workloads()
     blockchain_nodes = list_blockchain_nodes()
     relationships = list_active_relationships()
+    pool_state_by_id = {
+        state["poolId"]: state
+        for state in (derive_pool_operational_state(pool, workers) for pool in pools)
+    }
 
     active_worker_ids = {
         worker["workerId"]
@@ -147,7 +152,7 @@ def topology() -> dict[str, Any]:
             "nodeType": "service",
             "assetType": "mining-engine-service",
             "label": pool.get("instanceName") or implementation.replace("-", " ").title(),
-            "status": pool.get("status") or "unknown",
+            "status": (pool_state_by_id.get(pool_id) or {}).get("observedOperationalState") or pool.get("status") or "unknown",
             "properties": {
                 "assetType": "mining-engine-service",
                 "serviceType": "mining-engine",
@@ -158,22 +163,34 @@ def topology() -> dict[str, Any]:
                 "poolId": pool_id,
                 "operationalPoolName": pool.get("name"),
                 "telemetryAuthority": (pool.get("metadata") or {}).get("telemetryAuthority"),
-                "observedState": observed,
+                "observedState": {
+                    **observed,
+                    **(pool_state_by_id.get(pool_id) or {}),
+                },
             },
         }
 
     nodes = list(asset_map.values()) + list(engine_nodes.values())
 
     for pool in pools:
+        pool_id = str(pool.get("poolId") or "")
+        canonical_state = pool_state_by_id.get(pool_id) or {}
         nodes.append({
-            "id": pool["poolId"],
+            "id": pool_id,
             "nodeType": "pool",
             "assetType": "pool",
-            "label": pool.get("name") or pool["poolId"],
-            "status": pool.get("status") or "unknown",
+            "label": pool.get("name") or pool_id,
+            "status": canonical_state.get("observedOperationalState") or pool.get("status") or "unknown",
             "properties": {
                 **pool,
                 "assetType": "pool",
+                "observedOperationalState": canonical_state.get("observedOperationalState"),
+                "currentHashrate": canonical_state.get("hashrate", 0),
+                "onlineWorkerCount": canonical_state.get("activeWorkers", 0),
+                "observedState": {
+                    **(pool.get("observedState") or {}),
+                    **canonical_state,
+                },
             },
         })
 

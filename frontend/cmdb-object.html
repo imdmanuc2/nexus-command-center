@@ -76,10 +76,33 @@
             <div id="objectRelationships" class="cmdb-object-relationships"></div>
           </article>
 
-          <article class="cmdb-card">
-            <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Control</p><h2>Operations</h2></div></div>
+          <article class="cmdb-card cmdb-operations-center-card">
+            <div class="cmdb-object-section-heading">
+              <div><p class="cmdb-eyebrow">Control</p><h2>Operations Center</h2></div>
+              <span id="operationsObjectState" class="cmdb-ops-state neutral">READY</span>
+            </div>
             <div id="operationLinks" class="cmdb-operation-grid"></div>
-            <p class="cmdb-operation-note">Actions open Nexus tools with this Digital Twin as the target.</p>
+            <p class="cmdb-operation-note">Context-aware actions target this Digital Twin and preserve Nexus evidence.</p>
+          </article>
+
+          <article class="cmdb-card">
+            <div class="cmdb-object-section-heading">
+              <div><p class="cmdb-eyebrow">Guidance</p><h2>Recommended Actions</h2></div>
+              <span id="recommendationCount">0</span>
+            </div>
+            <div id="objectRecommendations" class="cmdb-recommendation-list">
+              <div class="cmdb-object-empty">Loading recommendations…</div>
+            </div>
+          </article>
+
+          <article class="cmdb-card">
+            <div class="cmdb-object-section-heading">
+              <div><p class="cmdb-eyebrow">Evidence</p><h2>Execution & Evidence</h2></div>
+              <span id="automationState">LIVE</span>
+            </div>
+            <div id="operationsEvidence" class="cmdb-evidence-summary">
+              <div class="cmdb-object-empty">Loading operational evidence…</div>
+            </div>
           </article>
         </aside>
       </section>

@@ -10,6 +10,63 @@ from backend.db.repositories.pool_repository import list_pools
 from backend.db.repositories.worker_repository import list_active_workers
 
 
+
+def derive_pool_operational_state(
+    pool: dict[str, Any],
+    active_workers: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Return the canonical live operational state for one mining pool.
+
+    Pool inventory status describes reachability/lifecycle. Operator-facing
+    state is derived from live telemetry and current worker ownership.
+    """
+    observed = pool.get("observedState") or {}
+    pool_id = str(pool.get("poolId") or "").strip()
+    workers = active_workers or []
+    matched_workers = [
+        worker for worker in workers
+        if str(worker.get("poolInstanceId") or "").strip() == pool_id
+        and worker.get("currentSession") is True
+        and str(worker.get("status") or "").lower() not in {
+            "offline", "stale", "retired", "disconnected"
+        }
+        and str(worker.get("activityState") or "").lower() not in {
+            "offline", "stale", "retired", "disconnected"
+        }
+    ]
+
+    worker_count = max(
+        len(matched_workers),
+        int(pool.get("onlineWorkerCount") or observed.get("activeWorkers") or 0),
+    )
+    worker_hashrate = sum(float(worker.get("currentHashrate") or 0) for worker in matched_workers)
+    hashrate = max(
+        worker_hashrate,
+        float(pool.get("currentHashrate") or observed.get("hashrate") or 0),
+    )
+
+    api_reachable = observed.get("apiReachable")
+    stratum_reachable = observed.get("stratumReachable")
+    raw_status = str(pool.get("status") or "").lower()
+
+    if raw_status in {"offline", "down", "error"} or api_reachable is False or stratum_reachable is False:
+        state = "offline"
+    elif worker_count > 0 and hashrate > 0:
+        state = "accepting-shares"
+    elif worker_count > 0:
+        state = "hashrate-stabilizing"
+    elif raw_status in {"degraded", "warning"}:
+        state = "degraded"
+    else:
+        state = "online"
+
+    return {
+        "poolId": pool_id,
+        "observedOperationalState": state,
+        "hashrate": hashrate,
+        "activeWorkers": worker_count,
+    }
+
 def reconcile_operational_state() -> dict[str, Any]:
     """Project current observations into canonical CMDB object state.
 
@@ -76,20 +133,10 @@ def reconcile_operational_state() -> dict[str, Any]:
                 )
                 asset_updates += cursor.rowcount
 
-    pool_states = []
-    for pool in pools:
-        observed = pool.get("observedState") or {}
-        worker_count = int(pool.get("onlineWorkerCount") or observed.get("activeWorkers") or 0)
-        hashrate = float(pool.get("currentHashrate") or observed.get("hashrate") or 0)
-        if str(pool.get("status") or "").lower() in {"offline", "down", "error"}:
-            state = "offline"
-        elif worker_count > 0 and hashrate > 0:
-            state = "accepting-shares"
-        elif worker_count > 0:
-            state = "hashrate-stabilizing"
-        else:
-            state = "idle"
-        pool_states.append({"poolId": pool.get("poolId"), "observedOperationalState": state, "hashrate": hashrate, "activeWorkers": worker_count})
+    pool_states = [
+        derive_pool_operational_state(pool, workers)
+        for pool in pools
+    ]
 
     return {
         "status": "ok",

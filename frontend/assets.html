@@ -16,7 +16,7 @@
         <div>
           <p class="cmdb-eyebrow">Nexus Platform</p>
           <h1>Nexus CMDB</h1>
-          <p>Authoritative inventory, operational state, workloads, and infrastructure relationships.</p>
+          <p>Fleet inventory, operational state, ownership, and objects requiring attention.</p>
         </div>
         <div id="cmdbSourceState" class="cmdb-source-state">Loading source state…</div>
       </header>
@@ -36,12 +36,47 @@
       </nav>
 
       <section id="cmdbOverview" class="cmdb-section-panel active" data-panel="overview">
-        <div id="cmdbOverviewCards" class="cmdb-overview-grid">
-          <div class="cmdb-overview-card cmdb-loading-card">Loading CMDB summary…</div>
+        <section class="fleet-command-header" aria-labelledby="fleetOperationsTitle">
+          <div>
+            <p class="cmdb-eyebrow">Fleet Operations</p>
+            <h2 id="fleetOperationsTitle">Operational Fleet</h2>
+            <p>Find, assess, and open any managed object without losing the live operational picture.</p>
+          </div>
+          <div class="fleet-command-actions">
+            <button type="button" class="fleet-action-button" data-open-section="discovery">Discover</button>
+            <button type="button" class="fleet-action-button primary" data-open-section="assets">Open Inventory</button>
+          </div>
+        </section>
+
+        <div id="fleetSummaryCards" class="fleet-summary-grid">
+          <div class="fleet-summary-card fleet-loading-card">Loading fleet state…</div>
         </div>
-        <div class="cmdb-overview-columns">
+
+        <section class="fleet-control-bar" aria-label="Fleet controls">
+          <div class="fleet-saved-views" id="fleetSavedViews">
+            <button type="button" class="fleet-view active" data-fleet-view="overview">Overview</button>
+            <button type="button" class="fleet-view" data-fleet-view="mining">Mining</button>
+            <button type="button" class="fleet-view" data-fleet-view="pools">Pools</button>
+            <button type="button" class="fleet-view" data-fleet-view="blockchain">Blockchain</button>
+            <button type="button" class="fleet-view" data-fleet-view="infrastructure">Infrastructure</button>
+            <button type="button" class="fleet-view" data-fleet-view="attention">Needs Attention</button>
+            <button type="button" class="fleet-view" data-fleet-view="maintenance">Maintenance</button>
+          </div>
+          <div class="fleet-search-wrap">
+            <label for="fleetSearch">Search fleet</label>
+            <input id="fleetSearch" type="search" placeholder="Name, IP, pool, coin, lifecycle…" autocomplete="off">
+          </div>
+        </section>
+
+        <div id="fleetQuickFilters" class="fleet-quick-filters" aria-label="Quick filters"></div>
+        <div id="fleetResultSummary" class="fleet-result-summary" aria-live="polite"></div>
+        <div id="fleetGroups" class="fleet-groups">
+          <div class="fleet-empty">Building fleet view…</div>
+        </div>
+
+        <div class="cmdb-overview-columns fleet-secondary-overview">
           <article class="cmdb-overview-panel">
-            <div class="cmdb-panel-heading"><h2>Operational Inventory</h2><button data-open-section="assets">View CMDB objects</button></div>
+            <div class="cmdb-panel-heading"><h2>Inventory Mix</h2><button data-open-section="assets">View CMDB objects</button></div>
             <div id="cmdbInventorySnapshot" class="cmdb-snapshot-list">Loading…</div>
           </article>
           <article class="cmdb-overview-panel">
@@ -49,6 +84,7 @@
             <div id="cmdbRelationshipSnapshot" class="cmdb-snapshot-list">Loading…</div>
           </article>
         </div>
+        <div id="cmdbOverviewCards" class="cmdb-overview-grid fleet-legacy-summary" hidden></div>
       </section>
 
       <section class="cmdb-section-panel" data-panel="assets">
