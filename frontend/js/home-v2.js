@@ -1515,10 +1515,13 @@ async function loadFleet() {
 
   try {
     const fleet = await fetchJson(
-      "/api/platform/home"
+      "/api/platform/dashboard-summary"
     );
 
     const normalizedFleet = normalizePlatformHome(fleet);
+
+    normalizedFleet.dashboardVerification = fleet?.verification || {};
+    normalizedFleet.dashboardSource = fleet?.source || "unknown";
 
     homeV2State.lastSuccessfulLoadAt = Date.now();
     homeV2State.consecutiveFailures = 0;

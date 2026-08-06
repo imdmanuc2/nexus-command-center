@@ -300,6 +300,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/operations": operations.available,
             "/api/mission/status": mission.status,
             "/api/timeline/latest": timeline.latest,
+            "/api/platform/dashboard-summary": platform.dashboard_summary,
             "/api/platform/home": platform.home,
     "/api/change-rollbacks/status": platform_change_rollback.status,
     "/api/change-rollbacks/history": platform_change_rollback.history,
