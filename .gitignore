@@ -1,58 +1,114 @@
-# Python
+# =============================================================================
+# Nexus Command Center - .gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Environment
+# -----------------------------------------------------------------------------
+
 .env
+.venv/
 venv/
+env/
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+
 __pycache__/
+**/__pycache__/
 *.pyc
+*.pyo
 *.log
 
+# -----------------------------------------------------------------------------
 # Node
+# -----------------------------------------------------------------------------
+
 node_modules/
 
+# -----------------------------------------------------------------------------
 # Build output
+# -----------------------------------------------------------------------------
+
 dist/
 build/
 
+# -----------------------------------------------------------------------------
 # Generated package archives
-package-*-source.zip
-packages/*.zip
-packages/*/*.zip
+# -----------------------------------------------------------------------------
 
+package-*-source.zip
+packages/**/*-source.zip
+packages/**/*-r[0-9]*.zip
+
+# -----------------------------------------------------------------------------
 # Configuration
+# -----------------------------------------------------------------------------
+
 config/install/install-state.json
 config/database/postgresql.json
 
-# Nexus runtime and private data
+# -----------------------------------------------------------------------------
+# Nexus private runtime data
+# -----------------------------------------------------------------------------
+
 backend/data/private/
 backend/data/events/*.json
+!backend/data/events/README.md
 backend/data/telemetry/
 
-# Local databases
-*.db
-*.db-shm
-*.db-wal
+# -----------------------------------------------------------------------------
+# Runtime graph state
+# -----------------------------------------------------------------------------
 
-# Local page backups
-frontend/*.before-*
-frontend/css/*.before-*
-frontend/js/*.before-*
-backups/backend/data/events/operations-events.json
-backend/data/events/operations-state.json
-
-# Local development packages and installation backups
-packages/[0-9][0-9][0-9]-*/
-packages/backups/
-
-# Nexus generated runtime state
 backend/data/events/live.json
 backend/data/graph/live.json
 backend/data/graph/layout.json
 backend/data/snapshots/
 
-# Package installer state and backups
-.package-*-last-backup
+# -----------------------------------------------------------------------------
+# Local databases
+# -----------------------------------------------------------------------------
+
+*.db
+*.db-shm
+*.db-wal
+
+# -----------------------------------------------------------------------------
+# Installer state
+# -----------------------------------------------------------------------------
+
+.package-*-last-backup*
+packages/**/.last_backup_dir
+packages/**/.last-backup
+packages/**/.last_backup
+
+# -----------------------------------------------------------------------------
+# Development backups
+# -----------------------------------------------------------------------------
+
+*.before-*
+frontend/*.before-*
+frontend/css/*.before-*
+frontend/js/*.before-*
+
+# -----------------------------------------------------------------------------
+# Local backups
+# -----------------------------------------------------------------------------
+
 backups/
-packages/*/
+packages/backups/
+
+# -----------------------------------------------------------------------------
+# Package-local generated content
+# -----------------------------------------------------------------------------
+
 packages/backend/
 
-# Installer-created source backups
-*.before-*
+# -----------------------------------------------------------------------------
+# Operations runtime
+# -----------------------------------------------------------------------------
+
+backend/data/events/operations-state.json
+backend/data/events/operations-events.json
