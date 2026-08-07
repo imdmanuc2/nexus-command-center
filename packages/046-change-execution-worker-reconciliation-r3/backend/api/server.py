@@ -47,7 +47,6 @@ from backend.modules import platform_policies
 from backend.modules import platform_maintenance
 from backend.modules import platform_deployments
 from backend.modules import platform_operational_state
-from backend.modules import platform_operational_profile
 from backend.modules import platform_cmdb_lifecycle
 from backend.modules import platform_dependencies
 from backend.modules import platform_intelligence
@@ -61,9 +60,6 @@ from backend.modules import platform_change_execution
 from backend.modules import platform_nodes
 from backend.modules import metrics
 from backend.core.assets import update_asset
-from backend.modules import platform_change_rollback
-from backend.modules import platform_evidence
-from backend.modules import platform_verifications
 
 APP_NAME = "Nexus Command Center"
 
@@ -108,8 +104,6 @@ def json_response(payload, status=200):
         default=_json_default,
     ).encode("utf-8")
 
-
-from backend.api import seymour_registration_routes
 
 class NexusHandler(BaseHTTPRequestHandler):
     def _send_json(self, payload, status=200):
@@ -156,44 +150,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             self._send_json(payload, status)
 
     def do_GET(self):
-        if seymour_registration_routes.handle_get(self):
-            return
-
-        # Package 049: Operations Evidence & Timeline Integration
-        _evidence_url = urlparse(self.path)
-        _evidence_path = _evidence_url.path
-        _evidence_query = parse_qs(_evidence_url.query)
-
-        if _evidence_path == "/api/evidence":
-            status, payload = json_response(platform_evidence.evidence(_evidence_query))
-            return self._send_json(payload, status)
-
-        if _evidence_path == "/api/evidence/status":
-            status, payload = json_response(platform_evidence.status(_evidence_query))
-            return self._send_json(payload, status)
-
-        if _evidence_path == "/api/timeline/operations":
-            status, payload = json_response(platform_evidence.timeline(_evidence_query))
-            return self._send_json(payload, status)
-
-        if _evidence_path == "/api/recommendations/context":
-            status, payload = json_response(platform_evidence.recommendation_context(_evidence_query))
-            return self._send_json(payload, status)
-
-        if _evidence_path.startswith("/api/evidence/"):
-            _evidence_id = _evidence_path.removeprefix("/api/evidence/").strip("/")
-            if _evidence_id:
-                result = platform_evidence.evidence_detail(_evidence_id)
-                response_status = 404 if result.get("status") == "not-found" else 200
-                status, payload = json_response(result, response_status)
-                return self._send_json(payload, status)
-
-        if _evidence_path.startswith("/api/assets/") and _evidence_path.endswith("/operations"):
-            _asset_id = _evidence_path.removeprefix("/api/assets/").removesuffix("/operations").strip("/")
-            if _asset_id:
-                status, payload = json_response(platform_evidence.asset_operations(_asset_id, _evidence_query))
-                return self._send_json(payload, status)
-
         if self.path == "/" or self.path == "/index.html":
             return self._send_file("frontend/index.html", "text/html")
         if self.path == "/home-v2.html":
@@ -208,8 +164,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             return self._send_file("frontend/analytics.html", "text/html")
         if self.path == "/assets.html":
             return self._send_file("frontend/assets.html", "text/html")
-        if self.path == "/cmdb-object.html" or self.path.startswith("/cmdb-object.html?"):
-            return self._send_file("frontend/cmdb-object.html", "text/html")
         if self.path == "/pools.html":
             return self._send_file("frontend/pools.html", "text/html")
         if self.path == "/discovery.html":
@@ -226,7 +180,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             return self._send_file("frontend/deployments.html", "text/html")
         if self.path == "/operational-state.html":
             return self._send_file("frontend/operational-state.html", "text/html")
-        if self.path in {"/operations-center", "/operations-center.html"}:
+        if self.path == "/operations-center.html":
             return self._send_file(
                 "frontend/operations-center.html",
                 "text/html",
@@ -255,7 +209,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/cmdb/summary": cmdb.summary,
             "/api/platform/inventory": platform_inventory.summary,
             "/api/platform/relationships": platform.relationship_list,
-            "/api/platform/objects": platform.object_list,
             "/api/platform/workloads": platform.workload_list,
             "/api/platform/metrics/rollups": metrics.metric_rollups,
             "/api/platform/metrics/history": metrics.metric_history,
@@ -305,56 +258,11 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/operations": operations.available,
             "/api/mission/status": mission.status,
             "/api/timeline/latest": timeline.latest,
-            "/api/platform/dashboard-summary": platform.dashboard_summary,
             "/api/platform/home": platform.home,
-    "/api/change-rollbacks/status": platform_change_rollback.status,
-    "/api/change-rollbacks/history": platform_change_rollback.history,
         }
 
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
-
-        # PACKAGE-048-VERIFICATION-GET-BEGIN
-        if parsed.path == "/api/verifications/profiles":
-            try:
-                result = platform_verifications.profiles(query)
-                status, payload = json_response(result)
-            except Exception as exc:
-                status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(payload, status)
-
-        if parsed.path == "/api/verifications/runs":
-            try:
-                result = platform_verifications.runs(query)
-                status, payload = json_response(result)
-            except Exception as exc:
-                status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(payload, status)
-
-        if parsed.path.startswith("/api/verifications/runs/"):
-            run_id = parsed.path.rsplit("/", 1)[-1]
-            try:
-                result = platform_verifications.run_detail(run_id)
-                status, payload = json_response(result)
-            except LookupError as exc:
-                status, payload = json_response({"status": "error", "error": str(exc)}, 404)
-            except Exception as exc:
-                status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(payload, status)
-        # PACKAGE-048-VERIFICATION-GET-END
-
-        if parsed.path.startswith("/api/platform/objects/"):
-            parts = [part for part in parsed.path.split("/") if part]
-            if len(parts) >= 5:
-                object_type = parts[3]
-                object_id = "/".join(parts[4:])
-                try:
-                    result = platform.object_detail(object_type, object_id)
-                    response_status = 404 if result.get("status") == "not-found" else 200
-                    status, payload = json_response(result, response_status)
-                except Exception as exc:
-                    status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-                return self._send_json(payload, status)
 
         if parsed.path == "/api/health":
             try: status, payload = json_response(platform_service_operations.health())
@@ -485,15 +393,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             try: status, payload = json_response(platform_cmdb_lifecycle.history(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload,status)
-        if parsed.path == "/api/cmdb/operational-profile":
-            try:
-                status, payload = json_response(platform_operational_profile.asset(query))
-            except KeyError as exc:
-                status, payload = json_response({"status":"error","error":str(exc)},404)
-            except Exception as exc:
-                status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload, status)
-
         if parsed.path == "/api/platform/operational-state/assets":
             try:
                 status, payload = json_response(platform_operational_state.assets(query))
@@ -686,74 +585,7 @@ class NexusHandler(BaseHTTPRequestHandler):
         return self._send_json(payload, status)
 
     def do_POST(self):
-        if seymour_registration_routes.handle_post(self):
-            return
-
-        # PACKAGE-048-VERIFICATION-POST-BEGIN
-        verification_path = urlparse(self.path).path
-
-        if verification_path == "/api/verifications/profiles":
-            try:
-                result = platform_verifications.create_profile(self._read_json_body())
-                status, payload = json_response(result, 201)
-            except Exception as exc:
-                status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(payload, status)
-
-        if verification_path == "/api/verifications/run":
-            try:
-                result = platform_verifications.queue(self._read_json_body())
-                status, payload = json_response(result, 202)
-            except Exception as exc:
-                status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(payload, status)
-
-        if verification_path.startswith("/api/verifications/runs/") and verification_path.endswith("/retry"):
-            run_id = verification_path.removeprefix("/api/verifications/runs/").removesuffix("/retry").strip("/")
-            try:
-                result = platform_verifications.retry(run_id)
-                status, payload = json_response(result, 202)
-            except LookupError as exc:
-                status, payload = json_response({"status": "error", "error": str(exc)}, 404)
-            except Exception as exc:
-                status, payload = json_response({"status": "error", "error": str(exc)}, 400)
-            return self._send_json(payload, status)
-        # PACKAGE-048-VERIFICATION-POST-END
-
         parsed = urlparse(self.path)
-
-        # BEGIN PACKAGE 047 CHANGE ROLLBACK POST ROUTES
-        if parsed.path == "/api/change-rollbacks":
-            try:
-                result = platform_change_rollback.create(self._read_json_body())
-                status, payload = json_response(result, 201)
-            except Exception as exc:
-                status, payload = json_response(
-                    {"status": "error", "error": str(exc)}, 400
-                )
-            return self._send_json(payload, status)
-
-        if parsed.path == "/api/change-rollbacks/approve":
-            try:
-                result = platform_change_rollback.approve(self._read_json_body())
-                status, payload = json_response(result)
-            except Exception as exc:
-                status, payload = json_response(
-                    {"status": "error", "error": str(exc)}, 400
-                )
-            return self._send_json(payload, status)
-
-        if parsed.path == "/api/change-rollbacks/queue":
-            try:
-                result = platform_change_rollback.queue(self._read_json_body())
-                status, payload = json_response(result)
-            except Exception as exc:
-                status, payload = json_response(
-                    {"status": "error", "error": str(exc)}, 400
-                )
-            return self._send_json(payload, status)
-        # END PACKAGE 047 CHANGE ROLLBACK POST ROUTES
-
 
         if parsed.path == "/api/changes":
             try:
@@ -832,15 +664,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             except KeyError as exc: status,payload=json_response({"status":"error","error":str(exc)},404)
             except Exception as exc: status,payload=json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload,status)
-
-        if self.path == "/api/cmdb/operational-profile/update":
-            try:
-                status, payload = json_response(platform_operational_profile.update(self._read_json_body()))
-            except KeyError as exc:
-                status, payload = json_response({"status":"error","error":str(exc)},404)
-            except Exception as exc:
-                status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload, status)
 
         if self.path in {"/api/platform/operational-state/set", "/api/platform/operational-state/bulk-set"}:
             try:

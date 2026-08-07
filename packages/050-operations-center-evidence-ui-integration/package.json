@@ -1,0 +1,8 @@
+{
+  "package": "050-operations-center-evidence-ui-integration",
+  "version": "1.0.0",
+  "title": "Operations Center & Evidence UI Integration",
+  "requires": [
+    "049-operations-evidence-timeline-integration"
+  ]
+}

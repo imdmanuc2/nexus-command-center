@@ -1,0 +1,21 @@
+[Unit]
+Description=Nexus Verification Worker
+After=network-online.target postgresql.service nexus-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__NEXUS_USER__
+WorkingDirectory=__NEXUS_ROOT__
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=__NEXUS_ROOT__
+EnvironmentFile=-__NEXUS_ROOT__/backend/data/private/cmdb.env
+ExecStart=/usr/bin/python3 -m backend.jobs.verification_worker
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

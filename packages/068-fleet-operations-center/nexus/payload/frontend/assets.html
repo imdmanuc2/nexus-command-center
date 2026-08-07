@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nexus CMDB</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/cmdb-lifecycle.css">
+  <link rel="stylesheet" href="/css/cmdb-dependencies.css">
+  <link rel="stylesheet" href="/css/intelligence.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="nexus-page-shell">
+      <header class="cmdb-page-header">
+        <div>
+          <p class="cmdb-eyebrow">Nexus Platform</p>
+          <h1>Nexus CMDB</h1>
+          <p>Authoritative inventory, operational state, workloads, and infrastructure relationships.</p>
+        </div>
+        <div id="cmdbSourceState" class="cmdb-source-state">Loading source state…</div>
+      </header>
+
+      <nav id="topNav" class="nav"></nav>
+
+      <nav class="cmdb-section-nav" aria-label="CMDB sections">
+        <button class="cmdb-section-tab active" data-section="overview">Overview</button>
+        <button class="cmdb-section-tab" data-section="assets">CMDB Objects</button>
+        <button class="cmdb-section-tab" data-section="pools">Pools</button>
+        <button class="cmdb-section-tab" data-section="nodes">Blockchain Nodes</button>
+        <button class="cmdb-section-tab" data-section="services">Services</button>
+        <button class="cmdb-section-tab" data-section="workloads">Workloads</button>
+        <button class="cmdb-section-tab" data-section="relationships">Relationships</button>
+        <button class="cmdb-section-tab" data-section="discovery">Discovery</button>
+        <button class="cmdb-section-tab" data-section="audit">Audit</button>
+      </nav>
+
+      <section id="cmdbOverview" class="cmdb-section-panel active" data-panel="overview">
+        <section class="fleet-command-header" aria-labelledby="fleetOperationsTitle">
+          <div>
+            <p class="cmdb-eyebrow">Fleet Operations</p>
+            <h2 id="fleetOperationsTitle">Operational Fleet</h2>
+            <p>Find, assess, and open any managed object without losing the live operational picture.</p>
+          </div>
+          <div class="fleet-command-actions">
+            <button type="button" class="fleet-action-button" data-open-section="discovery">Discover</button>
+            <button type="button" class="fleet-action-button primary" data-open-section="assets">Open Inventory</button>
+          </div>
+        </section>
+
+        <div id="fleetSummaryCards" class="fleet-summary-grid">
+          <div class="fleet-summary-card fleet-loading-card">Loading fleet state…</div>
+        </div>
+
+        <section class="fleet-control-bar" aria-label="Fleet controls">
+          <div class="fleet-saved-views" id="fleetSavedViews">
+            <button type="button" class="fleet-view active" data-fleet-view="overview">Overview</button>
+            <button type="button" class="fleet-view" data-fleet-view="mining">Mining</button>
+            <button type="button" class="fleet-view" data-fleet-view="pools">Pools</button>
+            <button type="button" class="fleet-view" data-fleet-view="blockchain">Blockchain</button>
+            <button type="button" class="fleet-view" data-fleet-view="infrastructure">Infrastructure</button>
+            <button type="button" class="fleet-view" data-fleet-view="attention">Needs Attention</button>
+            <button type="button" class="fleet-view" data-fleet-view="maintenance">Maintenance</button>
+          </div>
+          <div class="fleet-search-wrap">
+            <label for="fleetSearch">Search fleet</label>
+            <input id="fleetSearch" type="search" placeholder="Name, IP, pool, coin, lifecycle…" autocomplete="off">
+          </div>
+        </section>
+
+        <div id="fleetQuickFilters" class="fleet-quick-filters" aria-label="Quick filters"></div>
+        <div id="fleetResultSummary" class="fleet-result-summary" aria-live="polite"></div>
+        <div id="fleetGroups" class="fleet-groups">
+          <div class="fleet-empty">Building fleet view…</div>
+        </div>
+
+        <div class="cmdb-overview-columns fleet-secondary-overview">
+          <article class="cmdb-overview-panel">
+            <div class="cmdb-panel-heading"><h2>Inventory Mix</h2><button data-open-section="assets">View CMDB objects</button></div>
+            <div id="cmdbInventorySnapshot" class="cmdb-snapshot-list">Loading…</div>
+          </article>
+          <article class="cmdb-overview-panel">
+            <div class="cmdb-panel-heading"><h2>Live Relationships</h2><button data-open-section="relationships">View relationships</button></div>
+            <div id="cmdbRelationshipSnapshot" class="cmdb-snapshot-list">Loading…</div>
+          </article>
+        </div>
+        <div id="cmdbOverviewCards" class="cmdb-overview-grid fleet-legacy-summary" hidden></div>
+      </section>
+
+      <section class="cmdb-section-panel" data-panel="assets">
+        <div class="cmdb-section-heading"><div><p class="cmdb-eyebrow">Inventory</p><h2>CMDB Objects</h2><p>One authoritative record per physical or virtual asset.</p></div></div>
+        <section class="assets-toolbar">
+          <div class="asset-search-wrap">
+            <label for="assetSearch">Search CMDB</label>
+            <input id="assetSearch" class="asset-search" placeholder="Search name, IP, worker, pool, model, tags..." autocomplete="off">
+          </div>
+          <div class="asset-filter-pills">
+            <button class="asset-filter active" data-filter="all">All</button>
+            <button class="asset-filter" data-filter="asic">ASICs</button>
+            <button class="asset-filter" data-filter="pool-host">Pool Hosts</button>
+            <button class="asset-filter" data-filter="blockchain-node">Nodes</button>
+            <button class="asset-filter" data-filter="unassigned">Unassigned</button>
+            <button class="asset-filter" data-filter="favorite">Favorites</button>
+          </div>
+        </section>
+        <section id="assetSummary" class="asset-summary-grid"></section>
+        <section id="assetsList" class="inventory-grid">Loading assets…</section>
+      </section>
+
+      <section class="cmdb-section-panel" data-panel="pools"><div class="cmdb-section-heading"><div><p class="cmdb-eyebrow">Mining Infrastructure</p><h2>Pools</h2><p>Pool instances, connected workers, hosts, ports, and blockchain dependencies.</p></div></div><div id="cmdbPoolsList" class="cmdb-object-grid">Loading pools…</div></section>
+      <section class="cmdb-section-panel" data-panel="nodes"><div class="cmdb-section-heading"><div><p class="cmdb-eyebrow">Blockchain Infrastructure</p><h2>Blockchain Nodes</h2><p>Nodes supporting pool and workload operations.</p></div></div><div id="cmdbNodesList" class="cmdb-object-grid">Loading nodes…</div></section>
+      <section class="cmdb-section-panel" data-panel="services"><div class="cmdb-section-heading"><div><p class="cmdb-eyebrow">Service Inventory</p><h2>Services</h2><p>Discovered APIs, RPC endpoints, Stratum listeners, and managed services.</p></div></div><div id="cmdbServicesList" class="cmdb-object-grid">Loading services…</div></section>
+      <section class="cmdb-section-panel" data-panel="workloads"><div class="cmdb-section-heading"><div><p class="cmdb-eyebrow">Operational Assignments</p><h2>Workloads</h2><p>Current mining, compute, and future AI workloads assigned to CMDB assets.</p></div></div><div id="cmdbWorkloadsList" class="cmdb-object-grid">Loading workloads…</div></section>
+      <section class="cmdb-section-panel" data-panel="relationships"><div class="cmdb-section-heading"><div><p class="cmdb-eyebrow">Dependency Model</p><h2>Relationships</h2><p>Authoritative asset, worker, pool, node, service, and workload connections.</p></div></div><div id="cmdbRelationshipsList" class="cmdb-relationship-table">Loading relationships…</div></section>
+      <section class="cmdb-section-panel" data-panel="discovery"><div class="cmdb-section-heading"><div><p class="cmdb-eyebrow">Onboarding</p><h2>Discovery</h2><p>Observed devices and services awaiting classification or reconciliation.</p></div></div><div id="cmdbDiscoveryList" class="cmdb-object-grid">Loading discovery…</div></section>
+      <section class="cmdb-section-panel" data-panel="audit"><div class="cmdb-section-heading"><div><p class="cmdb-eyebrow">Governance</p><h2>Audit</h2><p>Recent CMDB changes and lifecycle history.</p></div></div><div id="cmdbAuditList" class="cmdb-audit-list">Loading audit history…</div></section>
+    </div>
+  </main>
+
+  <aside id="drawer" class="drawer"><button id="drawerClose" class="drawer-close">×</button><div id="drawerContent"></div></aside>
+  <div id="drawerBackdrop" class="drawer-backdrop"></div>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/assets.js"></script>
+  <script>renderNav("CMDB");</script>
+  <script src="/js/mission.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[Unit]
+Description=Nexus Change Rollback Worker
+After=network-online.target postgresql.service nexus-api.service
+Wants=network-online.target
+[Service]
+Type=simple
+User=__SERVICE_USER__
+WorkingDirectory=__ROOT__
+Environment=PYTHONPATH=__ROOT__
+EnvironmentFile=__ROOT__/backend/data/private/cmdb.env
+ExecStart=__PYTHON__ -m backend.jobs.change_rollback_worker
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+[Install]
+WantedBy=multi-user.target

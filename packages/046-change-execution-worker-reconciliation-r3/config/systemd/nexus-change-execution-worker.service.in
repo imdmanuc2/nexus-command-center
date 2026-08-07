@@ -1,0 +1,19 @@
+[Unit]
+Description=Nexus Change Execution Worker
+After=network-online.target postgresql.service nexus-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__SERVICE_USER__
+WorkingDirectory=__ROOT__
+EnvironmentFile=-__ROOT__/backend/data/private/cmdb.env
+Environment=PYTHONPATH=__ROOT__
+ExecStart=__PYTHON__ -m backend.jobs.change_execution_worker
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

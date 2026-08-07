@@ -1,0 +1,9 @@
+{
+  "package": "SBP-017",
+  "name": "Nexus Registration Receiver & CMDB Ingestion",
+  "targetRepository": "nexus-command-center",
+  "targetBranch": "feature/discovery-engine-v2",
+  "requires": {
+    "umbrelPackage": "SBP-016"
+  }
+}

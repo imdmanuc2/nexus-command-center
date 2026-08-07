@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nexus CMDB Object</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/cmdb-object.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="nexus-page-shell cmdb-object-shell">
+      <header class="cmdb-object-header">
+        <div class="cmdb-object-heading">
+          <nav class="cmdb-breadcrumbs" aria-label="Breadcrumb">
+            <a href="/assets.html">CMDB</a><span>›</span><span id="breadcrumbType">Object</span><span>›</span><strong id="breadcrumbName">Loading…</strong>
+          </nav>
+          <p class="cmdb-eyebrow">Infrastructure Digital Twin</p>
+          <h1 id="objectName">Loading object…</h1>
+          <p id="objectSubtitle">Resolving authoritative PostgreSQL record.</p>
+          <div id="objectHeaderFacts" class="cmdb-header-facts"></div>
+        </div>
+        <div class="cmdb-object-actions">
+          <span id="objectHealth" class="cmdb-state-pill neutral">HEALTH UNKNOWN</span>
+          <span id="objectStatus" class="cmdb-state-pill neutral">UNKNOWN</span>
+          <a href="/assets.html" class="cmdb-back-link">Back to CMDB</a>
+        </div>
+      </header>
+
+      <nav id="topNav" class="nav"></nav>
+      <section id="objectError" class="cmdb-object-error" hidden></section>
+
+      <section id="objectContent" class="cmdb-twin-layout" hidden>
+        <div class="cmdb-twin-column cmdb-twin-column-static">
+          <article class="cmdb-card">
+            <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Identity</p><h2>Object Record</h2></div></div>
+            <dl id="objectDetails" class="cmdb-detail-grid cmdb-detail-grid-single"></dl>
+          </article>
+
+          <article class="cmdb-card cmdb-profile-panel">
+            <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Intent</p><h2>Operational Profile</h2></div></div>
+            <form id="operationalProfileForm" class="cmdb-profile-form">
+              <label class="cmdb-span-2">Mission<input id="profileMission" type="text" placeholder="Primary BTC production"></label>
+              <label class="cmdb-span-2">Operational Role<input id="profileRole" type="text" placeholder="Production ASIC miner"></label>
+              <label>Management<select id="profileManagement"><option value="nexus-managed">Nexus Managed</option><option value="customer-managed">Customer Managed</option><option value="observed">Observed Only</option></select></label>
+              <label>Lifecycle<select id="profileLifecycle"><option value="discovered">Discovered</option><option value="provisioning">Building / Provisioning</option><option value="commissioning">Commissioning</option><option value="production">Production</option><option value="maintenance">Maintenance</option><option value="decommissioning">Decommissioning</option><option value="retired">Retired</option></select></label>
+              <label>Desired State<select id="profileDesired"><option value="automatic">Automatic</option><option value="running">Running</option><option value="stopped">Stopped</option><option value="maintenance">Maintenance</option><option value="draining">Draining</option><option value="disabled">Disabled</option></select></label>
+              <label>Observed State<input id="profileObserved" type="text" readonly title="Computed from live telemetry"></label>
+              <label>Health<select id="profileHealth"><option value="healthy">Healthy</option><option value="warning">Warning</option><option value="critical">Critical</option><option value="unknown">Unknown</option></select></label>
+              <label>Connectivity<select id="profileConnectivity"><option value="connected">Connected</option><option value="disconnected">Disconnected</option><option value="intermittent">Intermittent</option><option value="unknown">Unknown</option></select></label>
+              <label class="cmdb-span-2">Change reason<input id="profileReason" type="text" placeholder="Operator update"></label>
+              <div class="cmdb-profile-submit cmdb-span-2"><button type="submit">Save Operational Profile</button><span id="profileMessage" role="status"></span></div>
+            </form>
+          </article>
+        </div>
+
+        <div class="cmdb-twin-column cmdb-twin-column-live">
+          <article class="cmdb-card cmdb-live-card">
+            <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Live Operations</p><h2>Current State</h2></div><span id="liveStateBadge">LIVE</span></div>
+            <div id="liveOperations" class="cmdb-metric-grid"></div>
+          </article>
+
+          <article class="cmdb-card">
+            <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Trust</p><h2>Health & Connectivity</h2></div></div>
+            <div id="healthSummary" class="cmdb-health-grid"></div>
+          </article>
+
+          <article class="cmdb-card">
+            <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Activity</p><h2>Recent Timeline</h2></div></div>
+            <div id="objectTimeline" class="cmdb-timeline"></div>
+          </article>
+        </div>
+
+        <aside class="cmdb-twin-column cmdb-twin-column-actions">
+          <article class="cmdb-card">
+            <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Operational Graph</p><h2>Relationships</h2></div><span id="relationshipCount">0</span></div>
+            <div id="objectRelationships" class="cmdb-object-relationships"></div>
+          </article>
+
+          <article class="cmdb-card">
+            <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Control</p><h2>Operations</h2></div></div>
+            <div id="objectOperations" class="cmdb-operation-grid"></div>
+            <p class="cmdb-operation-note">Actions open the Infrastructure Explorer or Operations Center with this object as the target.</p>
+          </article>
+        </aside>
+      </section>
+
+      <section id="rawSection" class="cmdb-object-raw" hidden>
+        <details><summary>Raw authoritative record</summary><pre id="objectRaw"></pre></details>
+      </section>
+    </div>
+  </main>
+  <script src="/js/nav.js"></script>
+  <script src="/js/cmdb-object.js"></script>
+  <script>renderNav("CMDB");</script>
+</body>
+</html>

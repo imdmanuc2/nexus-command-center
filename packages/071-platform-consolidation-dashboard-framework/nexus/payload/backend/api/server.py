@@ -109,8 +109,6 @@ def json_response(payload, status=200):
     ).encode("utf-8")
 
 
-from backend.api import seymour_registration_routes
-
 class NexusHandler(BaseHTTPRequestHandler):
     def _send_json(self, payload, status=200):
         self.send_response(status)
@@ -156,9 +154,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             self._send_json(payload, status)
 
     def do_GET(self):
-        if seymour_registration_routes.handle_get(self):
-            return
-
         # Package 049: Operations Evidence & Timeline Integration
         _evidence_url = urlparse(self.path)
         _evidence_path = _evidence_url.path
@@ -686,9 +681,6 @@ class NexusHandler(BaseHTTPRequestHandler):
         return self._send_json(payload, status)
 
     def do_POST(self):
-        if seymour_registration_routes.handle_post(self):
-            return
-
         # PACKAGE-048-VERIFICATION-POST-BEGIN
         verification_path = urlparse(self.path).path
 

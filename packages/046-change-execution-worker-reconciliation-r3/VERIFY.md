@@ -1,0 +1,1 @@
+Run `scripts/doctor.sh`, `scripts/install.sh`, and `scripts/verify.sh` in order. Commit only after `Package 046 verified.`

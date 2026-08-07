@@ -1,0 +1,13 @@
+{
+  "package": "048",
+  "name": "verification-framework-evidence-engine",
+  "title": "Verification Framework & Evidence Engine",
+  "version": "1.0.1",
+  "requires": [
+    "047-change-rollback-orchestration-recovery"
+  ],
+  "migration": "037_verification_framework_evidence_engine.sql",
+  "revision": "R2",
+  "runtime": "/usr/bin/python3",
+  "apiFramework": "Nexus ThreadingHTTPServer"
+}

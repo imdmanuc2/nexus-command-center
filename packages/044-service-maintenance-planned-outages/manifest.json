@@ -1,0 +1,10 @@
+{
+  "package": "044-service-maintenance-planned-outages",
+  "version": "1.0.0",
+  "migration": "033_service_maintenance_planned_outages.sql",
+  "dependsOn": [
+    "032-maintenance-windows",
+    "043-service-dependency-impact-analysis"
+  ],
+  "description": "Business-service maintenance planning, impact preview, lifecycle history, and planned-outage operations UI."
+}

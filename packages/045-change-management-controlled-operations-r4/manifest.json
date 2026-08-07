@@ -1,0 +1,18 @@
+{
+  "package": "045-change-management-controlled-operations",
+  "version": "1.3.0",
+  "migration": "034_change_management_controlled_operations.sql",
+  "dependsOn": [
+    "043-service-dependency-impact-analysis",
+    "044-service-maintenance-planned-outages",
+    "004-operations-queue",
+    "019-managed-host-capabilities"
+  ],
+  "description": "Auditable change requests, approvals, impact snapshots, maintenance gates, Operations Engine queue handoff, and rollback orchestration.",
+  "revision": 4,
+  "compatibility": {
+    "operationQueue": "optional",
+    "behaviorWithoutQueue": "execution-deferred",
+    "jsonRequestBodyHelper": "included"
+  }
+}

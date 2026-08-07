@@ -1,0 +1,21 @@
+.cmdb-object-shell{min-height:calc(100vh - 40px)}
+.cmdb-object-header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding:28px;border:1px solid rgba(96,165,250,.25);border-radius:20px;background:linear-gradient(145deg,rgba(10,31,59,.96),rgba(5,18,36,.97));margin-bottom:14px}
+.cmdb-object-header h1{margin:6px 0 8px;font-size:clamp(2rem,4vw,3.4rem)}
+.cmdb-breadcrumbs{display:flex;align-items:center;gap:8px;color:#7fa7cc;font-size:.75rem}.cmdb-breadcrumbs a{color:#8fc8ff;text-decoration:none}.cmdb-breadcrumbs strong{color:#d9ecff}
+.cmdb-object-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.cmdb-back-link{padding:10px 14px;border:1px solid rgba(96,165,250,.28);border-radius:10px;color:#b9dcff;text-decoration:none;background:rgba(7,22,43,.8)}
+.cmdb-object-layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(320px,.8fr);gap:16px;margin-top:18px}.cmdb-object-main,.cmdb-object-sidebar,.cmdb-object-raw{padding:20px;border:1px solid rgba(96,165,250,.2);border-radius:18px;background:linear-gradient(145deg,rgba(9,28,53,.95),rgba(5,17,34,.96))}
+.cmdb-object-section-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px}.cmdb-object-section-heading h2{margin:0}.cmdb-object-section-heading>span{display:inline-flex;min-width:32px;height:32px;align-items:center;justify-content:center;border-radius:999px;background:rgba(96,165,250,.12);color:#9fd0ff;font-weight:900}
+.cmdb-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}.cmdb-detail-grid>div{padding:13px;border:1px solid rgba(96,165,250,.13);border-radius:12px;background:rgba(3,14,29,.55)}.cmdb-detail-grid dt{color:#7096ba;font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}.cmdb-detail-grid dd{margin:6px 0 0;color:#e7f4ff;font-weight:750;overflow-wrap:anywhere}
+.cmdb-object-relationships{display:grid;gap:10px}.cmdb-relationship-card{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid rgba(96,165,250,.17);border-radius:13px;background:rgba(4,16,32,.7);text-decoration:none;transition:.15s ease}.cmdb-relationship-card:hover{transform:translateY(-1px);border-color:rgba(96,165,250,.48);box-shadow:0 10px 24px rgba(0,0,0,.22)}.cmdb-relationship-card span{color:#65d7ef;font-size:.65rem;text-transform:uppercase;letter-spacing:.06em}.cmdb-relationship-card strong{color:#e7f4ff}.cmdb-relationship-card small{color:#7899b8}.cmdb-relationship-card em{color:#86efac;font-size:.68rem;font-style:normal}
+.cmdb-object-error,.cmdb-object-empty{padding:20px;border:1px solid rgba(251,113,133,.3);border-radius:14px;background:rgba(79,15,28,.26);color:#fecdd3}.cmdb-object-raw{margin-top:16px}.cmdb-object-raw summary{cursor:pointer;color:#9fd0ff;font-weight:800}.cmdb-object-raw pre{max-height:520px;overflow:auto;white-space:pre-wrap;color:#b9d9f5;background:#020b16;padding:14px;border-radius:10px}
+.cmdb-object-link{text-decoration:none;color:inherit;display:block}.cmdb-open-object{display:inline-flex;margin-top:14px;color:#7dd3fc;font-size:.72rem;font-weight:800}.cmdb-rel-row a,.cmdb-snapshot-list a{color:#8fc8ff;text-decoration:none}.cmdb-rel-row a:hover,.cmdb-snapshot-list a:hover{text-decoration:underline}
+@media(max-width:900px){.cmdb-object-header{flex-direction:column}.cmdb-object-layout{grid-template-columns:1fr}.cmdb-detail-grid{grid-template-columns:1fr}}
+
+.cmdb-profile-panel { grid-column: 1; }
+.cmdb-profile-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.cmdb-profile-form label { display:grid; gap:6px; font-size:.78rem; color:var(--muted); }
+.cmdb-profile-form input,.cmdb-profile-form select { width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.72); color:var(--text); }
+.cmdb-profile-form button { justify-self:start; padding:10px 14px; border-radius:8px; border:1px solid rgba(34,211,238,.35); background:rgba(6,182,212,.16); color:#cffafe; cursor:pointer; }
+.cmdb-profile-reason { grid-column:1 / -1; }
+#profileMessage { align-self:center; color:#86efac; }
+@media (max-width:760px){.cmdb-profile-form{grid-template-columns:1fr}}

@@ -1,0 +1,1 @@
+{"package":"047-change-rollback-orchestration-recovery","version":"1.0.0","migration":"036_change_rollback_orchestration_recovery.sql","requires":["045-change-management-controlled-operations","046-change-execution-worker-reconciliation"],"provides":["rollback plans","rollback approvals","rollback execution worker","rollback verification","manual recovery reconciliation"]}

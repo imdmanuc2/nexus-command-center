@@ -1,0 +1,21 @@
+[Unit]
+Description=Nexus Operation Evidence Worker
+After=network-online.target postgresql.service nexus-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=imdmanuc
+WorkingDirectory=/home/imdmanuc/Projects/Seymour/nexus-command-center
+Environment=PYTHONPATH=/home/imdmanuc/Projects/Seymour/nexus-command-center
+EnvironmentFile=-/home/imdmanuc/Projects/Seymour/nexus-command-center/backend/data/private/cmdb.env
+Environment=NEXUS_EVIDENCE_INTERVAL_SECONDS=30
+ExecStart=/usr/bin/python3 -m backend.jobs.operation_evidence_worker
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

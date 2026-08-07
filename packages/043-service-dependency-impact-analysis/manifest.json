@@ -1,0 +1,1 @@
+{"package":"043-service-dependency-impact-analysis","migration":"032_service_dependency_impact_analysis.sql","requires":"042-business-service-membership-reconciliation"}

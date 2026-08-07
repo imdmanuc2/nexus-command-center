@@ -1,0 +1,15 @@
+{
+  "package": "047-change-rollback-orchestration-recovery",
+  "revision": "r4",
+  "type": "corrective-overlay",
+  "requires": [
+    "Package 047 R3 or R3.1 installed",
+    "Package 028 local transport"
+  ],
+  "changes": [
+    "authorized nexus-local verification target",
+    "assetId propagation",
+    "asynchronous worker polling",
+    "current-schema lifecycle assertions"
+  ]
+}

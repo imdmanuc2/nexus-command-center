@@ -1,0 +1,7 @@
+{
+  "package": "049-operations-evidence-timeline-integration",
+  "version": "1.0.0",
+  "title": "Operations Evidence & Timeline Integration",
+  "migration": "038_operations_evidence_timeline.sql",
+  "service": "nexus-operation-evidence-worker.service"
+}

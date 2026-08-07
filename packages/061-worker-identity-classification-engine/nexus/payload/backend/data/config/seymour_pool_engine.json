@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "host": "192.168.1.169",
+  "hostAssetId": "asset-82ac3c36",
+  "apiPort": 8561,
+  "stratumPort": 3336,
+  "poolId": "seymour-btc-solo",
+  "nativePoolId": "btc-solo",
+  "name": "Seymour Bitcoin Solo",
+  "blockchainAssetId": "asset-82ac3c36",
+  "activeRecencySeconds": 300,
+  "workerAssetMappings": {
+    "001": "asset-28a5a306",
+    "002": "asset-b63808dd",
+    "cpu01": "asset-bab403ab",
+    "192.168.1.161": "asset-bab403ab"
+  }
+}

@@ -47,7 +47,6 @@ from backend.modules import platform_policies
 from backend.modules import platform_maintenance
 from backend.modules import platform_deployments
 from backend.modules import platform_operational_state
-from backend.modules import platform_operational_profile
 from backend.modules import platform_cmdb_lifecycle
 from backend.modules import platform_dependencies
 from backend.modules import platform_intelligence
@@ -109,8 +108,6 @@ def json_response(payload, status=200):
     ).encode("utf-8")
 
 
-from backend.api import seymour_registration_routes
-
 class NexusHandler(BaseHTTPRequestHandler):
     def _send_json(self, payload, status=200):
         self.send_response(status)
@@ -156,9 +153,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             self._send_json(payload, status)
 
     def do_GET(self):
-        if seymour_registration_routes.handle_get(self):
-            return
-
         # Package 049: Operations Evidence & Timeline Integration
         _evidence_url = urlparse(self.path)
         _evidence_path = _evidence_url.path
@@ -305,7 +299,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/operations": operations.available,
             "/api/mission/status": mission.status,
             "/api/timeline/latest": timeline.latest,
-            "/api/platform/dashboard-summary": platform.dashboard_summary,
             "/api/platform/home": platform.home,
     "/api/change-rollbacks/status": platform_change_rollback.status,
     "/api/change-rollbacks/history": platform_change_rollback.history,
@@ -485,15 +478,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             try: status, payload = json_response(platform_cmdb_lifecycle.history(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload,status)
-        if parsed.path == "/api/cmdb/operational-profile":
-            try:
-                status, payload = json_response(platform_operational_profile.asset(query))
-            except KeyError as exc:
-                status, payload = json_response({"status":"error","error":str(exc)},404)
-            except Exception as exc:
-                status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload, status)
-
         if parsed.path == "/api/platform/operational-state/assets":
             try:
                 status, payload = json_response(platform_operational_state.assets(query))
@@ -686,9 +670,6 @@ class NexusHandler(BaseHTTPRequestHandler):
         return self._send_json(payload, status)
 
     def do_POST(self):
-        if seymour_registration_routes.handle_post(self):
-            return
-
         # PACKAGE-048-VERIFICATION-POST-BEGIN
         verification_path = urlparse(self.path).path
 
@@ -832,15 +813,6 @@ class NexusHandler(BaseHTTPRequestHandler):
             except KeyError as exc: status,payload=json_response({"status":"error","error":str(exc)},404)
             except Exception as exc: status,payload=json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload,status)
-
-        if self.path == "/api/cmdb/operational-profile/update":
-            try:
-                status, payload = json_response(platform_operational_profile.update(self._read_json_body()))
-            except KeyError as exc:
-                status, payload = json_response({"status":"error","error":str(exc)},404)
-            except Exception as exc:
-                status, payload = json_response({"status":"error","error":str(exc)},400)
-            return self._send_json(payload, status)
 
         if self.path in {"/api/platform/operational-state/set", "/api/platform/operational-state/bulk-set"}:
             try:

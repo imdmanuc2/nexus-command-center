@@ -1,0 +1,108 @@
+"""Canonical operational state reconciliation for Nexus CMDB objects."""
+from __future__ import annotations
+
+from typing import Any
+
+from backend.db.connection import transaction
+from backend.db.repositories.asset_repository import list_assets
+from backend.db.repositories.blockchain_repository import list_blockchain_nodes
+from backend.db.repositories.pool_repository import list_pools
+from backend.db.repositories.worker_repository import list_active_workers
+
+
+def reconcile_operational_state() -> dict[str, Any]:
+    """Project current observations into canonical CMDB object state.
+
+    Collectors own facts. This engine owns the operator-facing observed state.
+    """
+    assets = list_assets()
+    workers = list_active_workers()
+    pools = list_pools()
+    blockchain_nodes = list_blockchain_nodes()
+
+    active_by_asset: dict[str, dict[str, Any]] = {}
+    for worker in workers:
+        asset_id = str(worker.get("assetId") or "").strip()
+        if not asset_id:
+            continue
+        current = active_by_asset.get(asset_id)
+        if current is None or float(worker.get("currentHashrate") or 0) > float(current.get("currentHashrate") or 0):
+            active_by_asset[asset_id] = worker
+
+    node_by_asset = {
+        str(node.get("assetId") or node.get("nodeId") or ""): node
+        for node in blockchain_nodes
+        if node.get("assetId") or node.get("nodeId")
+    }
+
+    asset_updates = 0
+    with transaction() as connection:
+        with connection.cursor() as cursor:
+            for asset in assets:
+                asset_id = str(asset.get("id") or asset.get("assetId") or "").strip()
+                if not asset_id:
+                    continue
+                asset_type = str(asset.get("assetType") or asset.get("type") or "").lower()
+                worker = active_by_asset.get(asset_id)
+                node = node_by_asset.get(asset_id)
+
+                if worker:
+                    phase = str((worker.get("observedState") or {}).get("phase") or "").lower()
+                    hashrate = float(worker.get("currentHashrate") or 0)
+                    if hashrate > 0 or phase in {"submitting-shares", "stable"}:
+                        observed = "mining"
+                    elif phase == "hashrate-stabilizing":
+                        observed = "hashrate-stabilizing"
+                    elif phase in {"connected", "authorized", "receiving-jobs"}:
+                        observed = "connected"
+                    else:
+                        observed = "idle"
+                    health = "healthy" if str(worker.get("status") or "").lower() == "online" else "warning"
+                    connectivity = "connected" if worker.get("connectionConfirmed") or worker.get("telemetryAvailable") else "intermittent"
+                elif node:
+                    sync = float(node.get("syncPercent") or 0)
+                    rpc = bool(node.get("rpcConnected"))
+                    observed = "synchronized" if sync >= 99.99 and rpc else "synchronizing" if rpc else "offline"
+                    health = "healthy" if observed == "synchronized" else "warning" if rpc else "critical"
+                    connectivity = "connected" if rpc else "disconnected"
+                elif asset_type in {"asic", "miner", "mining-worker"}:
+                    observed, health, connectivity = "idle", "unknown", "unknown"
+                else:
+                    continue
+
+                cursor.execute(
+                    """
+                    UPDATE nexus.assets
+                    SET observed_operational_mode = %s,
+                        health_state = %s,
+                        connectivity_state = %s,
+                        updated_at = NOW()
+                    WHERE asset_id = %s
+                    """,
+                    (observed, health, connectivity, asset_id),
+                )
+                asset_updates += cursor.rowcount
+
+    pool_states = []
+    for pool in pools:
+        observed = pool.get("observedState") or {}
+        worker_count = int(pool.get("onlineWorkerCount") or observed.get("activeWorkers") or 0)
+        hashrate = float(pool.get("currentHashrate") or observed.get("hashrate") or 0)
+        if str(pool.get("status") or "").lower() in {"offline", "down", "error"}:
+            state = "offline"
+        elif worker_count > 0 and hashrate > 0:
+            state = "accepting-shares"
+        elif worker_count > 0:
+            state = "hashrate-stabilizing"
+        else:
+            state = "idle"
+        pool_states.append({"poolId": pool.get("poolId"), "observedOperationalState": state, "hashrate": hashrate, "activeWorkers": worker_count})
+
+    return {
+        "status": "ok",
+        "source": "nexus-operational-state-engine",
+        "assetsUpdated": asset_updates,
+        "activeMiningAssets": len(active_by_asset),
+        "poolsEvaluated": len(pool_states),
+        "poolStates": pool_states,
+    }

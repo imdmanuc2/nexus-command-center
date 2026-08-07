@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nexus CMDB Object</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/cmdb-object.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="nexus-page-shell cmdb-object-shell">
+      <header class="cmdb-object-header">
+        <div>
+          <nav class="cmdb-breadcrumbs" aria-label="Breadcrumb">
+            <a href="/assets.html">CMDB</a><span>›</span><span id="breadcrumbType">Object</span><span>›</span><strong id="breadcrumbName">Loading…</strong>
+          </nav>
+          <p class="cmdb-eyebrow">Canonical CMDB Object</p>
+          <h1 id="objectName">Loading object…</h1>
+          <p id="objectSubtitle">Resolving authoritative PostgreSQL record.</p>
+        </div>
+        <div class="cmdb-object-actions">
+          <span id="objectStatus" class="cmdb-state-pill neutral">UNKNOWN</span>
+          <a href="/assets.html" class="cmdb-back-link">Back to CMDB</a>
+        </div>
+      </header>
+
+      <nav id="topNav" class="nav"></nav>
+
+      <section id="objectError" class="cmdb-object-error" hidden></section>
+
+      <section id="objectContent" class="cmdb-object-layout" hidden>
+        <article class="cmdb-object-main">
+          <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Identity</p><h2>Overview</h2></div></div>
+          <dl id="objectDetails" class="cmdb-detail-grid"></dl>
+        </article>
+
+        <aside class="cmdb-object-sidebar">
+          <div class="cmdb-object-section-heading"><div><p class="cmdb-eyebrow">Operational Graph</p><h2>Relationships</h2></div><span id="relationshipCount">0</span></div>
+          <div id="objectRelationships" class="cmdb-object-relationships"></div>
+        </aside>
+      </section>
+
+      <section id="rawSection" class="cmdb-object-raw" hidden>
+        <details>
+          <summary>Raw authoritative record</summary>
+          <pre id="objectRaw"></pre>
+        </details>
+      </section>
+    </div>
+  </main>
+  <script src="/js/nav.js"></script>
+  <script src="/js/cmdb-object.js"></script>
+  <script>renderNav("CMDB");</script>
+</body>
+</html>

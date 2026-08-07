@@ -1,0 +1,20 @@
+{
+  "package": "046-change-execution-worker-reconciliation",
+  "version": "1.2.0",
+  "migration": "035_change_execution_worker_reconciliation.sql",
+  "requires": [
+    "004 Operations Queue",
+    "019 Managed Host Capabilities",
+    "045 Change Management"
+  ],
+  "services": [
+    "nexus-change-execution-worker.service"
+  ],
+  "revision": 3,
+  "provides": [
+    "nexus.operation_queue",
+    "nexus.operation_queue_events",
+    "change execution worker",
+    "execution reconciliation APIs"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "package": "047-change-rollback-orchestration-recovery",
+  "version": "1.1.0",
+  "migration": "036_change_rollback_orchestration_recovery.sql",
+  "requires": [
+    "045-change-management-controlled-operations",
+    "046-change-execution-worker-reconciliation"
+  ],
+  "provides": [
+    "rollback plans",
+    "rollback approvals",
+    "rollback execution worker",
+    "rollback verification",
+    "manual recovery reconciliation"
+  ],
+  "revision": 2,
+  "fixes": [
+    "AST-based server route insertion",
+    "saved-file route verification",
+    "installer failure when route registration is incomplete"
+  ]
+}
