@@ -9,7 +9,12 @@ STATUS_PATH="/api/integrations/seymour/registration/status"
 
 def handle_get(handler) -> bool:
     if urlparse(handler.path).path != STATUS_PATH: return False
-    handler._send_json(seymour_registration_service.status())
+    payload = json.dumps(
+        seymour_registration_service.status(),
+        default=str,
+    ).encode("utf-8")
+
+    handler._send_json(payload)
     return True
 
 
@@ -27,5 +32,12 @@ def handle_post(handler) -> bool:
         handler.headers.get("Authorization",""),
         handler.headers.get("Idempotency-Key",""),
     )
-    handler._send_json(result,status)
+    payload_bytes = json.dumps(
+        result
+    ).encode("utf-8")
+
+    handler._send_json(
+        payload_bytes,
+        status,
+    )
     return True

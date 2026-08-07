@@ -4,6 +4,7 @@ from typing import Any
 from uuid import uuid4
 from psycopg.types.json import Jsonb
 from backend.db.connection import transaction
+from backend.db.repositories import seymour_telemetry_repository
 
 
 def _hash(payload: dict[str, Any]) -> str:
@@ -168,6 +169,11 @@ def ingest(payload: dict[str, Any], idempotency_key: str) -> dict[str, Any]:
                 if str(existing["payload_hash"])!=digest:
                     raise ValueError("Idempotency key or registrationId reused with different payload.")
                 result=existing["result"] or {}
+                seymour_telemetry_repository.project_document(cur, document)
+                cur.execute(
+                    "UPDATE nexus.seymour_registrations SET last_seen_at=NOW() WHERE registration_id=%s",
+                    (registration_id,),
+                )
                 return {**result,"duplicate":True,"registrationId":registration_id}
             for asset in assets:
                 if not isinstance(asset,dict) or not asset.get("assetId"): continue
@@ -177,11 +183,14 @@ def ingest(payload: dict[str, Any], idempotency_key: str) -> dict[str, Any]:
                     node_ids.append(aid); _upsert_node(cur,asset)
             for rel in document.get("relationships",[]):
                 if isinstance(rel,dict): _upsert_relationship(cur,rel)
+            metrics_written = seymour_telemetry_repository.project_document(cur, document)
+
             result={
                 "status":"accepted","registrationId":registration_id,
                 "managerAssetId":manager_id,"nodeAssetIds":node_ids,
                 "assetCount":len([x for x in assets if isinstance(x,dict) and x.get("assetId")]),
                 "relationshipCount":len([x for x in document.get("relationships",[]) if isinstance(x,dict)]),
+                "metricsWritten":metrics_written,
                 "duplicate":False,
             }
             cur.execute("""

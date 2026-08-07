@@ -110,6 +110,7 @@ def json_response(payload, status=200):
 
 
 from backend.api import seymour_registration_routes
+from backend.api import seymour_telemetry_routes
 
 class NexusHandler(BaseHTTPRequestHandler):
     def _send_json(self, payload, status=200):
@@ -157,6 +158,9 @@ class NexusHandler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if seymour_registration_routes.handle_get(self):
+            return
+
+        if seymour_telemetry_routes.handle_get(self):
             return
 
         # Package 049: Operations Evidence & Timeline Integration
@@ -687,6 +691,9 @@ class NexusHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         if seymour_registration_routes.handle_post(self):
+            return
+
+        if seymour_telemetry_routes.handle_post(self):
             return
 
         # PACKAGE-048-VERIFICATION-POST-BEGIN

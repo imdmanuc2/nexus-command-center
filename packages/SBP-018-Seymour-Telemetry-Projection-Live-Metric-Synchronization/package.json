@@ -1,0 +1,9 @@
+{
+  "package": "SBP-018",
+  "name": "Seymour Telemetry Projection & Live Metric Synchronization",
+  "targetRepository": "nexus-command-center",
+  "targetBranch": "feature/discovery-engine-v2",
+  "requires": {
+    "package": "SBP-017"
+  }
+}
