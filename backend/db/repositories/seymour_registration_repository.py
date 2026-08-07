@@ -161,9 +161,9 @@ def ingest(payload: dict[str, Any], idempotency_key: str) -> dict[str, Any]:
             cur.execute("""
               SELECT registration_id,payload_hash,result
               FROM nexus.seymour_registrations
-              WHERE registration_id=%s OR idempotency_key=%s
+              WHERE idempotency_key=%s
               FOR UPDATE
-            """,(registration_id,idempotency_key))
+            """,(idempotency_key,))
             existing=cur.fetchone()
             if existing:
                 if str(existing["payload_hash"])!=digest:
@@ -199,6 +199,18 @@ def ingest(payload: dict[str, Any], idempotency_key: str) -> dict[str, Any]:
                 payload_hash,status,raw_payload,result,processed_at
               )
               VALUES(%s,%s,%s,%s,%s,%s,'accepted',%s,%s,NOW())
+              ON CONFLICT (registration_id)
+              DO UPDATE SET
+                idempotency_key = EXCLUDED.idempotency_key,
+                source = EXCLUDED.source,
+                manager_asset_id = EXCLUDED.manager_asset_id,
+                node_asset_ids = EXCLUDED.node_asset_ids,
+                payload_hash = EXCLUDED.payload_hash,
+                status = 'accepted',
+                raw_payload = EXCLUDED.raw_payload,
+                result = EXCLUDED.result,
+                last_seen_at = NOW(),
+                processed_at = NOW()
             """,(registration_id,idempotency_key,str(payload.get("source") or "seymour-blockchain-manager"),
                  manager_id,Jsonb(node_ids),digest,Jsonb(payload),Jsonb(result)))
             audit_asset=node_ids[0] if node_ids else manager_id
