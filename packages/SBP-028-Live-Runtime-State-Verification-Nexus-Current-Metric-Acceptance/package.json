@@ -1,0 +1,8 @@
+{
+  "package": "SBP-028",
+  "name": "Live Runtime State Verification & Nexus Current-Metric Acceptance",
+  "targetRepository": "nexus-command-center",
+  "requires": [
+    "SBP-027"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "package": "SBP-027.1",
+  "name": "CMDB Runtime State JSONB Merge Fix",
+  "targetRepository": "nexus-command-center",
+  "requires": [
+    "SBP-027",
+    "SBP-028"
+  ]
+}

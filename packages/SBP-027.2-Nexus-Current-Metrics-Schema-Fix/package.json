@@ -1,0 +1,9 @@
+{
+  "package": "SBP-027.2",
+  "name": "Nexus Current Metrics Schema Fix",
+  "targetRepository": "nexus-command-center",
+  "requires": [
+    "SBP-027.1",
+    "SBP-028"
+  ]
+}

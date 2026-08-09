@@ -1,4 +1,8 @@
-from __future__ import annotations
+from pathlib import Path
+
+path = Path("backend/db/repositories/seymour_runtime_state_repository.py")
+
+content = '''from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
@@ -231,3 +235,7 @@ def project_document(cur, document: dict[str, Any]) -> int:
             written += 1
 
     return written
+'''
+
+path.write_text(content)
+print("SBP-027.2 runtime-state repository replaced with canonical current_metrics writer.")
