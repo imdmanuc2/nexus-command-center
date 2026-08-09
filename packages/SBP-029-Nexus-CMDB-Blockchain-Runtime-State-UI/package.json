@@ -1,0 +1,14 @@
+{
+  "package": "SBP-029",
+  "name": "Nexus CMDB Blockchain Runtime State UI",
+  "targetRepository": "nexus-command-center",
+  "requires": [
+    "SBP-028"
+  ],
+  "frontend": [
+    "frontend/assets.html",
+    "frontend/cmdb-object.html",
+    "frontend/js/cmdb-runtime-state.js",
+    "frontend/css/cmdb-runtime-state.css"
+  ]
+}
