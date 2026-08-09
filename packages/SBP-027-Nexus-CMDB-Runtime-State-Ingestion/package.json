@@ -1,0 +1,16 @@
+{
+  "package": "SBP-027",
+  "name": "Nexus CMDB Runtime State Ingestion",
+  "targetRepository": "nexus-command-center",
+  "requires": [
+    "SBP-018",
+    "SBP-026"
+  ],
+  "metrics": [
+    "runtime.state",
+    "runtime.rpc.reachable",
+    "runtime.rpc.healthy",
+    "runtime.initial_block_download",
+    "runtime.verification_progress"
+  ]
+}

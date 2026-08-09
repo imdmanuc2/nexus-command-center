@@ -5,6 +5,7 @@ from uuid import uuid4
 from psycopg.types.json import Jsonb
 from backend.db.connection import transaction
 from backend.db.repositories import seymour_telemetry_repository
+from backend.db.repositories import seymour_runtime_state_repository
 
 
 def _hash(payload: dict[str, Any]) -> str:
@@ -170,6 +171,7 @@ def ingest(payload: dict[str, Any], idempotency_key: str) -> dict[str, Any]:
                     raise ValueError("Idempotency key or registrationId reused with different payload.")
                 result=existing["result"] or {}
                 seymour_telemetry_repository.project_document(cur, document)
+                seymour_runtime_state_repository.project_document(cur, document)
                 cur.execute(
                     "UPDATE nexus.seymour_registrations SET last_seen_at=NOW() WHERE registration_id=%s",
                     (registration_id,),
@@ -184,6 +186,7 @@ def ingest(payload: dict[str, Any], idempotency_key: str) -> dict[str, Any]:
             for rel in document.get("relationships",[]):
                 if isinstance(rel,dict): _upsert_relationship(cur,rel)
             metrics_written = seymour_telemetry_repository.project_document(cur, document)
+            seymour_runtime_state_repository.project_document(cur, document)
 
             result={
                 "status":"accepted","registrationId":registration_id,
