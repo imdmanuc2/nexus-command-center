@@ -425,6 +425,126 @@ function renderStatus(fleet) {
 }
 
 
+
+function renderMissionControlSummary(fleet) {
+  const summary = fleet?.summary || {};
+  const health = Math.max(
+    0,
+    Math.min(100, numberValue(summary.fleetHealth))
+  );
+  const status = String(fleet?.status || "offline").toLowerCase();
+  const critical = integerValue(summary.criticalCount);
+  const warning = integerValue(summary.warningCount);
+  const ageMs = fleetDataAgeMs(fleet);
+  const stale = ageMs >= HOME_V2_STALE_AFTER_MS;
+
+  let label = "Healthy";
+  let tone = "healthy";
+
+  if (stale) {
+    label = "Telemetry Stale";
+    tone = "warning";
+  } else if (status === "critical" || health < 60 || critical > 0) {
+    label = "Critical";
+    tone = "critical";
+  } else if (
+    status === "warning" ||
+    status === "partial" ||
+    health < 90 ||
+    warning > 0
+  ) {
+    label = "Needs Attention";
+    tone = "warning";
+  }
+
+  const statusEl = byId("missionControlStatus");
+  if (statusEl) {
+    statusEl.textContent = label;
+    statusEl.className = `mission-control-value ${tone}`;
+  }
+
+  setText(
+    "missionControlStatusDetail",
+    stale
+      ? "Canonical telemetry is older than the live threshold"
+      : `${fmtPercent(health)} fleet health · ${warning} warning${warning === 1 ? "" : "s"}`
+  );
+  setText("missionControlHashrate", fmtHashrate(summary.fleetHashrate));
+  setText("missionControlWorkers", fmtNumber(summary.onlineMinerCount));
+  setText("missionControlPools", fmtNumber(summary.activePoolCount));
+  setText(
+    "missionControlNodes",
+    `${fmtNumber(summary.onlineNodeCount)}/${fmtNumber(summary.nodeCount)}`
+  );
+  setText("missionControlCritical", fmtNumber(critical));
+
+  const criticalEl = byId("missionControlCritical");
+  if (criticalEl) {
+    criticalEl.className = critical > 0
+      ? "mission-control-value critical"
+      : "mission-control-value healthy";
+  }
+}
+
+function arrangeMissionControl() {
+  const detail = byId("missionControlDeepDiveContent");
+  if (!detail || detail.dataset.arranged === "true") {
+    return;
+  }
+
+  const attention = byId("attentionPanel");
+  const operationsBrief = byId("nexusOperationsBrief");
+  const readiness = byId("platformOperationsMatrix");
+  const timeline = byId("liveMissionTimeline");
+  const deepDive = byId("missionControlDeepDive");
+
+  // Keep the primary operator story in a predictable order.
+  const workflow = document.querySelector(".mission-control-workflow");
+  const anchor = workflow || byId("fleetStatusStrip");
+  let cursor = anchor;
+  [attention, operationsBrief, readiness, timeline, deepDive]
+    .filter(Boolean)
+    .forEach((node) => {
+      cursor.insertAdjacentElement("afterend", node);
+      cursor = node;
+    });
+
+  // Preserve every existing engineering widget, but move it below a
+  // deliberate disclosure so Mission Control stays calm by default.
+  const secondarySelectors = [
+    "#fleetForecastPanel",
+    "#fleetPriorityQueue",
+    "#fleetInsights",
+    "#fleetMetrics",
+    "#fleetMetricTrends",
+    ".smc-workhorse-section",
+    "section.home-v2-section:not(#attentionPanel):not(#nexusOperationsBrief):not(#liveMissionTimeline):not(#fleetForecastPanel):not(#fleetPriorityQueue):not(#fleetInsights):not(#fleetMetricTrends)",
+    ".home-v2-hero-grid",
+    ".home-v2-two-column",
+  ];
+
+  const seen = new Set();
+  secondarySelectors.forEach((selector) => {
+    document.querySelectorAll(selector).forEach((node) => {
+      if (
+        node === attention ||
+        node === operationsBrief ||
+        node === readiness ||
+        node === timeline ||
+        node === deepDive ||
+        node.closest("#missionControlDeepDiveContent") ||
+        seen.has(node)
+      ) {
+        return;
+      }
+      seen.add(node);
+      detail.appendChild(node);
+    });
+  });
+
+  detail.dataset.arranged = "true";
+}
+
 function renderFleetSummary(fleet) {
   const summary = fleet.summary || {};
   const health = Math.max(
@@ -1441,6 +1561,7 @@ function renderFleet(fleet) {
     : [];
 
   renderStatus(fleet);
+  renderMissionControlSummary(fleet);
   renderFleetSummary(fleet);
   renderCoins(coins);
   renderPools(pools);
@@ -1612,6 +1733,7 @@ window.addEventListener(
 window.addEventListener(
   "DOMContentLoaded",
   () => {
+    arrangeMissionControl();
     setupTvMode();
     setupAttentionPanel();
     setupPriorityQueue();

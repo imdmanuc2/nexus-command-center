@@ -7,7 +7,7 @@
     content="width=device-width, initial-scale=1"
   >
 
-  <title>Nexus Command Center v2</title>
+  <title>Nexus Mission Control</title>
 
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/home-v2.css">
@@ -29,15 +29,15 @@
       <header class="nexus-header home-v2-header">
         <div>
           <div class="home-v2-title-row">
-            <h1>⛏️ Nexus Command Center</h1>
+            <h1>⛏️ Nexus Mission Control</h1>
 
             <span class="version-pill">
-              HOME V2
+              VERSION 1 · MISSION CONTROL
             </span>
           </div>
 
           <p>
-            Shift view • Fleet health, attention, and recommended next actions
+            Is the platform healthy, is production running, and what needs attention?
           </p>
         </div>
 
@@ -94,6 +94,60 @@
       </section>
 
       <section
+        id="missionControlSummary"
+        class="mission-control-summary"
+        aria-label="Mission Control summary"
+      >
+        <article class="mission-control-card mission-control-card-primary">
+          <span class="mission-control-label">Platform Health</span>
+          <strong id="missionControlStatus">Checking</strong>
+          <span id="missionControlStatusDetail" class="mission-control-detail">Waiting for canonical platform telemetry</span>
+        </article>
+
+        <article class="mission-control-card">
+          <span class="mission-control-label">Fleet Hashrate</span>
+          <strong id="missionControlHashrate">—</strong>
+          <span class="mission-control-detail">Canonical fleet production</span>
+        </article>
+
+        <article class="mission-control-card">
+          <span class="mission-control-label">Workers</span>
+          <strong id="missionControlWorkers">—</strong>
+          <span class="mission-control-detail">Online now</span>
+        </article>
+
+        <article class="mission-control-card">
+          <span class="mission-control-label">Pools</span>
+          <strong id="missionControlPools">—</strong>
+          <span class="mission-control-detail">Actively serving work</span>
+        </article>
+
+        <article class="mission-control-card">
+          <span class="mission-control-label">Nodes</span>
+          <strong id="missionControlNodes">—</strong>
+          <span class="mission-control-detail">Online blockchain nodes</span>
+        </article>
+
+        <article class="mission-control-card">
+          <span class="mission-control-label">Critical Alerts</span>
+          <strong id="missionControlCritical">—</strong>
+          <span class="mission-control-detail">Requiring immediate attention</span>
+        </article>
+      </section>
+
+      <section class="mission-control-workflow" aria-label="Primary operator workflow">
+        <div>
+          <span class="mission-control-workflow-eyebrow">Operator workflow</span>
+          <strong>See the issue. Open the object. Act. Verify.</strong>
+        </div>
+        <div class="mission-control-workflow-actions">
+          <a href="/assets.html">Open CMDB</a>
+          <a href="/operations-center.html">Open Operations</a>
+          <a href="/graph.html">Open Explorer</a>
+        </div>
+      </section>
+
+      <section
         id="attentionPanel"
         class="nexus-card attention-panel healthy"
       >
@@ -106,7 +160,7 @@
 
             <div>
               <div class="attention-title">
-                Things That Need Attention
+                Needs Attention
               </div>
 
               <div
@@ -156,7 +210,7 @@
 
             <div>
               <div class="platform-operations-title">
-                Platform Operations
+                Operational Readiness
               </div>
 
               <div
@@ -277,7 +331,7 @@
               </div>
 
               <div class="mission-timeline-title">
-                Mission Timeline
+                Recent Activity
               </div>
 
               <div
@@ -915,13 +969,21 @@
         </div>
       </section>
 
+      <details id="missionControlDeepDive" class="mission-control-deep-dive">
+        <summary>Engineering &amp; Production Detail</summary>
+        <div class="mission-control-deep-dive-copy">
+          Detailed pool, miner, node, forecast, MiningCore, and trend views remain available without crowding the operator landing view.
+        </div>
+        <div id="missionControlDeepDiveContent" class="mission-control-deep-dive-content"></div>
+      </details>
+
       <footer class="home-v2-footer">
         <span>
-          Nexus Command Center Home v2 Preview
+          Nexus Command Center · Mission Control · Version 1
         </span>
 
-        <a href="/">
-          Return to Home v1
+        <a href="/assets.html">
+          Open CMDB
         </a>
       </footer>
     </section>
@@ -937,7 +999,7 @@
 
   <script src="/js/nav.js"></script>
   <script src="/js/nexus-platform-home.js"></script>
-  <script src="/js/home-v2.js?v=071"></script>
+  <script src="/js/home-v2.js?v=073"></script>
 
   <script>
     renderNav("Command Center");

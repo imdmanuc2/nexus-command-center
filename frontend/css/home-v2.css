@@ -4843,3 +4843,185 @@ body.command-tv .home-v2-footer {
     text-align: left;
   }
 }
+
+/* =============================================================================
+   Package 073 - Mission Control / Version 1 UX foundation
+   ============================================================================= */
+
+.mission-control-summary {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.4fr) repeat(5, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 16px 0 14px;
+}
+
+.mission-control-card {
+  min-width: 0;
+  padding: 18px 18px 16px;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(11, 30, 55, 0.96), rgba(7, 19, 36, 0.96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.mission-control-card-primary {
+  border-color: rgba(57, 255, 136, 0.26);
+  background: linear-gradient(135deg, rgba(17, 55, 54, 0.68), rgba(8, 26, 42, 0.96));
+}
+
+.mission-control-label,
+.mission-control-workflow-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--nx-muted);
+  font-size: 0.67rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.mission-control-card strong {
+  display: block;
+  color: var(--nx-text);
+  font-size: clamp(1.3rem, 2vw, 2rem);
+  line-height: 1.05;
+}
+
+.mission-control-value.healthy,
+#missionControlCritical.healthy {
+  color: var(--nx-green);
+}
+
+.mission-control-value.warning {
+  color: var(--nx-gold);
+}
+
+.mission-control-value.critical,
+#missionControlCritical.critical {
+  color: var(--nx-red);
+}
+
+.mission-control-detail {
+  display: block;
+  margin-top: 8px;
+  color: var(--nx-soft);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.mission-control-workflow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 0 16px;
+  padding: 15px 18px;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 16px;
+  background: rgba(7, 20, 39, 0.74);
+}
+
+.mission-control-workflow strong {
+  color: var(--nx-text);
+  font-size: 0.95rem;
+}
+
+.mission-control-workflow-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.mission-control-workflow-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(96, 165, 250, 0.32);
+  border-radius: 10px;
+  background: rgba(37, 99, 235, 0.08);
+  color: #b9dcff;
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.mission-control-workflow-actions a:hover {
+  border-color: rgba(96, 165, 250, 0.62);
+  background: rgba(37, 99, 235, 0.15);
+}
+
+.mission-control-deep-dive {
+  margin-top: 18px;
+  padding: 0;
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: 18px;
+  background: rgba(5, 15, 30, 0.72);
+  overflow: hidden;
+}
+
+.mission-control-deep-dive > summary {
+  cursor: pointer;
+  padding: 17px 20px;
+  color: #b9dcff;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  list-style-position: inside;
+  user-select: none;
+}
+
+.mission-control-deep-dive[open] > summary {
+  border-bottom: 1px solid rgba(96, 165, 250, 0.16);
+}
+
+.mission-control-deep-dive-copy {
+  padding: 14px 20px 4px;
+  color: var(--nx-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.mission-control-deep-dive-content {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.mission-control-deep-dive-content > * {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+#attentionPanel,
+#nexusOperationsBrief,
+#platformOperationsMatrix,
+#liveMissionTimeline {
+  margin-top: 16px;
+}
+
+@media (max-width: 1280px) {
+  .mission-control-summary {
+    grid-template-columns: repeat(3, minmax(170px, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .mission-control-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mission-control-card-primary {
+    grid-column: 1 / -1;
+  }
+
+  .mission-control-workflow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 480px) {
+  .mission-control-summary {
+    grid-template-columns: 1fr;
+  }
+}
