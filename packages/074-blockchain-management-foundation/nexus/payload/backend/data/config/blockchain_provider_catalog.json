@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "providers": [
+    {
+      "providerId": "bitcoin-mainnet",
+      "coin": "BTC",
+      "name": "Bitcoin",
+      "network": "mainnet",
+      "implementation": "Bitcoin Core",
+      "enabled": true,
+      "defaultPorts": {
+        "p2p": 8333,
+        "rpc": 8332
+      },
+      "storage": {
+        "directoryName": "bitcoin-mainnet",
+        "minimumFreeBytes": 800000000000
+      },
+      "architectures": [
+        "amd64",
+        "arm64"
+      ]
+    },
+    {
+      "providerId": "bitcoin-cash-mainnet",
+      "coin": "BCH",
+      "name": "Bitcoin Cash",
+      "network": "mainnet",
+      "implementation": "Bitcoin Cash Node",
+      "enabled": true,
+      "defaultPorts": {
+        "p2p": 8333,
+        "rpc": 8332
+      },
+      "storage": {
+        "directoryName": "bitcoin-cash-mainnet",
+        "minimumFreeBytes": 300000000000
+      },
+      "architectures": [
+        "amd64",
+        "arm64"
+      ]
+    },
+    {
+      "providerId": "monero-mainnet",
+      "coin": "XMR",
+      "name": "Monero",
+      "network": "mainnet",
+      "implementation": "Monero",
+      "enabled": true,
+      "defaultPorts": {
+        "p2p": 18080,
+        "rpc": 18081
+      },
+      "storage": {
+        "directoryName": "monero-mainnet",
+        "minimumFreeBytes": 300000000000
+      },
+      "architectures": [
+        "amd64",
+        "arm64"
+      ]
+    }
+  ]
+}
