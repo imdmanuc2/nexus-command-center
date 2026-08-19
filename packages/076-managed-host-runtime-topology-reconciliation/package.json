@@ -1,0 +1,6 @@
+{
+  "package": "076-managed-host-runtime-topology-reconciliation",
+  "name": "Managed Host Runtime Topology Reconciliation",
+  "version": "1.0.0",
+  "description": "Reconciles managed hosts, blockchain runtimes, storage, and their CMDB topology relationships."
+}
