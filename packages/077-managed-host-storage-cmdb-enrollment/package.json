@@ -1,0 +1,6 @@
+{
+  "packageId": "077",
+  "name": "managed-host-storage-cmdb-enrollment",
+  "description": "Approval-safe managed host and storage enrollment into the Nexus CMDB.",
+  "version": "1.0.0"
+}
