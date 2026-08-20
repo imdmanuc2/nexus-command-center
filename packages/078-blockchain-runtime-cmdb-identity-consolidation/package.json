@@ -1,0 +1,5 @@
+{
+  "package": "078",
+  "name": "Blockchain Runtime CMDB Identity Consolidation",
+  "description": "Transactionally consolidate stale Seymour Blockchain Manager and BCH runtime CMDB identities while preserving historical evidence."
+}
