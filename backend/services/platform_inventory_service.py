@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from backend.db.repositories.asset_repository import list_assets
 from backend.db.repositories.pool_repository import list_pools
 from backend.db.repositories.worker_repository import list_workers
 from backend.db.repositories.workload_repository import list_workloads
@@ -11,6 +12,7 @@ from backend.db.repositories.relationship_repository import list_relationships
 
 
 def inventory() -> dict[str, Any]:
+    assets = list_assets()
     pools = list_pools()
     workers = list_workers()
     workloads = list_workloads()
@@ -20,11 +22,13 @@ def inventory() -> dict[str, Any]:
         "status": "ok",
         "source": "nexus-postgresql-platform",
         "counts": {
+            "assets": len(assets),
             "pools": len(pools),
             "workers": len(workers),
             "workloads": len(workloads),
             "relationships": len(relationships),
         },
+        "assets": assets,
         "pools": pools,
         "workers": workers,
         "workloads": workloads,

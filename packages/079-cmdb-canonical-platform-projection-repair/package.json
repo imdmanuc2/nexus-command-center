@@ -1,0 +1,7 @@
+{
+  "package": "079",
+  "name": "cmdb-canonical-platform-projection-repair",
+  "title": "CMDB Canonical Platform Projection Repair",
+  "version": "1.0.0",
+  "description": "Adds canonical PostgreSQL CMDB assets to the platform inventory contract so the CMDB UI no longer incorrectly falls back to discovery."
+}
