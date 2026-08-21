@@ -3,6 +3,7 @@
 const NEXUS_PRIMARY_NAV = [
   { label: "Command Center", href: "/", routes: ["/", "/index.html", "/home-v2.html"] },
   { label: "CMDB", href: "/assets.html", routes: ["/assets.html", "/cmdb-object.html"] },
+  { label: "Blockchain", href: "/blockchain.html", routes: ["/blockchain.html"] },
   { label: "Operations Center", href: "/operations-center.html", routes: ["/operations-center.html", "/service-operations.html"] },
   { label: "Infrastructure Explorer", href: "/graph.html", routes: ["/graph.html", "/service-topology.html"] },
   { label: "Alerts", href: "/alerts.html", routes: ["/alerts.html"] },

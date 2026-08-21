@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from backend.services import blockchain_management_service
+from backend.services import blockchain_operations_service
 
 
 def catalog(
@@ -17,3 +18,9 @@ def deployment_plan(
     return blockchain_management_service.create_deployment_plan(
         data
     )
+
+
+def operations(
+    _query: dict[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    return blockchain_operations_service.get_blockchain_operations()

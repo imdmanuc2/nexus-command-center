@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+  <title>Blockchain | Nexus Command Center</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/blockchain.css">
+</head>
+
+<body>
+  <div id="nexus-nav"></div>
+
+  <main class="container blockchain-page">
+    <header class="blockchain-page-header">
+      <div>
+        <p class="blockchain-eyebrow">
+          Infrastructure / Blockchain
+        </p>
+
+        <h1>Blockchain</h1>
+
+        <p class="blockchain-page-copy">
+          Monitor managed blockchain runtimes and prepare new
+          blockchain deployments from the Nexus provider catalog.
+        </p>
+      </div>
+
+      <div
+        id="blockchainSourceState"
+        class="blockchain-source-state"
+      >
+        Loading platform state…
+      </div>
+    </header>
+
+    <section
+      class="blockchain-summary-grid"
+      aria-label="Blockchain summary"
+    >
+      <article class="blockchain-summary-card">
+        <span>Managed Nodes</span>
+        <strong id="blockchainManagedCount">—</strong>
+        <small>Canonical CMDB runtimes</small>
+      </article>
+
+      <article class="blockchain-summary-card">
+        <span>Running</span>
+        <strong id="blockchainRunningCount">—</strong>
+        <small>Operational runtimes</small>
+      </article>
+
+      <article class="blockchain-summary-card">
+        <span>Syncing</span>
+        <strong id="blockchainSyncingCount">—</strong>
+        <small>Initial blockchain sync</small>
+      </article>
+
+      <article class="blockchain-summary-card">
+        <span>Attention</span>
+        <strong id="blockchainAttentionCount">—</strong>
+        <small>Warning, offline, or unknown</small>
+      </article>
+    </section>
+
+    <section class="blockchain-section">
+      <div class="blockchain-section-heading">
+        <div>
+          <p class="blockchain-section-eyebrow">
+            Operations
+          </p>
+          <h2>Managed Blockchains</h2>
+          <p>
+            Canonical blockchain runtimes currently known to Nexus.
+          </p>
+        </div>
+
+        <button
+          id="refreshBlockchainButton"
+          class="blockchain-secondary-button"
+          type="button"
+        >
+          Refresh
+        </button>
+      </div>
+
+      <div
+        id="managedBlockchainGrid"
+        class="blockchain-managed-grid"
+      >
+        <article class="blockchain-empty-card">
+          Loading managed blockchains…
+        </article>
+      </div>
+    </section>
+
+    <section class="blockchain-section">
+      <div class="blockchain-section-heading">
+        <div>
+          <p class="blockchain-section-eyebrow">
+            Provider Catalog
+          </p>
+          <h2>Available Blockchains</h2>
+          <p>
+            Blockchain providers available for managed deployment
+            planning in Nexus.
+          </p>
+        </div>
+
+        <div
+          id="blockchainCatalogCount"
+          class="blockchain-catalog-count"
+        >
+          —
+        </div>
+      </div>
+
+      <div class="blockchain-catalog-toolbar">
+        <div
+          id="blockchainCatalogFilters"
+          class="blockchain-catalog-filters"
+        >
+          <button
+            type="button"
+            class="active"
+            data-filter="all"
+          >
+            All
+          </button>
+
+          <button type="button" data-filter="BTC">
+            Bitcoin
+          </button>
+
+          <button type="button" data-filter="BCH">
+            Bitcoin Cash
+          </button>
+
+          <button type="button" data-filter="XMR">
+            Monero
+          </button>
+        </div>
+
+        <input
+          id="blockchainCatalogSearch"
+          class="blockchain-catalog-search"
+          type="search"
+          placeholder="Search providers…"
+          autocomplete="off"
+        >
+      </div>
+
+      <div
+        id="availableBlockchainGrid"
+        class="blockchain-provider-grid"
+      >
+        <article class="blockchain-empty-card">
+          Loading provider catalog…
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/blockchain.js"></script>
+</body>
+</html>

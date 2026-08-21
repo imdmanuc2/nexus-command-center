@@ -213,6 +213,11 @@ class NexusHandler(BaseHTTPRequestHandler):
             return self._send_file("frontend/analytics.html", "text/html")
         if self.path == "/assets.html":
             return self._send_file("frontend/assets.html", "text/html")
+        if self.path == "/blockchain.html":
+            return self._send_file(
+                "frontend/blockchain.html",
+                "text/html",
+            )
         if self.path == "/cmdb-object.html" or self.path.startswith("/cmdb-object.html?"):
             return self._send_file("frontend/cmdb-object.html", "text/html")
         if self.path == "/pools.html":
@@ -311,6 +316,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/graph": graph.graph,
             "/api/blockchain/nodes": blockchain.nodes,
             "/api/blockchain/catalog": blockchain_management.catalog,
+            "/api/blockchain/operations": blockchain_management.operations,
             "/api/operations/mining-readiness": mining_readiness.pools,
             "/api/graph/live": graph_engine.live,
             "/api/graph/rebuild": graph_engine.rebuild,

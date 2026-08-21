@@ -1,0 +1,5 @@
+{
+  "package": "080",
+  "name": "blockchain-operations-surface",
+  "description": "Nexus blockchain operations surface backed by canonical CMDB blockchain node state and runtime telemetry."
+}
