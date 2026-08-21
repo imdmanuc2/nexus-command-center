@@ -1,0 +1,5 @@
+{
+  "package": "082",
+  "name": "Managed Blockchain Privileged Runtime Helper",
+  "description": "Provide a narrowly scoped privileged helper for Nexus-managed blockchain runtime inspection without Docker group membership or unrestricted sudo."
+}

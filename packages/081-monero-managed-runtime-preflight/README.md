@@ -57,3 +57,16 @@ adding the managed user to the Docker group.
 
 A subsequent package must provide a narrowly scoped, allow-listed privileged
 execution capability for approved blockchain runtime operations.
+
+## Package 082 integration
+
+Package 082 establishes the approved privileged runtime inspection boundary.
+
+Monero preflight therefore does not require the managed SSH account to have
+direct Docker socket access. Docker daemon information and runtime inventory
+are obtained through:
+
+    sudo -n /usr/local/libexec/seymour-blockchain-runtime info
+    sudo -n /usr/local/libexec/seymour-blockchain-runtime list
+
+Direct membership in the Docker group remains prohibited.

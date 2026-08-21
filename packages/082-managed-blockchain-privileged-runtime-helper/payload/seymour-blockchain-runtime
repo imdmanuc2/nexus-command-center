@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+
+
+ALLOWED_OPERATIONS = {
+    "info",
+    "list",
+}
+
+
+def fail(message: str, code: int = 2) -> None:
+    print(
+        json.dumps({
+            "status": "error",
+            "error": message,
+        })
+    )
+    raise SystemExit(code)
+
+
+def docker(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["/usr/bin/docker", *args],
+        text=True,
+        capture_output=True,
+        shell=False,
+        check=False,
+        timeout=30,
+    )
+
+
+def operation_info() -> None:
+    result = docker(
+        "version",
+        "--format",
+        "{{json .Server}}",
+    )
+
+    if result.returncode != 0:
+        fail(
+            result.stderr.strip()
+            or "Docker daemon query failed",
+            1,
+        )
+
+    try:
+        server = json.loads(result.stdout.strip())
+    except json.JSONDecodeError:
+        fail("Docker returned invalid server information", 1)
+
+    print(json.dumps({
+        "status": "ok",
+        "operation": "info",
+        "docker": {
+            "version": server.get("Version"),
+            "apiVersion": server.get("ApiVersion"),
+            "os": server.get("Os"),
+            "arch": server.get("Arch"),
+        },
+    }))
+
+
+def operation_list() -> None:
+    result = docker(
+        "ps",
+        "-a",
+        "--format",
+        "{{json .}}",
+    )
+
+    if result.returncode != 0:
+        fail(
+            result.stderr.strip()
+            or "Docker runtime inventory failed",
+            1,
+        )
+
+    containers = []
+
+    for raw in result.stdout.splitlines():
+        raw = raw.strip()
+
+        if not raw:
+            continue
+
+        try:
+            item = json.loads(raw)
+        except json.JSONDecodeError:
+            fail("Docker returned invalid container inventory", 1)
+
+        containers.append({
+            "id": item.get("ID"),
+            "name": item.get("Names"),
+            "image": item.get("Image"),
+            "state": item.get("State"),
+            "status": item.get("Status"),
+            "ports": item.get("Ports"),
+        })
+
+    print(json.dumps({
+        "status": "ok",
+        "operation": "list",
+        "count": len(containers),
+        "containers": containers,
+    }))
+
+
+def main() -> None:
+    if os.geteuid() != 0:
+        fail("Privileged helper must execute as root")
+
+    if len(sys.argv) != 2:
+        fail("Exactly one operation is required")
+
+    operation = sys.argv[1].strip().lower()
+
+    if operation not in ALLOWED_OPERATIONS:
+        fail("Operation is not allow-listed")
+
+    if operation == "info":
+        operation_info()
+        return
+
+    if operation == "list":
+        operation_list()
+        return
+
+    fail("Unsupported operation")
+
+
+if __name__ == "__main__":
+    main()

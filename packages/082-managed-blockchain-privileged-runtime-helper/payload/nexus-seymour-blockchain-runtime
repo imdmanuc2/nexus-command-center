@@ -1,0 +1,5 @@
+# Package 082 — Nexus managed blockchain runtime helper
+#
+# Do not grant general Docker or unrestricted sudo access.
+#
+umbrel ALL=(root) NOPASSWD: /usr/local/libexec/seymour-blockchain-runtime *

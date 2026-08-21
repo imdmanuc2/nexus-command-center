@@ -87,6 +87,30 @@ def _check_port(port: int) -> dict[str, Any]:
     }
 
 
+def _privileged_helper(operation: str) -> dict[str, Any]:
+    result = _run([
+        "/usr/bin/sudo",
+        "-n",
+        "/usr/local/libexec/seymour-blockchain-runtime",
+        operation,
+    ])
+
+    payload = None
+
+    if result["returnCode"] == 0:
+        try:
+            payload = json.loads(result["stdout"])
+        except json.JSONDecodeError:
+            payload = None
+
+    return {
+        "returnCode": result["returnCode"],
+        "stdout": result["stdout"],
+        "stderr": result["stderr"],
+        "payload": payload,
+    }
+
+
 def preflight() -> dict[str, Any]:
     provider = _catalog_provider()
     target = _remote_target()
@@ -108,24 +132,6 @@ def preflight() -> dict[str, Any]:
         ),
     ])
 
-    docker_access = _run([
-        "sh",
-        "-lc",
-        (
-            "docker version --format '{{.Server.Version}}' "
-            "2>/dev/null || true"
-        ),
-    ])
-
-    sudo_access = _run([
-        "sh",
-        "-lc",
-        (
-            "if sudo -n true >/dev/null 2>&1; "
-            "then echo AVAILABLE; else echo UNAVAILABLE; fi"
-        ),
-    ])
-
     storage = _run([
         "sh",
         "-lc",
@@ -136,30 +142,49 @@ def preflight() -> dict[str, Any]:
         ),
     ])
 
+    helper_info = _privileged_helper("info")
+    helper_list = _privileged_helper("list")
+
+    privileged_execution_available = bool(
+        helper_info["returnCode"] == 0
+        and isinstance(helper_info["payload"], dict)
+        and helper_info["payload"].get("status") == "ok"
+    )
+
     docker_inventory_available = bool(
-        docker_access["returnCode"] == 0
-        and docker_access["stdout"].strip()
+        helper_list["returnCode"] == 0
+        and isinstance(helper_list["payload"], dict)
+        and helper_list["payload"].get("status") == "ok"
+        and isinstance(
+            helper_list["payload"].get("containers"),
+            list,
+        )
     )
 
     runtime_matches: list[str] = []
 
     if docker_inventory_available:
-        runtime = _run([
-            "sh",
-            "-lc",
-            (
-                "docker ps -a --format '{{.Names}}' "
-                "| grep -Ei 'monero|xmr' || true"
-            ),
-        ])
+        for item in helper_list["payload"]["containers"]:
+            name = str(item.get("name") or "").lower()
+            image = str(item.get("image") or "").lower()
 
-        runtime_matches = [
-            line.strip()
-            for line in runtime["stdout"].splitlines()
-            if line.strip()
-        ]
+            if (
+                "monero" in name
+                or "monero" in image
+                or "xmr" in name
+                or "xmr" in image
+            ):
+                runtime_matches.append(
+                    str(
+                        item.get("name")
+                        or item.get("id")
+                        or item.get("image")
+                        or ""
+                    )
+                )
 
     free_bytes = None
+
     if storage["returnCode"] == 0:
         try:
             free_bytes = int(storage["stdout"].strip())
@@ -183,25 +208,31 @@ def preflight() -> dict[str, Any]:
         docker_socket["stdout"].strip() == "PRESENT"
     )
 
-    privileged_execution_available = (
-        sudo_access["stdout"].strip() == "AVAILABLE"
-    )
-
     p2p = _check_port(P2P_PORT)
     rpc = _check_port(RPC_PORT)
+
+    runtime_absent = (
+        docker_inventory_available
+        and len(runtime_matches) == 0
+    )
 
     checks = {
         "hostResolved": bool(target.host),
         "sshReachable": architecture["returnCode"] == 0,
         "architectureSupported": architecture_supported,
 
-        # Docker is separated into installation, daemon access,
-        # and privilege state. Docker daemon access is intentionally
-        # NOT granted to the managed SSH user merely to satisfy preflight.
         "dockerInstalled": docker_installed,
         "dockerSocketPresent": docker_socket_present,
-        "dockerDaemonAccessible": docker_inventory_available,
-        "privilegedExecutionAvailable": privileged_execution_available,
+
+        # Canonical Docker access is through the Package 082
+        # allow-listed privileged helper. Direct Docker socket access
+        # by the managed SSH account is intentionally unnecessary.
+        "dockerDaemonAccessible": (
+            privileged_execution_available
+        ),
+        "privilegedExecutionAvailable": (
+            privileged_execution_available
+        ),
 
         "storagePresent": storage["returnCode"] == 0,
         "storageWritable": storage["returnCode"] == 0,
@@ -213,13 +244,10 @@ def preflight() -> dict[str, Any]:
         "p2pPortAvailable": p2p["available"],
         "rpcPortAvailable": rpc["available"],
 
-        # Runtime absence can only be trusted when the Docker inventory
-        # was actually readable.
-        "runtimeInventoryAvailable": docker_inventory_available,
-        "runtimeAbsent": (
+        "runtimeInventoryAvailable": (
             docker_inventory_available
-            and len(runtime_matches) == 0
         ),
+        "runtimeAbsent": runtime_absent,
     }
 
     ready = all(checks.values())
@@ -251,16 +279,25 @@ def preflight() -> dict[str, Any]:
         "docker": {
             "installed": docker_installed,
             "socketPresent": docker_socket_present,
-            "daemonAccessible": docker_inventory_available,
+            "daemonAccessible": (
+                privileged_execution_available
+            ),
             "privilegedExecutionAvailable": (
                 privileged_execution_available
+            ),
+            "accessMethod": (
+                "seymour-blockchain-runtime-helper"
+                if privileged_execution_available
+                else None
             ),
         },
         "ports": {
             "p2p": p2p,
             "rpc": rpc,
         },
-        "runtimeInventoryAvailable": docker_inventory_available,
+        "runtimeInventoryAvailable": (
+            docker_inventory_available
+        ),
         "runtimeMatches": runtime_matches,
         "checks": checks,
         "blockers": blockers,
