@@ -1,0 +1,5 @@
+{
+  "package": "081",
+  "name": "Monero Managed Runtime Preflight",
+  "description": "Validate canonical managed-host and storage prerequisites before Monero runtime installation."
+}
