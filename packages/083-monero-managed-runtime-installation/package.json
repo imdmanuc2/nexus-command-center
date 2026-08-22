@@ -1,0 +1,5 @@
+{
+  "package": "083",
+  "name": "Monero Managed Runtime Installation",
+  "description": "Execute guarded native Umbrel installation of the canonical Seymour Monero runtime after Package 081 readiness succeeds."
+}
