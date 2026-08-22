@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import json
 from typing import Any
 
@@ -36,6 +38,30 @@ def _run(argv: list[str], timeout_seconds: int = 30):
     )
 
 
+def _run_readonly(
+    argv: list[str],
+    timeout_seconds: int = 30,
+):
+    result = None
+
+    for attempt in range(1, 4):
+        result = _run(
+            argv,
+            timeout_seconds=timeout_seconds,
+        )
+
+        # Retry only transport failures. A normal remote command
+        # failure is authoritative and must not be hidden.
+        if result.exit_code not in {124, 255}:
+            break
+
+        if attempt < 3:
+            time.sleep(1)
+
+    assert result is not None
+    return result
+
+
 def _parse_json_output(stdout: str) -> dict[str, Any] | None:
     text = stdout.strip()
 
@@ -51,7 +77,7 @@ def _parse_json_output(stdout: str) -> dict[str, Any] | None:
 
 
 def _discover_install_adapter() -> dict[str, Any]:
-    result = _run([
+    result = _run_readonly([
         "sh",
         "-lc",
         (
@@ -91,7 +117,7 @@ def _native_state(adapter_path: str) -> dict[str, Any]:
 
     control = f"{repo}/scripts/seymour-umbrel-app"
 
-    result = _run([
+    result = _run_readonly([
         control,
         "state",
         APP_ID,
@@ -106,7 +132,7 @@ def _native_state(adapter_path: str) -> dict[str, Any]:
 
 
 def _runtime_inventory() -> dict[str, Any]:
-    result = _run([
+    result = _run_readonly([
         "/usr/bin/sudo",
         "-n",
         "/usr/local/libexec/seymour-blockchain-runtime",
@@ -185,7 +211,9 @@ def plan() -> dict[str, Any]:
     if not runtime_absent:
         blockers.append("existingMoneroRuntime")
 
-    if native_state not in {None, "not-installed"}:
+    if native_state is None:
+        blockers.append("nativeUmbrelStateUnavailable")
+    elif native_state != "not-installed":
         blockers.append(
             f"nativeUmbrelState:{native_state}"
         )

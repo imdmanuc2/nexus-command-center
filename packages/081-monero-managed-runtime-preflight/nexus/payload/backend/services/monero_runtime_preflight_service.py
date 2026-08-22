@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import json
 from pathlib import Path
 from typing import Any
@@ -50,17 +52,32 @@ def _run(command: list[str]) -> dict[str, Any]:
     target = _remote_target()
     transport = SshTransport()
 
-    result = transport.execute(
-        target=target,
-        argv=command,
-        timeout_seconds=20,
-        secrets=[],
-    )
+    result = None
+
+    for attempt in range(1, 4):
+        result = transport.execute(
+            target=target,
+            argv=command,
+            timeout_seconds=20,
+            secrets=[],
+        )
+
+        # Retry only transport failures. A normal remote command
+        # failure is authoritative and must not be hidden.
+        if result.exit_code not in {124, 255}:
+            break
+
+        if attempt < 3:
+            time.sleep(1)
+
+    assert result is not None
 
     return {
         "returnCode": result.exit_code,
         "stdout": result.stdout,
         "stderr": result.stderr,
+        "timedOut": result.timed_out,
+        "attempts": attempt,
     }
 
 

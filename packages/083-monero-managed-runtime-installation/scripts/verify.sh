@@ -32,10 +32,7 @@ assert payload["installAdapter"]["available"] is True
 assert payload["runtimeInventoryAvailable"] is True
 assert payload["runtimeMatches"] == []
 
-assert payload["nativeState"] in {
-    None,
-    "not-installed",
-}
+assert payload["nativeState"] == "not-installed"
 
 assert payload["ready"] is True
 assert payload["blockers"] == []
