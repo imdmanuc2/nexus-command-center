@@ -6,6 +6,10 @@ from backend.db.connection import get_connection
 from backend.services.blockchain_runtime_health_service import (
     derive_blockchain_runtime_health,
 )
+from backend.services.blockchain_sync_stall_service import (
+    STALL_WINDOW_SECONDS,
+    evaluate_sync_stall,
+)
 
 
 def _rows(cursor) -> list[dict[str, Any]]:
@@ -76,6 +80,53 @@ def get_blockchain_operations() -> dict[str, Any]:
                         row["subject_id"],
                         {},
                     )[row["metric_name"]] = row
+
+            history_by_asset: dict[
+                str,
+                dict[str, list[dict[str, Any]]],
+            ] = {}
+
+            if asset_ids:
+                cur.execute(
+                    """
+                    SELECT
+                        entity_id,
+                        metric_name,
+                        metric_value,
+                        observed_at
+                    FROM nexus.metric_samples
+                    WHERE entity_type = 'blockchain-node'
+                      AND entity_id = ANY(%s)
+                      AND source = 'seymour-managed-runtime'
+                      AND metric_name IN (
+                          'sync_progress',
+                          'block_height'
+                      )
+                      AND observed_at >= (
+                          NOW()
+                          - make_interval(
+                              secs => %s
+                          )
+                      )
+                    ORDER BY
+                        entity_id,
+                        metric_name,
+                        observed_at
+                    """,
+                    (
+                        asset_ids,
+                        STALL_WINDOW_SECONDS,
+                    ),
+                )
+
+                for row in _rows(cur):
+                    history_by_asset.setdefault(
+                        row["entity_id"],
+                        {},
+                    ).setdefault(
+                        row["metric_name"],
+                        [],
+                    ).append(row)
 
             manager_by_runtime: dict[str, dict[str, Any]] = {}
 
@@ -188,6 +239,49 @@ def get_blockchain_operations() -> dict[str, Any]:
             else None
         )
 
+        runtime_history = history_by_asset.get(
+            asset_id,
+            {},
+        )
+
+        actively_syncing = (
+            (
+                ibd == 1
+                or sync_status == "syncing"
+                or (
+                    sync_progress is not None
+                    and float(sync_progress) < 99.999
+                )
+            )
+            and running != 0
+        )
+
+        rpc_available = (
+            rpc_healthy == 1
+            or rpc_reachable == 1
+            or native_rpc_connected is True
+        )
+
+        if manager is not None:
+            stall_detection = evaluate_sync_stall(
+                syncing=actively_syncing,
+                rpc_available=rpc_available,
+                sync_progress_rows=runtime_history.get(
+                    "sync_progress",
+                    [],
+                ),
+                block_height_rows=runtime_history.get(
+                    "block_height",
+                    [],
+                ),
+            )
+        else:
+            stall_detection = {
+                "evaluated": False,
+                "stalled": False,
+                "reason": "not-managed-runtime",
+            }
+
         canonical_health = (
             derive_blockchain_runtime_health(
                 {
@@ -226,6 +320,9 @@ def get_blockchain_operations() -> dict[str, Any]:
                         else bool(rpc_healthy)
                     ),
                     "rpcConnected": native_rpc_connected,
+                    "syncStalled": stall_detection.get(
+                        "stalled"
+                    ),
                 }
             )
         )
@@ -298,6 +395,7 @@ def get_blockchain_operations() -> dict[str, Any]:
                 "stateReason": canonical_health[
                     "stateReason"
                 ],
+                "syncStall": stall_detection,
 
                 "lastSeenAt": node.get("last_seen_at"),
                 "updatedAt": node.get("updated_at"),

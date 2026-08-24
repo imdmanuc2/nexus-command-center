@@ -137,6 +137,108 @@ def metric_candidates(asset: dict[str, Any]) -> list[dict[str, Any]]:
     add("sync_stalled", _boolean_number(stall.get("stalled")), "boolean")
     return items
 
+def _history_metric_name(name: str) -> str:
+    """Return the canonical historical metric name."""
+    return str(name or "").strip()
+
+
+def _write_history_sample(
+    cursor,
+    *,
+    asset: dict[str, Any],
+    metric: dict[str, Any],
+) -> None:
+    """Persist one managed-runtime observation to metric_samples.
+
+    Seymour registration telemetry historically projected only into
+    nexus.current_metrics.  Blockchain synchronization/stall analysis
+    requires observations over time, so managed runtime metrics are
+    also written to the platform's established metric_samples store.
+    """
+
+    asset_id = str(
+        asset.get("assetId")
+        or asset.get("asset_id")
+        or ""
+    ).strip()
+
+    if not asset_id:
+        return
+
+    metric_name = _history_metric_name(
+        metric.get("metric_name")
+        or metric.get("metricName")
+    )
+
+    if not metric_name:
+        return
+
+    value = metric.get("metric_value")
+
+    if value is None:
+        value = metric.get("metricValue")
+
+    if value is None:
+        return
+
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return
+
+    metric_unit = str(
+        metric.get("metric_unit")
+        or metric.get("metricUnit")
+        or ""
+    )
+
+    status = str(
+        metric.get("status")
+        or asset.get("status")
+        or ""
+    )
+
+    cursor.execute(
+        """
+        INSERT INTO nexus.metric_samples (
+            observed_at,
+            entity_type,
+            entity_id,
+            metric_name,
+            metric_value,
+            metric_unit,
+            status,
+            source,
+            labels,
+            metadata
+        )
+        VALUES (
+            NOW(),
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s::jsonb,
+            %s::jsonb
+        )
+        """,
+        (
+            "blockchain-node",
+            asset_id,
+            metric_name,
+            value,
+            metric_unit,
+            status,
+            "seymour-managed-runtime",
+            "{}",
+            "{}",
+        ),
+    )
+
+
 def project_asset(cursor, asset: dict[str, Any]) -> int:
     if str(asset.get("assetType")) != "blockchain-node":
         return 0
@@ -155,6 +257,11 @@ def project_asset(cursor, asset: dict[str, Any]) -> int:
     )
     written = 0
     for metric in metric_candidates(asset):
+        _write_history_sample(
+            cursor,
+            asset=asset,
+            metric=metric,
+        )
         cursor.execute(sql, (
             asset_id,
             metric["metric_name"],
