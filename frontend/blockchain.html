@@ -15,7 +15,7 @@
 <body>
   <div id="nexus-nav"></div>
 
-  <main class="container blockchain-page">
+  <main class="container nexus-page-shell blockchain-page">
     <header class="blockchain-page-header">
       <div>
         <p class="blockchain-eyebrow">
@@ -43,15 +43,15 @@
       aria-label="Blockchain summary"
     >
       <article class="blockchain-summary-card">
-        <span>Managed Nodes</span>
+        <span>Blockchain Runtimes</span>
         <strong id="blockchainManagedCount">—</strong>
-        <small>Canonical CMDB runtimes</small>
+        <small>Canonical CMDB blockchain nodes</small>
       </article>
 
       <article class="blockchain-summary-card">
-        <span>Running</span>
+        <span>Operational</span>
         <strong id="blockchainRunningCount">—</strong>
-        <small>Operational runtimes</small>
+        <small>Running or online nodes</small>
       </article>
 
       <article class="blockchain-summary-card">
@@ -73,9 +73,9 @@
           <p class="blockchain-section-eyebrow">
             Operations
           </p>
-          <h2>Managed Blockchains</h2>
+          <h2>Blockchain Runtimes</h2>
           <p>
-            Canonical blockchain runtimes currently known to Nexus.
+            Canonical blockchain nodes currently known to Nexus, including Seymour-managed and independently discovered runtimes.
           </p>
         </div>
 
@@ -130,18 +130,6 @@
             data-filter="all"
           >
             All
-          </button>
-
-          <button type="button" data-filter="BTC">
-            Bitcoin
-          </button>
-
-          <button type="button" data-filter="BCH">
-            Bitcoin Cash
-          </button>
-
-          <button type="button" data-filter="XMR">
-            Monero
           </button>
         </div>
 

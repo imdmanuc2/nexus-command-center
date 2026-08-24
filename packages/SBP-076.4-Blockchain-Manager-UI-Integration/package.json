@@ -1,0 +1,6 @@
+{
+  "id": "SBP-076.4",
+  "name": "Blockchain Manager UI Integration",
+  "version": "1.0.0",
+  "description": "Align the Nexus Blockchain page with canonical operational state, manager ownership, provider-neutral catalog filters, and shared Nexus page framing."
+}

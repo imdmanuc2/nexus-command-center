@@ -14,6 +14,14 @@
   }
 
   function formatNumber(value) {
+    if (
+      value === null
+      || value === undefined
+      || value === ""
+    ) {
+      return "—";
+    }
+
     const number = Number(value);
 
     if (!Number.isFinite(number)) {
@@ -24,6 +32,14 @@
   }
 
   function formatPercent(value) {
+    if (
+      value === null
+      || value === undefined
+      || value === ""
+    ) {
+      return "—";
+    }
+
     const number = Number(value);
 
     if (!Number.isFinite(number)) {
@@ -55,7 +71,7 @@
   function stateClass(value) {
     const state = String(value || "unknown").toLowerCase();
 
-    if (["running", "healthy"].includes(state)) {
+    if (["running", "online", "healthy"].includes(state)) {
       return "running";
     }
 
@@ -72,9 +88,19 @@
 
   function managedCard(node) {
     const state = node.state || node.nodeStatus || "unknown";
-    const progress = Number(node.syncProgress);
 
-    const progressMarkup = Number.isFinite(progress)
+    const hasProgress = (
+      node.syncProgress !== null
+      && node.syncProgress !== undefined
+      && node.syncProgress !== ""
+      && Number.isFinite(Number(node.syncProgress))
+    );
+
+    const progress = hasProgress
+      ? Number(node.syncProgress)
+      : null;
+
+    const progressMarkup = hasProgress
       ? `
         <div class="blockchain-progress">
           <div class="blockchain-progress-head">
@@ -91,7 +117,10 @@
       `
       : "";
 
-    const manager = node.manager?.manager_name || "—";
+    const manager = node.manager?.manager_name || "Independent / discovered";
+    const ownership = node.manager
+      ? "Seymour managed"
+      : "Discovered";
 
     return `
       <article class="blockchain-node-card">
@@ -145,6 +174,11 @@
                   ? "Unavailable"
                   : "Unknown"
             }</dd>
+          </div>
+
+          <div>
+            <dt>Ownership</dt>
+            <dd>${escapeHtml(ownership)}</dd>
           </div>
 
           <div>
@@ -235,6 +269,55 @@
     `;
   }
 
+  function renderCatalogFilters() {
+    const container = $("blockchainCatalogFilters");
+
+    if (!container) {
+      return;
+    }
+
+    const providersByCoin = new Map();
+
+    catalog.forEach((provider) => {
+      const coin = String(provider.coin || "").trim();
+
+      if (!coin || providersByCoin.has(coin)) {
+        return;
+      }
+
+      providersByCoin.set(
+        coin,
+        provider.name || provider.implementation || coin
+      );
+    });
+
+    const buttons = [
+      `
+        <button
+          type="button"
+          class="${activeFilter === "all" ? "active" : ""}"
+          data-filter="all"
+        >
+          All
+        </button>
+      `,
+      ...Array.from(providersByCoin.entries())
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([coin, name]) => `
+          <button
+            type="button"
+            class="${activeFilter === coin ? "active" : ""}"
+            data-filter="${escapeHtml(coin)}"
+          >
+            ${escapeHtml(name)}
+          </button>
+        `),
+    ];
+
+    container.innerHTML = buttons.join("");
+  }
+
+
   function renderCatalog() {
     const search = String(
       $("blockchainCatalogSearch")?.value || ""
@@ -299,12 +382,15 @@
 
     $("blockchainManagedCount").textContent = items.length;
     $("blockchainRunningCount").textContent =
-      items.filter((item) => item.state === "running").length;
+      items.filter(
+        (item) => ["running", "online"].includes(item.state)
+      ).length;
     $("blockchainSyncingCount").textContent =
       items.filter((item) => item.state === "syncing").length;
     $("blockchainAttentionCount").textContent =
       items.filter(
-        (item) => !["running", "syncing"].includes(item.state)
+        (item) =>
+          !["running", "online", "syncing"].includes(item.state)
       ).length;
 
     $("managedBlockchainGrid").innerHTML =
@@ -317,8 +403,14 @@
           </article>
         `;
 
+    const managedCount = items.filter(
+      (item) => Boolean(item.manager)
+    ).length;
+
+    const discoveredCount = items.length - managedCount;
+
     $("blockchainSourceState").textContent =
-      `CMDB canonical · ${items.length} managed`;
+      `CMDB canonical · ${managedCount} managed · ${discoveredCount} discovered`;
 
     $("blockchainSourceState").classList.remove("warning");
   }
@@ -341,6 +433,7 @@
       ? payload.providers
       : [];
 
+    renderCatalogFilters();
     renderCatalog();
   }
 
