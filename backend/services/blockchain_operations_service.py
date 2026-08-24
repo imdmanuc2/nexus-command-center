@@ -26,6 +26,7 @@ def get_blockchain_operations() -> dict[str, Any]:
                     n.block_height,
                     n.header_height,
                     n.peer_count,
+                    n.rpc_connected,
                     n.observed_state,
                     n.updated_at,
                     n.last_seen_at,
@@ -124,19 +125,38 @@ def get_blockchain_operations() -> dict[str, Any]:
         if ibd is None:
             ibd = metric("initial_block_download")
 
-        state = str(
-            node.get("sync_status")
-            or node.get("status")
-            or "unknown"
-        ).lower()
+        sync_status = str(
+            node.get("sync_status") or ""
+        ).strip().lower()
 
-        # Canonical live-runtime precedence.
+        node_status = str(
+            node.get("status") or ""
+        ).strip().lower()
+
+        # Canonical provider-neutral operational-state precedence.
+        #
+        # New Seymour-managed runtimes expose lifecycle state through
+        # current_metrics. Older/native blockchain discovery may instead
+        # expose node status and rpc_connected directly on blockchain_nodes.
+        #
+        # Do not allow placeholder values such as "unknown" to mask useful
+        # lower-level evidence.
         if running == 0:
             state = "stopped"
         elif ibd == 1 and rpc_reachable == 1:
             state = "syncing"
         elif running == 1 and rpc_healthy == 1:
             state = "running"
+        elif running == 1:
+            state = "running"
+        elif sync_status and sync_status != "unknown":
+            state = sync_status
+        elif node_status and node_status != "unknown":
+            state = node_status
+        elif node.get("rpc_connected") is True:
+            state = "online"
+        else:
+            state = "unknown"
 
         items.append(
             {

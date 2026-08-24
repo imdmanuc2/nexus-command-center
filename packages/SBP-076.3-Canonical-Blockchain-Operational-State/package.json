@@ -1,0 +1,5 @@
+{
+  "id": "SBP-076.3",
+  "name": "Canonical Blockchain Operational State",
+  "description": "Normalizes provider-neutral blockchain operational state without changing CMDB identities."
+}
