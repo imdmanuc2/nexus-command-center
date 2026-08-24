@@ -64,7 +64,50 @@ def metric_candidates(asset: dict[str, Any]) -> list[dict[str, Any]]:
         if value is not None:
             items.append({"metric_name": name, "metric_value": value, "metric_unit": unit})
 
-    add("running", _boolean_number(telemetry.get("running")), "boolean")
+    # Canonical managed-runtime lifecycle authority.
+    #
+    # Some older Manager telemetry contains a stale top-level
+    # ``running=false`` even while canonical runtime state,
+    # operational state, container state, and RPC telemetry show
+    # that the managed runtime is active.
+    #
+    # Prefer canonical runtime/operational state over the legacy
+    # compatibility boolean.
+    operational = _dict(telemetry.get("operationalState"))
+
+    runtime_state = str(
+        asset.get("runtimeState")
+        or telemetry.get("runtimeState")
+        or operational.get("state")
+        or ""
+    ).strip().lower()
+
+    canonical_running = None
+
+    if runtime_state in {
+        "starting",
+        "running",
+        "syncing",
+        "healthy",
+        "degraded",
+    }:
+        canonical_running = True
+    elif runtime_state in {
+        "stopped",
+        "not-installed",
+        "offline",
+    }:
+        canonical_running = False
+    elif isinstance(operational.get("running"), bool):
+        canonical_running = operational.get("running")
+    else:
+        canonical_running = telemetry.get("running")
+
+    add(
+        "running",
+        _boolean_number(canonical_running),
+        "boolean",
+    )
     add("installed", _boolean_number(telemetry.get("installed")), "boolean")
     add("rpc_reachable", _boolean_number(telemetry_rpc.get("reachable")), "boolean")
     add("data_used_bytes", _number(telemetry_data.get("usedBytes")), "bytes")

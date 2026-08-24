@@ -75,6 +75,58 @@ def _sync_value(sync: dict[str, Any], *names: str):
     return None
 
 
+def _peer_count(value: Any) -> int | None:
+    """Normalize scalar or structured peer telemetry to a peer count."""
+    if value is None or isinstance(value, bool):
+        return None
+
+    if isinstance(value, (int, float)):
+        return int(value)
+
+    if isinstance(value, str):
+        try:
+            return int(float(value.strip()))
+        except (TypeError, ValueError):
+            return None
+
+    if isinstance(value, dict):
+        for key in (
+            "count",
+            "total",
+            "connected",
+            "peerCount",
+            "peer_count",
+            "numPeers",
+            "num_peers",
+            "connections",
+            "outgoing_connections_count",
+        ):
+            candidate = value.get(key)
+
+            if (
+                candidate is not None
+                and not isinstance(candidate, (bool, dict, list))
+            ):
+                try:
+                    return int(float(candidate))
+                except (TypeError, ValueError):
+                    pass
+
+        # Some providers expose individual peers as a keyed map.
+        if value and all(
+            isinstance(item, dict)
+            for item in value.values()
+        ):
+            return len(value)
+
+        return None
+
+    if isinstance(value, (list, tuple, set)):
+        return len(value)
+
+    return None
+
+
 def _provider_implementation(asset: dict[str, Any]) -> str:
     telemetry = asset.get("telemetry") if isinstance(asset.get("telemetry"), dict) else {}
     explicit = str(telemetry.get("implementation") or "").strip()
@@ -126,7 +178,8 @@ def _upsert_node(cur, asset: dict[str, Any]) -> None:
     tel=asset.get("telemetry") if isinstance(asset.get("telemetry"),dict) else {}
     height=_sync_value(sync,"height")
     headers=_sync_value(sync,"headers")
-    peers=tel.get("peers") if tel.get("peers") is not None else _sync_value(sync,"peers")
+    peers_raw=tel.get("peers") if tel.get("peers") is not None else _sync_value(sync,"peers")
+    peers=_peer_count(peers_raw)
     progress=_sync_value(sync,"progressPercent","progress_percent")
     status=_operational_status(asset)
     sync_status="synced" if progress is not None and float(progress)>=99.999 else "syncing" if progress is not None else "unknown"

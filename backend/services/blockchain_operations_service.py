@@ -310,19 +310,26 @@ def get_blockchain_operations() -> dict[str, Any]:
         "count": len(items),
         "syncing": sum(
             1 for item in items
-            if item["state"] == "syncing"
+            if item["overallState"] == "syncing"
         ),
         "running": sum(
             1 for item in items
-            if item["state"] == "running"
+            if item["overallState"] in {
+                "running",
+                "ready",
+            }
         ),
         "warning": sum(
             1 for item in items
-            if item["state"] in {"warning", "degraded"}
+            if item["overallState"] in {
+                "warning",
+                "degraded",
+                "stalled",
+            }
         ),
         "offline": sum(
             1 for item in items
-            if item["state"] in {
+            if item["overallState"] in {
                 "offline",
                 "stopped",
                 "error",
