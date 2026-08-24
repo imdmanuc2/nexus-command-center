@@ -1,0 +1,6 @@
+{
+  "packageId": "SBP-075.7",
+  "name": "Nexus Provider-Neutral Blockchain Node Projection Repair",
+  "version": "1.0.0",
+  "description": "Repairs Seymour blockchain registration projection so implementation and operational status are provider-neutral for BTC, BCH, XMR, and future providers."
+}

@@ -22,6 +22,33 @@ def _boolean_number(value: Any) -> float | None:
         return float(value)
     return None
 
+def _operational_status(asset: dict[str, Any]) -> str:
+    telemetry = _dict(asset.get("telemetry"))
+
+    for value in (
+        asset.get("status"),
+        telemetry.get("lifecycleStatus"),
+        telemetry.get("runtimeState"),
+    ):
+        if value is not None and str(value).strip():
+            status = str(value).strip().lower()
+            if status in {"running", "online", "active", "healthy", "ready"}:
+                return "running"
+            if status in {"stopped", "offline", "inactive"}:
+                return "stopped"
+            return status
+
+    running = telemetry.get("running")
+    if isinstance(running, bool):
+        return "running" if running else "stopped"
+
+    installed = telemetry.get("installed")
+    if installed is False:
+        return "not-installed"
+
+    return "unknown"
+
+
 def metric_candidates(asset: dict[str, Any]) -> list[dict[str, Any]]:
     telemetry = _dict(asset.get("telemetry"))
     telemetry_sync = _dict(telemetry.get("sync"))
@@ -74,7 +101,7 @@ def project_asset(cursor, asset: dict[str, Any]) -> int:
     if not asset_id:
         return 0
     telemetry = _dict(asset.get("telemetry"))
-    status = str(asset.get("status") or telemetry.get("lifecycleStatus") or "unknown").strip().lower()
+    status = _operational_status(asset)
     sql = (
         "INSERT INTO nexus.current_metrics("
         "subject_type,subject_id,metric_name,metric_value,metric_unit,status,observed_at,dimensions,data"

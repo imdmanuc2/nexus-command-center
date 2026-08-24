@@ -75,6 +75,51 @@ def _sync_value(sync: dict[str, Any], *names: str):
     return None
 
 
+def _provider_implementation(asset: dict[str, Any]) -> str:
+    telemetry = asset.get("telemetry") if isinstance(asset.get("telemetry"), dict) else {}
+    explicit = str(telemetry.get("implementation") or "").strip()
+    if explicit:
+        return explicit
+
+    provider_id = str(asset.get("providerId") or "").strip()
+    implementations = {
+        "bitcoin-mainnet": "Bitcoin Core",
+        "bitcoin-cash-mainnet": "Bitcoin Cash Node",
+        "monero-mainnet": "Monero",
+    }
+    if provider_id in implementations:
+        return implementations[provider_id]
+
+    return str(asset.get("coin") or "Blockchain") + " Node"
+
+
+def _operational_status(asset: dict[str, Any]) -> str:
+    telemetry = asset.get("telemetry") if isinstance(asset.get("telemetry"), dict) else {}
+
+    for value in (
+        asset.get("status"),
+        telemetry.get("lifecycleStatus"),
+        telemetry.get("runtimeState"),
+    ):
+        if value is not None and str(value).strip():
+            status = str(value).strip().lower()
+            if status in {"running", "online", "active", "healthy", "ready"}:
+                return "running"
+            if status in {"stopped", "offline", "inactive"}:
+                return "stopped"
+            return status
+
+    running = telemetry.get("running")
+    if isinstance(running, bool):
+        return "running" if running else "stopped"
+
+    installed = telemetry.get("installed")
+    if installed is False:
+        return "not-installed"
+
+    return "unknown"
+
+
 def _upsert_node(cur, asset: dict[str, Any]) -> None:
     if str(asset.get("assetType"))!="blockchain-node": return
     sync=asset.get("sync") if isinstance(asset.get("sync"),dict) else {}
@@ -83,7 +128,7 @@ def _upsert_node(cur, asset: dict[str, Any]) -> None:
     headers=_sync_value(sync,"headers")
     peers=tel.get("peers") if tel.get("peers") is not None else _sync_value(sync,"peers")
     progress=_sync_value(sync,"progressPercent","progress_percent")
-    status=str(asset.get("status") or tel.get("lifecycleStatus") or "unknown").lower()
+    status=_operational_status(asset)
     sync_status="synced" if progress is not None and float(progress)>=99.999 else "syncing" if progress is not None else "unknown"
     node_id="node-"+str(asset["assetId"]).removeprefix("asset-")
     cur.execute("""
@@ -101,7 +146,7 @@ def _upsert_node(cur, asset: dict[str, Any]) -> None:
         updated_at=NOW(),last_seen_at=NOW()
     """,(node_id,str(asset["assetId"]),str(asset.get("coin") or "BCH"),
          str(asset.get("network") or "mainnet"),
-         str(tel.get("implementation") or "Bitcoin Cash Node"),
+         _provider_implementation(asset),
          str(tel.get("version") or ""),status,sync_status,height,headers,peers,
          Jsonb({"telemetry":tel,"sync":sync}),
          Jsonb({"source":"seymour-blockchain-manager","appId":asset.get("appId"),"providerId":asset.get("providerId")})))
