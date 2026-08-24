@@ -1,0 +1,6 @@
+{
+  "id": "SBP-076.5",
+  "name": "Canonical Blockchain Runtime Health Model",
+  "version": "1.0.0",
+  "description": "Provider-neutral runtime, connectivity, synchronization, RPC, mining-readiness, and overall blockchain health model."
+}

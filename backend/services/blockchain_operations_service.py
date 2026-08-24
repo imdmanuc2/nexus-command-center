@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from backend.db.connection import get_connection
+from backend.services.blockchain_runtime_health_service import (
+    derive_blockchain_runtime_health,
+)
 
 
 def _rows(cursor) -> list[dict[str, Any]]:
@@ -158,6 +161,75 @@ def get_blockchain_operations() -> dict[str, Any]:
         else:
             state = "unknown"
 
+        manager = manager_by_runtime.get(asset_id)
+
+        # blockchain_nodes.rpc_connected is authoritative for native /
+        # independently discovered blockchain nodes. Seymour-managed
+        # runtimes must use explicit runtime RPC telemetry instead.
+        #
+        # Registration may create a blockchain_nodes row with
+        # rpc_connected=false even when no RPC observation has occurred.
+        # Treating that default as telemetry incorrectly marks a running
+        # managed runtime unreachable.
+        native_rpc_connected = (
+            node.get("rpc_connected")
+            if manager is None
+            else None
+        )
+
+        # blockchain_nodes.status follows the same authority rule.
+        # For independently discovered nodes it represents an actual
+        # operational observation. For Seymour-managed runtimes the row
+        # may contain a registration fallback such as "offline" even
+        # though no runtime connectivity observation has occurred.
+        authoritative_node_status = (
+            node.get("status")
+            if manager is None
+            else None
+        )
+
+        canonical_health = (
+            derive_blockchain_runtime_health(
+                {
+                    "running": (
+                        None
+                        if running is None
+                        else bool(running)
+                    ),
+                    "nodeStatus": authoritative_node_status,
+                    "lifecycleStatus": node.get(
+                        "lifecycle_status"
+                    ),
+                    "syncStatus": node.get(
+                        "sync_status"
+                    ),
+                    "syncProgress": sync_progress,
+                    "blockHeight": node.get(
+                        "block_height"
+                    ),
+                    "headerHeight": node.get(
+                        "header_height"
+                    ),
+                    "initialBlockDownload": (
+                        None
+                        if ibd is None
+                        else bool(ibd)
+                    ),
+                    "rpcReachable": (
+                        None
+                        if rpc_reachable is None
+                        else bool(rpc_reachable)
+                    ),
+                    "rpcHealthy": (
+                        None
+                        if rpc_healthy is None
+                        else bool(rpc_healthy)
+                    ),
+                    "rpcConnected": native_rpc_connected,
+                }
+            )
+        )
+
         items.append(
             {
                 "nodeId": node.get("node_id"),
@@ -202,7 +274,31 @@ def get_blockchain_operations() -> dict[str, Any]:
                 "lifecycleStatus": node.get("lifecycle_status"),
                 "health": node.get("health"),
                 "connectivity": node.get("connectivity"),
-                "manager": manager_by_runtime.get(asset_id),
+                "manager": manager,
+
+                # Canonical blockchain health dimensions.
+                "runtimeState": canonical_health[
+                    "runtimeState"
+                ],
+                "connectivityState": canonical_health[
+                    "connectivityState"
+                ],
+                "syncState": canonical_health[
+                    "syncState"
+                ],
+                "rpcState": canonical_health[
+                    "rpcState"
+                ],
+                "miningReadiness": canonical_health[
+                    "miningReadiness"
+                ],
+                "overallState": canonical_health[
+                    "overallState"
+                ],
+                "stateReason": canonical_health[
+                    "stateReason"
+                ],
+
                 "lastSeenAt": node.get("last_seen_at"),
                 "updatedAt": node.get("updated_at"),
             }

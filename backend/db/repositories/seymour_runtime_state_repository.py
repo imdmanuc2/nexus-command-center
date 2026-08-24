@@ -12,6 +12,7 @@ VALID_STATES = {
     "not-installed",
     "stopped",
     "starting",
+    "running",
     "syncing",
     "healthy",
     "degraded",
@@ -148,7 +149,11 @@ def project_document(cur, document: dict[str, Any]) -> int:
     for asset in assets:
         if not isinstance(asset, dict):
             continue
-        if asset.get("providerId") != "bitcoin-cash-mainnet":
+        provider_id = str(
+            asset.get("providerId") or ""
+        ).strip()
+
+        if not provider_id:
             continue
 
         subject_id = str(asset.get("assetId") or "").strip()
@@ -222,7 +227,7 @@ def project_document(cur, document: dict[str, Any]) -> int:
                 observed_at=observed_at,
                 data={
                     "source": SOURCE,
-                    "providerId": asset.get("providerId"),
+                    "providerId": provider_id,
                     "coin": asset.get("coin"),
                     "runtimeState": state,
                     "runtimeStateReason": runtime.get("reason"),
