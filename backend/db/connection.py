@@ -22,12 +22,16 @@ DEFAULT_ENV_FILE = (
 
 
 def _load_env_file(path: Path = DEFAULT_ENV_FILE) -> None:
-    """Load KEY=value settings without replacing existing environment."""
+    """Load optional KEY=value settings without replacing existing environment.
+
+    Container deployments may provide Nexus database configuration entirely
+    through environment variables. The private cmdb.env file remains
+    supported for host-based deployments but is not required when the
+    environment already contains the required database settings.
+    """
 
     if not path.exists():
-        raise RuntimeError(
-            f"Nexus database environment file not found: {path}"
-        )
+        return
 
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()

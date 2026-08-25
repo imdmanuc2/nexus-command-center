@@ -5,6 +5,7 @@ from pathlib import Path as FilePath
 from uuid import UUID
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
@@ -1101,8 +1102,8 @@ class NexusHandler(BaseHTTPRequestHandler):
 
 
 def main():
-    host = "0.0.0.0"
-    port = 8080
+    host = os.getenv("NEXUS_HTTP_HOST", "0.0.0.0")
+    port = int(os.getenv("NEXUS_HTTP_PORT", "8080"))
     print(f"{APP_NAME} API running on http://{host}:{port}")
     server = ThreadingHTTPServer(
         (host, port),
