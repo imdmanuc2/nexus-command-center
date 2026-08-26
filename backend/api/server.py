@@ -522,6 +522,40 @@ class NexusHandler(BaseHTTPRequestHandler):
                 status, payload = json_response({"status":"error","error":str(exc)},400)
             return self._send_json(payload, status)
 
+        if parsed.path == "/api/platform/nexus-instance":
+            try:
+                instance_id = str(
+                    query.get("instanceId", [""])[0] or ""
+                ).strip()
+
+                if not instance_id:
+                    status, payload = json_response(
+                        {"error": "Missing instanceId"},
+                        400,
+                    )
+                    return self._send_json(payload, status)
+
+                result = platform_nexus_instances.instance_detail(
+                    instance_id
+                )
+
+                if result is None:
+                    status, payload = json_response(
+                        {"error": "Nexus instance not found"},
+                        404,
+                    )
+                    return self._send_json(payload, status)
+
+                status, payload = json_response(result)
+                return self._send_json(payload, status)
+
+            except Exception as e:
+                status, payload = json_response(
+                    {"error": str(e)},
+                    500,
+                )
+                return self._send_json(payload, status)
+
         if parsed.path == "/api/platform/operational-state/assets":
             try:
                 status, payload = json_response(platform_operational_state.assets(query))
