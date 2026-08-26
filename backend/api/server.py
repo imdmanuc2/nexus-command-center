@@ -61,6 +61,7 @@ from backend.modules import platform_service_maintenance
 from backend.modules import platform_change_management
 from backend.modules import platform_change_execution
 from backend.modules import platform_nodes
+from backend.modules import platform_nexus_instances
 from backend.modules import metrics
 from backend.core.assets import update_asset
 from backend.modules import platform_change_rollback
@@ -312,6 +313,7 @@ class NexusHandler(BaseHTTPRequestHandler):
             "/api/platform/operations-center/status": platform_operations_center.status,
             "/api/platform/operations-center": platform_operations_center.dashboard,
             "/api/platform/nodes": platform_nodes.node_list,
+            "/api/platform/nexus-instances": platform_nexus_instances.instance_list,
             "/api/platform/pools": platform.pool_list,
             "/api/platform/workers": platform.worker_list,
             "/api/platform/fleet": platform.fleet_summary,

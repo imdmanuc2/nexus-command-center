@@ -260,3 +260,94 @@ def get_local_instance() -> dict[str, Any] | None:
             row = cursor.fetchone()
 
     return dict(row) if row else None
+
+
+def list_nexus_instances() -> list[dict[str, Any]]:
+    """Return registered Nexus instances with organization/site context."""
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    i.instance_id,
+                    i.organization_id,
+                    o.name AS organization_name,
+                    i.site_id,
+                    s.name AS site_name,
+                    i.name,
+                    i.hostname,
+                    i.instance_role,
+                    i.status,
+                    i.is_local,
+                    i.federation_enabled,
+                    i.api_base_url,
+                    i.software_version,
+                    i.last_seen_at,
+                    i.metadata,
+                    i.created_at,
+                    i.updated_at,
+                    COUNT(m.asset_id) AS membership_count,
+                    COUNT(m.asset_id) FILTER (
+                        WHERE m.discovery_enabled = TRUE
+                    ) AS discovery_membership_count,
+                    COUNT(m.asset_id) FILTER (
+                        WHERE m.management_enabled = TRUE
+                    ) AS management_membership_count,
+                    COUNT(m.asset_id) FILTER (
+                        WHERE m.relationship_role = 'management-authority'
+                    ) AS authority_count
+                FROM nexus.nexus_instances i
+                LEFT JOIN nexus.organizations o
+                    ON o.organization_id = i.organization_id
+                LEFT JOIN nexus.sites s
+                    ON s.site_id = i.site_id
+                LEFT JOIN nexus.asset_instance_memberships m
+                    ON m.instance_id = i.instance_id
+                GROUP BY
+                    i.instance_id,
+                    i.organization_id,
+                    o.name,
+                    i.site_id,
+                    s.name,
+                    i.name,
+                    i.hostname,
+                    i.instance_role,
+                    i.status,
+                    i.is_local,
+                    i.federation_enabled,
+                    i.api_base_url,
+                    i.software_version,
+                    i.last_seen_at,
+                    i.metadata,
+                    i.created_at,
+                    i.updated_at
+                ORDER BY
+                    i.is_local DESC,
+                    i.name,
+                    i.instance_id
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_nexus_instance(
+    instance_id: str,
+) -> dict[str, Any] | None:
+    """Return one registered Nexus instance with authority counts."""
+
+    target = _text(instance_id)
+
+    if not target:
+        raise ValueError("instanceId is required")
+
+    rows = list_nexus_instances()
+
+    for row in rows:
+        if _text(row.get("instance_id")) == target:
+            return row
+
+    return None
