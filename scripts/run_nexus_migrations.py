@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -12,31 +13,6 @@ import psycopg
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "backend" / "db" / "migrations"
 MANIFEST = ROOT / "backend" / "db" / "migration_manifest.json"
-
-LEGACY_DESCRIPTIONS = {
-    "001": "Nexus platform database foundation",
-    "002": "Worker pool instances, mining metrics, generic playbook targets, and run steps",
-    "003": "Home operations, MiningCore instances, current metrics, rollups, baselines, and enterprise alerts",
-    "004": "Durable operations queue, queue events, bulk batches, leasing, retries, cancellation, and progress",
-    "005": "Generic telemetry samples, current metrics, rollups, and collector state",
-    "006": "Persist blockchain nodes and MiningCore instances",
-    "007": "Platform state transition and event engine",
-    "008": "Platform alert rules and event-driven alert evaluation",
-    "009": "Derived Platform AI context snapshots",
-    "010": "Platform recommendation engine",
-    "011": "Guarded operations automation engine",
-    "012": "Operations timeline and asset history",
-    "013": "Natural-key identity reconciliation",
-    "014": "Worker identity and activity reconciliation",
-    "015": "Live PostgreSQL topology reconciliation",
-    "016": "Operations Center Platform layer",
-    "017": "Operations Center action execution, approval controls, and audit trail",
-    "018": "Managed executor framework and Bitcoin read-only actions",
-    "019": "Typed managed host capabilities and secure transport foundation",
-    "025": "Asset operational state and immutable state history",
-    "026": "CMDB lifecycle and operational state integration",
-    "038": "CMDB operational profile and object state framework",
-}
 
 
 FINGERPRINTS = {
@@ -132,32 +108,50 @@ FINGERPRINTS = {
 
 
 def load_manifest():
-    data = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    data = json.loads(
+        MANIFEST.read_text(encoding="utf-8")
+    )
+
     migrations = data["migrations"]
 
-    versions = [m["version"] for m in migrations]
-    files = [m["file"] for m in migrations]
+    versions = [
+        migration["version"]
+        for migration in migrations
+    ]
+
+    files = [
+        migration["file"]
+        for migration in migrations
+    ]
 
     if len(versions) != len(set(versions)):
-        raise RuntimeError("Duplicate canonical migration version")
+        raise RuntimeError(
+            "Duplicate canonical migration version"
+        )
 
     if len(files) != len(set(files)):
-        raise RuntimeError("Duplicate migration file")
+        raise RuntimeError(
+            "Duplicate migration file"
+        )
 
     missing = [
-        m["file"]
-        for m in migrations
-        if not (MIGRATIONS / m["file"]).is_file()
+        migration["file"]
+        for migration in migrations
+        if not (
+            MIGRATIONS / migration["file"]
+        ).is_file()
     ]
+
     if missing:
         raise RuntimeError(
-            "Missing migration files: " + ", ".join(missing)
+            "Missing migration files: "
+            + ", ".join(missing)
         )
 
     return migrations
 
 
-def connect():
+def required_database_environment():
     required = (
         "NEXUS_DB_HOST",
         "NEXUS_DB_PORT",
@@ -166,12 +160,21 @@ def connect():
         "NEXUS_DB_PASSWORD",
     )
 
-    missing = [name for name in required if not os.getenv(name)]
+    missing = [
+        name
+        for name in required
+        if not os.getenv(name)
+    ]
+
     if missing:
         raise RuntimeError(
             "Missing database environment variables: "
             + ", ".join(missing)
         )
+
+
+def connect():
+    required_database_environment()
 
     return psycopg.connect(
         host=os.environ["NEXUS_DB_HOST"],
@@ -186,9 +189,12 @@ def applied_migrations(conn):
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT to_regclass('public.schema_migrations')
+            SELECT to_regclass(
+                'public.schema_migrations'
+            )
             """
         )
+
         exists = cur.fetchone()[0]
 
         if not exists:
@@ -201,10 +207,14 @@ def applied_migrations(conn):
             ORDER BY version
             """
         )
+
         return dict(cur.fetchall())
 
 
-def fingerprint_state(conn, version):
+def fingerprint_state(
+    conn,
+    version,
+):
     objects = FINGERPRINTS.get(version)
 
     if not objects:
@@ -218,7 +228,10 @@ def fingerprint_state(conn, version):
                 "SELECT to_regclass(%s)",
                 (object_name,),
             )
-            present.append(cur.fetchone()[0] is not None)
+
+            present.append(
+                cur.fetchone()[0] is not None
+            )
 
     if all(present):
         return "legacy-applied"
@@ -229,7 +242,11 @@ def fingerprint_state(conn, version):
     return "pending"
 
 
-def classify(conn, migrations, applied):
+def classify(
+    conn,
+    migrations,
+    applied,
+):
     rows = []
 
     for migration in migrations:
@@ -239,67 +256,240 @@ def classify(conn, migrations, applied):
         if version in applied:
             state = "applied"
         else:
-            state = fingerprint_state(conn, version) or "pending"
+            state = (
+                fingerprint_state(
+                    conn,
+                    version,
+                )
+                or "pending"
+            )
 
-        rows.append((version, filename, state))
+        rows.append(
+            (
+                version,
+                filename,
+                state,
+            )
+        )
 
     return rows
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--status",
-        action="store_true",
-        help="Report migration state without changing the database",
-    )
-    args = parser.parse_args()
-
-    if not args.status:
-        print(
-            "ERROR: apply mode is intentionally disabled in this foundation step.",
-            file=sys.stderr,
-        )
-        return 2
-
-    migrations = load_manifest()
-
+def current_status(migrations):
     with connect() as conn:
         applied = applied_migrations(conn)
-        rows = classify(conn, migrations, applied)
 
-    print("Canonical Nexus migration status")
+        return classify(
+            conn,
+            migrations,
+            applied,
+        )
+
+
+def report(rows):
+    print(
+        "Canonical Nexus migration status"
+    )
+
     print("=" * 88)
 
     for version, filename, state in rows:
-        print(f"{version:>3}  {state:<14}  {filename}")
+        print(
+            f"{version:>3}  "
+            f"{state:<14}  "
+            f"{filename}"
+        )
 
     print("=" * 88)
 
-    ledger_applied_count = sum(
-        state == "applied"
-        for _, _, state in rows
-    )
-    legacy_applied_count = sum(
-        state == "legacy-applied"
-        for _, _, state in rows
-    )
-    partial_count = sum(
-        state == "partial"
-        for _, _, state in rows
-    )
-    pending_count = sum(
-        state == "pending"
-        for _, _, state in rows
+    summary = {
+        "canonical": len(rows),
+        "ledgerApplied": sum(
+            state == "applied"
+            for _, _, state in rows
+        ),
+        "legacyApplied": sum(
+            state == "legacy-applied"
+            for _, _, state in rows
+        ),
+        "partial": sum(
+            state == "partial"
+            for _, _, state in rows
+        ),
+        "pending": sum(
+            state == "pending"
+            for _, _, state in rows
+        ),
+    }
+
+    for key in (
+        "canonical",
+        "ledgerApplied",
+        "legacyApplied",
+        "partial",
+        "pending",
+    ):
+        print(
+            f"{key}={summary[key]}"
+        )
+
+    return summary
+
+
+def psql_environment():
+    required_database_environment()
+
+    environment = os.environ.copy()
+
+    environment["PGPASSWORD"] = (
+        os.environ["NEXUS_DB_PASSWORD"]
     )
 
-    print(f"canonical={len(rows)}")
-    print(f"ledgerApplied={ledger_applied_count}")
-    print(f"legacyApplied={legacy_applied_count}")
-    print(f"partial={partial_count}")
-    print(f"pending={pending_count}")
+    return environment
+
+
+def apply_migration(migration):
+    version = migration["version"]
+    filename = migration["file"]
+    migration_path = MIGRATIONS / filename
+
+    print(
+        f"Applying {version} :: {filename}",
+        flush=True,
+    )
+
+    subprocess.run(
+        [
+            "psql",
+            "-v",
+            "ON_ERROR_STOP=1",
+            "-h",
+            os.environ["NEXUS_DB_HOST"],
+            "-p",
+            os.environ["NEXUS_DB_PORT"],
+            "-U",
+            os.environ["NEXUS_DB_USER"],
+            "-d",
+            os.environ["NEXUS_DB_NAME"],
+            "-f",
+            str(migration_path),
+        ],
+        env=psql_environment(),
+        check=True,
+    )
+
+
+def apply_pending(
+    migrations,
+    rows,
+):
+    summary = report(rows)
+
+    if summary["partial"]:
+        print(
+            "ERROR: refusing migration apply "
+            "because partial historical "
+            "migrations were detected.",
+            file=sys.stderr,
+        )
+
+        return 3
+
+    if summary["legacyApplied"]:
+        print(
+            "ERROR: refusing migration apply "
+            "because legacy-applied migrations "
+            "require explicit reconciliation.",
+            file=sys.stderr,
+        )
+
+        return 4
+
+    pending = {
+        version
+        for version, _, state in rows
+        if state == "pending"
+    }
+
+    if not pending:
+        print(
+            "No canonical migrations pending."
+        )
+
+        return 0
+
+    for migration in migrations:
+        if migration["version"] in pending:
+            apply_migration(migration)
+
+    final_rows = current_status(migrations)
+
+    final_summary = report(
+        final_rows
+    )
+
+    expected = {
+        "canonical": len(migrations),
+        "ledgerApplied": len(migrations),
+        "legacyApplied": 0,
+        "partial": 0,
+        "pending": 0,
+    }
+
+    if final_summary != expected:
+        print(
+            "ERROR: canonical migration "
+            "verification failed.",
+            file=sys.stderr,
+        )
+
+        return 5
+
+    print(
+        "PASS: all canonical migrations applied."
+    )
 
     return 0
+
+
+def main():
+    parser = argparse.ArgumentParser()
+
+    mode = parser.add_mutually_exclusive_group(
+        required=True
+    )
+
+    mode.add_argument(
+        "--status",
+        action="store_true",
+        help=(
+            "Report migration state "
+            "without changing the database"
+        ),
+    )
+
+    mode.add_argument(
+        "--apply",
+        action="store_true",
+        help=(
+            "Apply pending canonical "
+            "migrations"
+        ),
+    )
+
+    args = parser.parse_args()
+
+    migrations = load_manifest()
+    rows = current_status(migrations)
+
+    if args.status:
+        report(rows)
+        return 0
+
+    return apply_pending(
+        migrations,
+        rows,
+    )
 
 
 if __name__ == "__main__":

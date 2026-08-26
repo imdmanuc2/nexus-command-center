@@ -22,6 +22,7 @@ RUN apt-get update \
         ca-certificates \
         iproute2 \
         procps \
+        postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements-container.txt /tmp/requirements-container.txt
