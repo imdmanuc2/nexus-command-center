@@ -392,38 +392,71 @@ def apply_pending(
 ):
     summary = report(rows)
 
-    if summary["partial"]:
-        print(
-            "ERROR: refusing migration apply "
-            "because partial historical "
-            "migrations were detected.",
-            file=sys.stderr,
-        )
-
-        return 3
-
-    if summary["legacyApplied"]:
-        print(
-            "ERROR: refusing migration apply "
-            "because legacy-applied migrations "
-            "require explicit reconciliation.",
-            file=sys.stderr,
-        )
-
-        return 4
-
-    pending = {
+    pending_versions = [
         version
         for version, _, state in rows
         if state == "pending"
-    }
+    ]
 
-    if not pending:
+    if not pending_versions:
         print(
             "No canonical migrations pending."
         )
 
         return 0
+
+    historical_problem_versions = [
+        version
+        for version, _, state in rows
+        if state in {
+            "partial",
+            "legacy-applied",
+        }
+    ]
+
+    first_pending = min(
+        int(version)
+        for version in pending_versions
+    )
+
+    unsafe_historical = [
+        version
+        for version in historical_problem_versions
+        if int(version) >= first_pending
+    ]
+
+    if unsafe_historical:
+        print(
+            "ERROR: refusing migration apply "
+            "because unresolved historical "
+            "migration state overlaps the "
+            "pending migration range: "
+            + ", ".join(unsafe_historical),
+            file=sys.stderr,
+        )
+
+        return 3
+
+    if historical_problem_versions:
+        print(
+            "NOTICE: preserving historical "
+            "migration state while applying "
+            "safe canonical tail migrations."
+        )
+
+        print(
+            "Historical state preserved: "
+            + ", ".join(
+                historical_problem_versions
+            )
+        )
+
+    pending = set(pending_versions)
+
+    print(
+        "Pending canonical tail: "
+        + ", ".join(pending_versions)
+    )
 
     for migration in migrations:
         if migration["version"] in pending:
@@ -435,25 +468,62 @@ def apply_pending(
         final_rows
     )
 
-    expected = {
-        "canonical": len(migrations),
-        "ledgerApplied": len(migrations),
-        "legacyApplied": 0,
-        "partial": 0,
-        "pending": 0,
+    final_state = {
+        version: state
+        for version, _, state in final_rows
     }
 
-    if final_summary != expected:
+    failed_pending = [
+        version
+        for version in pending_versions
+        if final_state.get(version) != "applied"
+    ]
+
+    if failed_pending:
         print(
-            "ERROR: canonical migration "
-            "verification failed.",
+            "ERROR: pending migration "
+            "verification failed for: "
+            + ", ".join(failed_pending),
             file=sys.stderr,
         )
 
         return 5
 
+    initial_state = {
+        version: state
+        for version, _, state in rows
+    }
+
+    changed_historical = [
+        version
+        for version, state in initial_state.items()
+        if version not in pending
+        and final_state.get(version) != state
+    ]
+
+    if changed_historical:
+        print(
+            "ERROR: historical migration "
+            "classification changed "
+            "unexpectedly for: "
+            + ", ".join(changed_historical),
+            file=sys.stderr,
+        )
+
+        return 6
+
+    if final_summary["pending"]:
+        print(
+            "ERROR: canonical migrations "
+            "remain pending after apply.",
+            file=sys.stderr,
+        )
+
+        return 7
+
     print(
-        "PASS: all canonical migrations applied."
+        "PASS: pending canonical tail "
+        "migrations applied."
     )
 
     return 0
