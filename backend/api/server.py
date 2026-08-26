@@ -114,6 +114,7 @@ def json_response(payload, status=200):
     ).encode("utf-8")
 
 
+from backend.api import nexus_peer_routes
 from backend.api import seymour_registration_routes
 from backend.api import seymour_telemetry_routes
 
@@ -162,6 +163,9 @@ class NexusHandler(BaseHTTPRequestHandler):
             self._send_json(payload, status)
 
     def do_GET(self):
+        if nexus_peer_routes.handle_get(self):
+            return
+
         if seymour_registration_routes.handle_get(self):
             return
 
