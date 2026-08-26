@@ -126,4 +126,8 @@ SELECT profile_id,1,'Read host identity','capability',TRUE,15,1,
 FROM nexus.verification_profiles WHERE profile_key='nexus.local.identity'
 ON CONFLICT(profile_id,position) DO NOTHING;
 
+INSERT INTO schema_migrations(version, description)
+VALUES ('037', 'Verification framework and evidence engine')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

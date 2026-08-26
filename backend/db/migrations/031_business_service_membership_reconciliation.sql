@@ -68,4 +68,8 @@ ON CONFLICT(rule_id) DO UPDATE SET
   match_definition=EXCLUDED.match_definition,
   updated_at=NOW();
 
+INSERT INTO schema_migrations(version, description)
+VALUES ('031', 'Business service membership reconciliation')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

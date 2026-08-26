@@ -64,4 +64,9 @@ CREATE TABLE IF NOT EXISTS nexus.workload_assignments (
   created_by TEXT NOT NULL DEFAULT 'nexus', updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_workload_assignments_asset ON nexus.workload_assignments(asset_id,status);
+
+INSERT INTO schema_migrations(version, description)
+VALUES ('027', 'CMDB relationship and dependency mapping')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

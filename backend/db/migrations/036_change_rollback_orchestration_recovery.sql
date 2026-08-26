@@ -41,4 +41,9 @@ CREATE INDEX IF NOT EXISTS idx_change_rollback_events_plan ON nexus.change_rollb
 ALTER TABLE nexus.change_requests ADD COLUMN IF NOT EXISTS active_rollback_id UUID;
 ALTER TABLE nexus.change_requests ADD COLUMN IF NOT EXISTS recovery_status TEXT NOT NULL DEFAULT '';
 ALTER TABLE nexus.change_requests ADD COLUMN IF NOT EXISTS recovered_at TIMESTAMPTZ;
+
+INSERT INTO schema_migrations(version, description)
+VALUES ('036', 'Change rollback orchestration and recovery')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

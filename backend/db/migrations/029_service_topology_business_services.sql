@@ -63,4 +63,9 @@ FROM nexus.business_services s
 JOIN nexus.workload_assignments w ON (s.metadata->'workloadCategories') ? w.workload_category
 WHERE w.status IN ('assigned','active','running')
 ON CONFLICT(service_id,asset_id,role) DO NOTHING;
+
+INSERT INTO schema_migrations(version, description)
+VALUES ('029', 'Service topology and business services')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

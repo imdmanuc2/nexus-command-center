@@ -42,4 +42,9 @@ CREATE TABLE IF NOT EXISTS nexus.service_availability_rollups (
   last_changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+INSERT INTO schema_migrations(version, description)
+VALUES ('030', 'Operations Center service health')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

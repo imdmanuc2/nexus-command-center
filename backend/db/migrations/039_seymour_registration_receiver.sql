@@ -23,6 +23,6 @@ CREATE INDEX IF NOT EXISTS idx_seymour_registrations_status
   ON nexus.seymour_registrations(status,last_seen_at DESC);
 
 INSERT INTO schema_migrations(version,description)
-VALUES('038','Seymour Blockchain Manager registration receiver and CMDB ingestion')
+VALUES('039','Seymour Blockchain Manager registration receiver and CMDB ingestion')
 ON CONFLICT(version) DO NOTHING;
 COMMIT;

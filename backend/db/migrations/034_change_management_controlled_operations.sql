@@ -137,4 +137,8 @@ ON CONFLICT (template_id) DO UPDATE SET
   active=TRUE,
   updated_at=NOW();
 
+INSERT INTO schema_migrations(version, description)
+VALUES ('034', 'Change management and controlled operations')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

@@ -24,4 +24,9 @@ CREATE TABLE IF NOT EXISTS nexus.deployment_targets (
 );
 CREATE INDEX IF NOT EXISTS idx_deployment_jobs_status ON nexus.deployment_jobs(status, requested_at DESC);
 CREATE INDEX IF NOT EXISTS idx_deployment_targets_asset ON nexus.deployment_targets(target_asset_id, status);
+
+INSERT INTO schema_migrations(version, description)
+VALUES ('024', 'Remote deployments')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

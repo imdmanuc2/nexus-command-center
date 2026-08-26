@@ -35,4 +35,8 @@ CREATE INDEX IF NOT EXISTS idx_operation_session_events_session
 CREATE INDEX IF NOT EXISTS idx_operation_sessions_updated
     ON nexus.operation_sessions(updated_at DESC);
 
+INSERT INTO schema_migrations(version, description)
+VALUES ('020', 'Live Operations Console')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

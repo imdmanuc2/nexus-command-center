@@ -31,4 +31,9 @@ VALUES
 ('sdr-bitcoin-runs-on','svc-bitcoin-mining','runs-on','both',true,3,'{"source":"nexus-default"}'),
 ('sdr-bitcoin-mines-on','svc-bitcoin-mining','mines-on','both',true,3,'{"source":"nexus-default"}')
 ON CONFLICT DO NOTHING;
+
+INSERT INTO schema_migrations(version, description)
+VALUES ('032', 'Service dependency impact analysis')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

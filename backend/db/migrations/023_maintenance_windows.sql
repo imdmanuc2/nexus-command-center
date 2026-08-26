@@ -37,4 +37,8 @@ CREATE INDEX IF NOT EXISTS idx_maintenance_windows_status
 CREATE INDEX IF NOT EXISTS idx_maintenance_targets_lookup
   ON nexus.maintenance_targets(target_type, target_value);
 
+INSERT INTO schema_migrations(version, description)
+VALUES ('023', 'Maintenance windows')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

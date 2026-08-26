@@ -108,4 +108,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_playbook_steps_run_step ON nexus.playbook_s
 CREATE INDEX IF NOT EXISTS idx_playbook_runs_created ON nexus.playbook_runs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_playbook_steps_run_position ON nexus.playbook_steps(run_id, position);
 
+INSERT INTO schema_migrations(version, description)
+VALUES ('021', 'Enterprise playbook engine')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

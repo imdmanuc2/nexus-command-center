@@ -114,4 +114,8 @@ ALTER TABLE nexus.change_requests
 ALTER TABLE nexus.change_requests
     ADD COLUMN IF NOT EXISTS rollback_status TEXT NOT NULL DEFAULT '';
 
+INSERT INTO schema_migrations(version, description)
+VALUES ('035', 'Change execution worker reconciliation')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

@@ -49,4 +49,9 @@ ALTER TABLE nexus.policy_decisions ADD COLUMN IF NOT EXISTS created_at TIMESTAMP
 CREATE UNIQUE INDEX IF NOT EXISTS uq_policy_decisions_id ON nexus.policy_decisions(decision_id);
 CREATE INDEX IF NOT EXISTS idx_policy_decisions_created ON nexus.policy_decisions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_policy_decisions_operation ON nexus.policy_decisions(operation, created_at DESC);
+
+INSERT INTO schema_migrations(version, description)
+VALUES ('022', 'Lightweight policy engine')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

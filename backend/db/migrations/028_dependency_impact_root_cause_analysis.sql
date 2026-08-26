@@ -52,4 +52,9 @@ INSERT INTO nexus.engineering_knowledge(knowledge_id,asset_type,issue_code,title
 ('kb-compute-offline','compute','asset-offline','Compute asset offline','["No heartbeat","No telemetry","Workload unavailable"]','["Power loss","Network path failure","Operating system stopped","Agent or miner process failed"]','["Verify power","Ping management address","Trace switch and host dependencies","Check workload process","Review recent maintenance and deployment history"]','[{"code":"connectivity.test","label":"Test Connectivity","priority":1},{"code":"diagnostics.run","label":"Run Diagnostics","priority":2},{"code":"console.open","label":"Open Console","priority":3}]','["server.connectivity","asic.diagnostics"]','["Compute Asset Recovery Guide"]',80),
 ('kb-gpu-unavailable','gpu','gpu-unavailable','GPU unavailable','["GPU missing","Driver error","CUDA unavailable","Workload cannot allocate GPU"]','["NVIDIA driver failure","GPU reset required","PCIe or power issue","VRAM exhaustion","Container runtime mismatch"]','["Run nvidia-smi","Check driver and kernel logs","Check power and temperature","Inspect GPU workload allocation","Verify CUDA/container runtime versions"]','[{"code":"gpu.diagnostics","label":"Run GPU Diagnostics","priority":1},{"code":"workload.stop","label":"Stop GPU Workload","priority":2},{"code":"host.reboot","label":"Reboot Host","priority":3}]','["gpu.diagnostics"]','["GPU Operations Guide"]',86)
 ON CONFLICT(asset_type,issue_code) DO UPDATE SET title=EXCLUDED.title,symptoms=EXCLUDED.symptoms,probable_causes=EXCLUDED.probable_causes,diagnostic_steps=EXCLUDED.diagnostic_steps,recommended_actions=EXCLUDED.recommended_actions,playbooks=EXCLUDED.playbooks,documentation=EXCLUDED.documentation,base_confidence=EXCLUDED.base_confidence,updated_at=NOW();
+
+INSERT INTO schema_migrations(version, description)
+VALUES ('028', 'Dependency impact and root cause analysis')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;

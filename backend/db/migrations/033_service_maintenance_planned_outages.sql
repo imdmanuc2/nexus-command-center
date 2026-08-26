@@ -44,4 +44,8 @@ WHERE NOT EXISTS (
   SELECT 1 FROM nexus.maintenance_history h WHERE h.window_id=w.window_id
 );
 
+INSERT INTO schema_migrations(version, description)
+VALUES ('033', 'Service maintenance and planned outages')
+ON CONFLICT(version) DO NOTHING;
+
 COMMIT;
