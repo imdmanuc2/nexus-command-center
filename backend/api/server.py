@@ -66,6 +66,8 @@ from backend.core.assets import update_asset
 from backend.modules import platform_change_rollback
 from backend.modules import platform_evidence
 from backend.modules import platform_verifications
+from backend.core.nexus_identity import runtime_identity
+from backend.services.nexus_instance_service import register_local_instance
 
 APP_NAME = "Nexus Command Center"
 
@@ -1101,9 +1103,41 @@ class NexusHandler(BaseHTTPRequestHandler):
         return self._send_json(payload, status)
 
 
+def _register_runtime_instance():
+    identity = runtime_identity()
+
+    organization_id = str(
+        identity.get("organizationId") or ""
+    ).strip()
+    site_id = str(
+        identity.get("siteId") or ""
+    ).strip()
+
+    if not organization_id or not site_id:
+        print(
+            "Nexus runtime identity is unscoped; "
+            "automatic instance registration skipped."
+        )
+        return None
+
+    result = register_local_instance(identity)
+
+    instance = result.get("instance") or {}
+
+    print(
+        "Nexus runtime instance registered: "
+        f"{instance.get('instance_id', identity.get('instanceId', ''))}"
+    )
+
+    return result
+
+
 def main():
     host = os.getenv("NEXUS_HTTP_HOST", "0.0.0.0")
     port = int(os.getenv("NEXUS_HTTP_PORT", "8080"))
+
+    _register_runtime_instance()
+
     print(f"{APP_NAME} API running on http://{host}:{port}")
     server = ThreadingHTTPServer(
         (host, port),
