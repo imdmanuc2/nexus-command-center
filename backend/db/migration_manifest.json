@@ -156,6 +156,10 @@
     {
       "version": "039",
       "file": "039_seymour_registration_receiver.sql"
+    },
+    {
+      "version": "040",
+      "file": "040_nexus_organization_instance_identity.sql"
     }
   ]
 }

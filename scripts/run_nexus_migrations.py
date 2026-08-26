@@ -104,6 +104,10 @@ FINGERPRINTS = {
     "039": (
         "nexus.seymour_registrations",
     ),
+    "040": (
+        "nexus.organizations",
+        "nexus.nexus_instances",
+    ),
 }
 
 
