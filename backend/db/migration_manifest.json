@@ -160,6 +160,10 @@
     {
       "version": "040",
       "file": "040_nexus_organization_instance_identity.sql"
+    },
+    {
+      "version": "041",
+      "file": "041_nexus_asset_authority.sql"
     }
   ]
 }

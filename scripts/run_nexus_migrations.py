@@ -108,6 +108,9 @@ FINGERPRINTS = {
         "nexus.organizations",
         "nexus.nexus_instances",
     ),
+    "041": (
+        "nexus.asset_instance_memberships",
+    ),
 }
 
 
