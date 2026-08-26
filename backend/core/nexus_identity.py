@@ -79,7 +79,14 @@ def runtime_identity() -> dict[str, str]:
     else:
         instance_id, identity_source = _derived_instance_id()
 
-    hostname = _hostname()
+    # Hostname is descriptive instance metadata. An explicit override is
+    # useful for containerized runtimes whose kernel hostname is normally a
+    # disposable container ID. It must not affect stable instance-ID
+    # derivation.
+    hostname = (
+        _text(os.getenv("NEXUS_HOSTNAME"))
+        or _hostname()
+    )
 
     return {
         "organizationId": _text(
