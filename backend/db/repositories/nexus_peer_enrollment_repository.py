@@ -1,0 +1,240 @@
+"""Repository for short-lived Nexus peer pairing enrollments."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from backend.db.connection import get_connection
+
+
+def _text(value: Any) -> str:
+    return "" if value is None else str(value).strip()
+
+
+def create_enrollment(
+    *,
+    enrollment_id: str,
+    local_instance_id: str,
+    secret_hash: str,
+    expires_at,
+) -> dict[str, Any]:
+    values = {
+        "enrollment_id": _text(enrollment_id),
+        "local_instance_id": _text(local_instance_id),
+        "secret_hash": _text(secret_hash),
+    }
+
+    for key, value in values.items():
+        if not value:
+            raise ValueError(
+                f"{key} is required"
+            )
+
+    if len(values["secret_hash"]) != 64:
+        raise ValueError(
+            "secret_hash must be a SHA-256 hex digest"
+        )
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO nexus.nexus_peer_enrollments (
+                    enrollment_id,
+                    local_instance_id,
+                    secret_hash,
+                    status,
+                    expires_at
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    %s,
+                    'pending',
+                    %s
+                )
+                RETURNING *
+                """,
+                (
+                    values["enrollment_id"],
+                    values["local_instance_id"],
+                    values["secret_hash"],
+                    expires_at,
+                ),
+            )
+
+            result = dict(cursor.fetchone())
+
+        connection.commit()
+
+    return result
+
+
+def get_enrollment(
+    enrollment_id: str,
+) -> dict[str, Any] | None:
+    target = _text(enrollment_id)
+
+    if not target:
+        raise ValueError(
+            "enrollmentId is required"
+        )
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT *
+                FROM nexus.nexus_peer_enrollments
+                WHERE enrollment_id = %s
+                """,
+                (target,),
+            )
+
+            row = cursor.fetchone()
+
+    return dict(row) if row else None
+
+
+def approve_enrollment(
+    enrollment_id: str,
+) -> dict[str, Any] | None:
+    target = _text(enrollment_id)
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE nexus.nexus_peer_enrollments
+                SET
+                    status = 'approved',
+                    approved_at = NOW(),
+                    updated_at = NOW()
+                WHERE enrollment_id = %s
+                  AND status = 'pending'
+                  AND expires_at > NOW()
+                RETURNING *
+                """,
+                (target,),
+            )
+
+            row = cursor.fetchone()
+
+        connection.commit()
+
+    return dict(row) if row else None
+
+
+def reject_enrollment(
+    enrollment_id: str,
+) -> dict[str, Any] | None:
+    target = _text(enrollment_id)
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE nexus.nexus_peer_enrollments
+                SET
+                    status = 'rejected',
+                    rejected_at = NOW(),
+                    updated_at = NOW()
+                WHERE enrollment_id = %s
+                  AND status = 'pending'
+                RETURNING *
+                """,
+                (target,),
+            )
+
+            row = cursor.fetchone()
+
+        connection.commit()
+
+    return dict(row) if row else None
+
+
+def expire_enrollment(
+    enrollment_id: str,
+) -> dict[str, Any] | None:
+    target = _text(enrollment_id)
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE nexus.nexus_peer_enrollments
+                SET
+                    status = 'expired',
+                    updated_at = NOW()
+                WHERE enrollment_id = %s
+                  AND status IN (
+                      'pending',
+                      'approved'
+                  )
+                  AND expires_at <= NOW()
+                RETURNING *
+                """,
+                (target,),
+            )
+
+            row = cursor.fetchone()
+
+        connection.commit()
+
+    return dict(row) if row else None
+
+
+def consume_approved_enrollment(
+    enrollment_id: str,
+) -> dict[str, Any] | None:
+    target = _text(enrollment_id)
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE nexus.nexus_peer_enrollments
+                SET
+                    status = 'used',
+                    used_at = NOW(),
+                    updated_at = NOW()
+                WHERE enrollment_id = %s
+                  AND status = 'approved'
+                  AND expires_at > NOW()
+                RETURNING *
+                """,
+                (target,),
+            )
+
+            row = cursor.fetchone()
+
+        connection.commit()
+
+    return dict(row) if row else None
+
+
+def delete_enrollment(
+    enrollment_id: str,
+) -> bool:
+    target = _text(enrollment_id)
+
+    if not target:
+        raise ValueError(
+            "enrollmentId is required"
+        )
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM nexus.nexus_peer_enrollments
+                WHERE enrollment_id = %s
+                """,
+                (target,),
+            )
+
+            deleted = cursor.rowcount > 0
+
+        connection.commit()
+
+    return deleted

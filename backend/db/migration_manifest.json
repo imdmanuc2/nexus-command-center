@@ -168,6 +168,10 @@
     {
       "version": "042",
       "file": "042_nexus_peer_registry.sql"
+    },
+    {
+      "version": "043",
+      "file": "043_nexus_peer_pairing_enrollment.sql"
     }
   ]
 }
