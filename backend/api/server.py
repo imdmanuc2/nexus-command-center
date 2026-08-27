@@ -115,6 +115,7 @@ def json_response(payload, status=200):
 
 
 from backend.api import nexus_peer_routes
+from backend.services import nexus_peer_settings_service
 from backend.api import seymour_registration_routes
 from backend.api import seymour_telemetry_routes
 
@@ -171,6 +172,40 @@ class NexusHandler(BaseHTTPRequestHandler):
 
         if seymour_telemetry_routes.handle_get(self):
             return
+
+
+        # SBP-076.9.8G.16.33 — Nexus peer settings API
+        peer_settings_path = urlparse(self.path).path
+
+        if peer_settings_path == "/api/platform/nexus-peer-settings":
+            try:
+                result = nexus_peer_settings_service.get_settings()
+                status, payload = json_response(result)
+            except Exception as exc:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error": str(exc),
+                    },
+                    400,
+                )
+
+            return self._send_json(payload, status)
+
+        if peer_settings_path == "/api/platform/nexus-peers":
+            try:
+                result = nexus_peer_settings_service.list_peers()
+                status, payload = json_response(result)
+            except Exception as exc:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error": str(exc),
+                    },
+                    400,
+                )
+
+            return self._send_json(payload, status)
 
         # Package 049: Operations Evidence & Timeline Integration
         _evidence_url = urlparse(self.path)
@@ -790,6 +825,56 @@ class NexusHandler(BaseHTTPRequestHandler):
         # PACKAGE-048-VERIFICATION-POST-END
 
         parsed = urlparse(self.path)
+
+
+        # SBP-076.9.8G.16.33 — user-controlled peer permission
+        if parsed.path == "/api/platform/nexus-peer-settings":
+            try:
+                data = self._read_json_body()
+
+                allowed_keys = {
+                    "allowPeerConnections",
+                }
+
+                unexpected = sorted(
+                    set(data) - allowed_keys
+                )
+
+                if unexpected:
+                    raise ValueError(
+                        "Unsupported peer setting(s): "
+                        + ", ".join(unexpected)
+                    )
+
+                if "allowPeerConnections" not in data:
+                    raise ValueError(
+                        "Missing allowPeerConnections"
+                    )
+
+                enabled = data["allowPeerConnections"]
+
+                if not isinstance(enabled, bool):
+                    raise ValueError(
+                        "allowPeerConnections must be a boolean"
+                    )
+
+                result = (
+                    nexus_peer_settings_service
+                    .set_allow_peer_connections(enabled)
+                )
+
+                status, payload = json_response(result)
+
+            except Exception as exc:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error": str(exc),
+                    },
+                    400,
+                )
+
+            return self._send_json(payload, status)
 
         # BEGIN PACKAGE 047 CHANGE ROLLBACK POST ROUTES
         if parsed.path == "/api/change-rollbacks":
