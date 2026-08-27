@@ -17,6 +17,10 @@ def create_enrollment(
     local_instance_id: str,
     secret_hash: str,
     expires_at,
+    requested_remote_instance_id: str = "",
+    requested_remote_name: str = "",
+    requested_remote_hostname: str = "",
+    requested_peer_base_url: str = "",
 ) -> dict[str, Any]:
     values = {
         "enrollment_id": _text(enrollment_id),
@@ -44,6 +48,10 @@ def create_enrollment(
                     local_instance_id,
                     secret_hash,
                     status,
+                    requested_remote_instance_id,
+                    requested_remote_name,
+                    requested_remote_hostname,
+                    requested_peer_base_url,
                     expires_at
                 )
                 VALUES (
@@ -51,6 +59,10 @@ def create_enrollment(
                     %s,
                     %s,
                     'pending',
+                    NULLIF(%s, ''),
+                    %s,
+                    %s,
+                    %s,
                     %s
                 )
                 RETURNING *
@@ -59,6 +71,10 @@ def create_enrollment(
                     values["enrollment_id"],
                     values["local_instance_id"],
                     values["secret_hash"],
+                    _text(requested_remote_instance_id),
+                    _text(requested_remote_name),
+                    _text(requested_remote_hostname),
+                    _text(requested_peer_base_url),
                     expires_at,
                 ),
             )

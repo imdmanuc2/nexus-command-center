@@ -53,6 +53,14 @@ def _public_enrollment(
         "enrollmentId": row["enrollment_id"],
         "localInstanceId": row["local_instance_id"],
         "status": row["status"],
+        "requestedRemoteInstanceId":
+            row.get("requested_remote_instance_id"),
+        "requestedRemoteName":
+            row.get("requested_remote_name") or "",
+        "requestedRemoteHostname":
+            row.get("requested_remote_hostname") or "",
+        "requestedPeerBaseUrl":
+            row.get("requested_peer_base_url") or "",
         "expiresAt": row["expires_at"],
         "approvedAt": row.get("approved_at"),
         "rejectedAt": row.get("rejected_at"),
@@ -290,4 +298,99 @@ def consume_enrollment(
         "status": "ok",
         "consumed": True,
         "enrollment": _public_enrollment(used),
+    }
+
+
+def create_remote_pairing_request(
+    *,
+    remote_instance_id: str,
+    remote_name: str,
+    remote_hostname: str,
+    peer_base_url: str,
+    ttl_seconds: int = DEFAULT_TTL_SECONDS,
+) -> dict[str, Any]:
+    """Create a pending enrollment requested by another Nexus.
+
+    This does not approve the request and does not create a peer.
+    """
+
+    settings = _require_connections_enabled()
+
+    remote_id = _text(remote_instance_id)
+    name = _text(remote_name)
+    hostname = _text(remote_hostname)
+    base_url = _text(peer_base_url)
+
+    if not remote_id:
+        raise ValueError(
+            "remoteInstanceId is required"
+        )
+
+    if remote_id == _text(settings.get("instance_id")):
+        raise ValueError(
+            "Cannot request pairing with the same Nexus"
+        )
+
+    if not name:
+        raise ValueError(
+            "remoteName is required"
+        )
+
+    if not hostname:
+        raise ValueError(
+            "remoteHostname is required"
+        )
+
+    if not base_url:
+        raise ValueError(
+            "peerBaseUrl is required"
+        )
+
+    if not isinstance(ttl_seconds, int):
+        raise ValueError(
+            "ttlSeconds must be an integer"
+        )
+
+    if (
+        ttl_seconds < MIN_TTL_SECONDS
+        or ttl_seconds > MAX_TTL_SECONDS
+    ):
+        raise ValueError(
+            "ttlSeconds must be between "
+            f"{MIN_TTL_SECONDS} and "
+            f"{MAX_TTL_SECONDS}"
+        )
+
+    enrollment_id = (
+        "enroll-"
+        + uuid.uuid4().hex
+    )
+
+    secret = secrets.token_urlsafe(32)
+
+    expires_at = (
+        datetime.now(timezone.utc)
+        + timedelta(seconds=ttl_seconds)
+    )
+
+    row = (
+        nexus_peer_enrollment_repository
+        .create_enrollment(
+            enrollment_id=enrollment_id,
+            local_instance_id=str(
+                settings["instance_id"]
+            ),
+            secret_hash=_hash_secret(secret),
+            expires_at=expires_at,
+            requested_remote_instance_id=remote_id,
+            requested_remote_name=name,
+            requested_remote_hostname=hostname,
+            requested_peer_base_url=base_url,
+        )
+    )
+
+    return {
+        "status": "ok",
+        "enrollment": _public_enrollment(row),
+        "enrollmentSecret": secret,
     }

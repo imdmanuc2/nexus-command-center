@@ -20,6 +20,7 @@ DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8561
 
 IDENTITY_PATH = "/api/nexus/identity"
+ENROLLMENT_REQUEST_PATH = "/api/nexus/enrollment/request"
 ENROLLMENT_CONSUME_PATH = "/api/nexus/enrollment/consume"
 MAX_REQUEST_BODY_BYTES = 16 * 1024
 
@@ -129,7 +130,10 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = urlparse(self.path).path
 
-        if path != ENROLLMENT_CONSUME_PATH:
+        if path not in {
+            ENROLLMENT_REQUEST_PATH,
+            ENROLLMENT_CONSUME_PATH,
+        }:
             self._send_json(
                 {
                     "status": "error",
@@ -141,6 +145,52 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
 
         try:
             payload = self._read_json_body()
+
+            if path == ENROLLMENT_REQUEST_PATH:
+                allowed = {
+                    "remoteInstanceId",
+                    "remoteName",
+                    "remoteHostname",
+                    "peerBaseUrl",
+                }
+
+                unexpected = sorted(
+                    set(payload) - allowed
+                )
+
+                if unexpected:
+                    raise ValueError(
+                        "Unsupported pairing request field(s): "
+                        + ", ".join(unexpected)
+                    )
+
+                result = (
+                    nexus_peer_enrollment_service
+                    .create_remote_pairing_request(
+                        remote_instance_id=payload.get(
+                            "remoteInstanceId",
+                            ""
+                        ),
+                        remote_name=payload.get(
+                            "remoteName",
+                            ""
+                        ),
+                        remote_hostname=payload.get(
+                            "remoteHostname",
+                            ""
+                        ),
+                        peer_base_url=payload.get(
+                            "peerBaseUrl",
+                            ""
+                        ),
+                    )
+                )
+
+                self._send_json(
+                    result,
+                    201,
+                )
+                return
 
             result = (
                 nexus_peer_enrollment_service
