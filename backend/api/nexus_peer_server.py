@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
@@ -129,6 +131,8 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        request_started = time.monotonic()
+        stage = "route"
 
         if path not in {
             ENROLLMENT_REQUEST_PATH,
@@ -144,9 +148,12 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
             return
 
         try:
+            stage = "read_json_body"
             payload = self._read_json_body()
 
             if path == ENROLLMENT_REQUEST_PATH:
+                stage = "validate_enrollment_request"
+
                 allowed = {
                     "remoteInstanceId",
                     "remoteName",
@@ -163,6 +170,8 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                         "Unsupported pairing request field(s): "
                         + ", ".join(unexpected)
                     )
+
+                stage = "create_remote_pairing_request"
 
                 result = (
                     nexus_peer_enrollment_service
@@ -186,11 +195,37 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                     )
                 )
 
+                service_finished = time.monotonic()
+
+                print(
+                    "Nexus peer enrollment timing:"
+                    f" path={path}"
+                    " stage=create_remote_pairing_request"
+                    f" serviceSeconds="
+                    f"{service_finished - request_started:.6f}",
+                    flush=True,
+                )
+
+                stage = "send_enrollment_response"
+
                 self._send_json(
                     result,
                     201,
                 )
+
+                response_finished = time.monotonic()
+
+                print(
+                    "Nexus peer enrollment timing:"
+                    f" path={path}"
+                    " stage=complete"
+                    f" totalSeconds="
+                    f"{response_finished - request_started:.6f}",
+                    flush=True,
+                )
                 return
+
+            stage = "consume_enrollment"
 
             result = (
                 nexus_peer_enrollment_service
@@ -236,7 +271,23 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
             )
             return
 
-        except Exception:
+        except Exception as exc:
+            elapsed = (
+                time.monotonic()
+                - request_started
+            )
+
+            print(
+                "Nexus peer transport internal error:"
+                f" path={path}"
+                f" stage={stage}"
+                f" elapsedSeconds={elapsed:.6f}"
+                f" exception={type(exc).__name__}",
+                flush=True,
+            )
+
+            traceback.print_exc()
+
             self._send_json(
                 {
                     "status": "error",
@@ -245,6 +296,8 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                 500,
             )
             return
+
+        stage = "send_consume_response"
 
         self._send_json(
             result,
