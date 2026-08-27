@@ -13,7 +13,7 @@ from backend.db.repositories import nexus_peer_enrollment_repository
 from backend.db.repositories import nexus_peer_repository
 
 
-DEFAULT_TTL_SECONDS = 300
+DEFAULT_TTL_SECONDS = 900
 MIN_TTL_SECONDS = 30
 MAX_TTL_SECONDS = 900
 
