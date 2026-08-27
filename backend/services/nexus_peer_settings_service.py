@@ -125,3 +125,197 @@ def list_peers() -> dict[str, Any]:
         "count": len(peers),
         "peers": peers,
     }
+
+
+def register_verified_peer(
+    *,
+    peer_id: str,
+    identity_document: dict[str, Any],
+    peer_base_url: str,
+) -> dict[str, Any]:
+    """Remember an already authenticated Nexus peer.
+
+    This function does not perform authentication itself and does not
+    accept or store peer credentials.
+    """
+
+    settings = (
+        nexus_peer_repository
+        .get_local_peer_settings()
+    )
+
+    if not settings:
+        raise RuntimeError(
+            "Local peer settings are not initialized"
+        )
+
+    if not bool(
+        settings.get("allow_peer_connections")
+    ):
+        raise PermissionError(
+            "Nexus peer connections are disabled"
+        )
+
+    if not isinstance(identity_document, dict):
+        raise ValueError(
+            "identityDocument must be an object"
+        )
+
+    if identity_document.get("status") != "ok":
+        raise ValueError(
+            "Peer identity status must be ok"
+        )
+
+    protocol = identity_document.get("protocol")
+
+    if not isinstance(protocol, dict):
+        raise ValueError(
+            "Peer protocol document is missing"
+        )
+
+    if protocol.get("name") != "seymour-nexus-peer":
+        raise ValueError(
+            "Unsupported Nexus peer protocol"
+        )
+
+    if str(protocol.get("version") or "") != "1":
+        raise ValueError(
+            "Unsupported Nexus peer protocol version"
+        )
+
+    instance = identity_document.get("instance")
+
+    if not isinstance(instance, dict):
+        raise ValueError(
+            "Peer instance document is missing"
+        )
+
+    remote_instance_id = str(
+        instance.get("instanceId") or ""
+    ).strip()
+
+    if not remote_instance_id:
+        raise ValueError(
+            "Remote instanceId is required"
+        )
+
+    local_instance_id = str(
+        settings.get("instance_id") or ""
+    ).strip()
+
+    if remote_instance_id == local_instance_id:
+        raise ValueError(
+            "Cannot pair Nexus with itself"
+        )
+
+    capabilities = identity_document.get(
+        "capabilities"
+    )
+
+    if not isinstance(capabilities, dict):
+        raise ValueError(
+            "Peer capabilities document is missing"
+        )
+
+    required_safe_capabilities = {
+        "peerAwareness": True,
+        "federation": False,
+        "cmdbExchange": False,
+        "discoveryExchange": False,
+        "management": False,
+        "authorityDelegation": False,
+    }
+
+    for key, expected in (
+        required_safe_capabilities.items()
+    ):
+        if capabilities.get(key) is not expected:
+            raise ValueError(
+                "Peer capability contract rejected: "
+                + key
+            )
+
+    peer_url = str(
+        peer_base_url or ""
+    ).strip()
+
+    if not peer_url:
+        raise ValueError(
+            "peerBaseUrl is required"
+        )
+
+    row = nexus_peer_repository.upsert_verified_peer(
+        peer_id=str(peer_id or "").strip(),
+        local_instance_id=local_instance_id,
+        remote_instance_id=remote_instance_id,
+        organization_id=str(
+            instance.get("organizationId") or ""
+        ).strip(),
+        site_id=str(
+            instance.get("siteId") or ""
+        ).strip(),
+        name=str(
+            instance.get("name") or ""
+        ).strip(),
+        hostname=str(
+            instance.get("hostname") or ""
+        ).strip(),
+        peer_base_url=peer_url,
+        protocol_name="seymour-nexus-peer",
+        protocol_version="1",
+        metadata={
+            "identitySource": str(
+                instance.get("identitySource")
+                or ""
+            ).strip(),
+        },
+    )
+
+    return {
+        "status": "ok",
+        "peer": {
+            "peerId": row["peer_id"],
+            "remoteInstanceId":
+                row["remote_instance_id"],
+            "organizationId":
+                row["organization_id"],
+            "siteId": row["site_id"],
+            "name": row["name"],
+            "hostname": row["hostname"],
+            "peerBaseUrl": row["peer_base_url"],
+            "protocol": {
+                "name": row["protocol_name"],
+                "version":
+                    row["protocol_version"],
+            },
+            "status": row["status"],
+            "enabled": bool(row["enabled"]),
+            "capabilities": {
+                "peerAwareness": True,
+                "federation": False,
+                "cmdbExchange": False,
+                "discoveryExchange": False,
+                "management": False,
+                "authorityDelegation": False,
+            },
+            "lastVerifiedAt":
+                row["last_verified_at"],
+            "lastSeenAt": row["last_seen_at"],
+        },
+    }
+
+
+def remove_peer(
+    peer_id: str,
+) -> dict[str, Any]:
+    """Forget a configured Nexus peer."""
+
+    deleted = nexus_peer_repository.delete_peer(
+        peer_id
+    )
+
+    return {
+        "status": "ok",
+        "peerId": str(peer_id or "").strip(),
+        "removed": deleted,
+    }

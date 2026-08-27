@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from backend.db.connection import get_connection
+from psycopg.types.json import Jsonb
 
 
 def _text(value: Any) -> str:
@@ -139,3 +140,190 @@ def list_peers() -> list[dict[str, Any]]:
             rows = cursor.fetchall()
 
     return [dict(row) for row in rows]
+
+
+def upsert_verified_peer(
+    *,
+    peer_id: str,
+    local_instance_id: str,
+    remote_instance_id: str,
+    organization_id: str,
+    site_id: str,
+    name: str,
+    hostname: str,
+    peer_base_url: str,
+    protocol_name: str,
+    protocol_version: str,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Persist one explicitly verified Nexus peer.
+
+    Credentials are intentionally not accepted or stored here.
+    """
+
+    values = {
+        "peer_id": _text(peer_id),
+        "local_instance_id": _text(local_instance_id),
+        "remote_instance_id": _text(remote_instance_id),
+        "organization_id": _text(organization_id),
+        "site_id": _text(site_id),
+        "name": _text(name),
+        "hostname": _text(hostname),
+        "peer_base_url": _text(peer_base_url),
+        "protocol_name": _text(protocol_name),
+        "protocol_version": _text(protocol_version),
+    }
+
+    required = [
+        "peer_id",
+        "local_instance_id",
+        "remote_instance_id",
+        "peer_base_url",
+        "protocol_name",
+        "protocol_version",
+    ]
+
+    missing = [
+        key
+        for key in required
+        if not values[key]
+    ]
+
+    if missing:
+        raise ValueError(
+            "Missing peer field(s): "
+            + ", ".join(missing)
+        )
+
+    if (
+        values["remote_instance_id"]
+        == values["local_instance_id"]
+    ):
+        raise ValueError(
+            "Cannot register local Nexus as its own peer"
+        )
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO nexus.nexus_peers (
+                    peer_id,
+                    local_instance_id,
+                    remote_instance_id,
+                    organization_id,
+                    site_id,
+                    name,
+                    hostname,
+                    peer_base_url,
+                    protocol_name,
+                    protocol_version,
+                    status,
+                    enabled,
+                    peer_awareness,
+                    federation_enabled,
+                    cmdb_exchange_enabled,
+                    discovery_exchange_enabled,
+                    management_enabled,
+                    authority_delegation_enabled,
+                    last_verified_at,
+                    last_seen_at,
+                    metadata,
+                    updated_at
+                )
+                VALUES (
+                    %(peer_id)s,
+                    %(local_instance_id)s,
+                    %(remote_instance_id)s,
+                    %(organization_id)s,
+                    %(site_id)s,
+                    %(name)s,
+                    %(hostname)s,
+                    %(peer_base_url)s,
+                    %(protocol_name)s,
+                    %(protocol_version)s,
+                    'verified',
+                    TRUE,
+                    TRUE,
+                    FALSE,
+                    FALSE,
+                    FALSE,
+                    FALSE,
+                    FALSE,
+                    NOW(),
+                    NOW(),
+                    %(metadata)s,
+                    NOW()
+                )
+                ON CONFLICT (
+                    local_instance_id,
+                    remote_instance_id
+                )
+                WHERE remote_instance_id IS NOT NULL
+                DO UPDATE SET
+                    organization_id =
+                        EXCLUDED.organization_id,
+                    site_id =
+                        EXCLUDED.site_id,
+                    name =
+                        EXCLUDED.name,
+                    hostname =
+                        EXCLUDED.hostname,
+                    peer_base_url =
+                        EXCLUDED.peer_base_url,
+                    protocol_name =
+                        EXCLUDED.protocol_name,
+                    protocol_version =
+                        EXCLUDED.protocol_version,
+                    status = 'verified',
+                    enabled = TRUE,
+                    peer_awareness = TRUE,
+                    federation_enabled = FALSE,
+                    cmdb_exchange_enabled = FALSE,
+                    discovery_exchange_enabled = FALSE,
+                    management_enabled = FALSE,
+                    authority_delegation_enabled = FALSE,
+                    last_verified_at = NOW(),
+                    last_seen_at = NOW(),
+                    metadata = EXCLUDED.metadata,
+                    updated_at = NOW()
+                RETURNING *
+                """,
+                {
+                    **values,
+                    "metadata": Jsonb(metadata or {}),
+                },
+            )
+
+            result = dict(cursor.fetchone())
+
+        connection.commit()
+
+    return result
+
+
+def delete_peer(
+    peer_id: str,
+) -> bool:
+    """Remove one configured Nexus peer."""
+
+    target = _text(peer_id)
+
+    if not target:
+        raise ValueError("peerId is required")
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM nexus.nexus_peers
+                WHERE peer_id = %s
+                """,
+                (target,),
+            )
+
+            deleted = cursor.rowcount > 0
+
+        connection.commit()
+
+    return deleted
