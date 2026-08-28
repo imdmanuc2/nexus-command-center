@@ -11,6 +11,7 @@ from typing import Any
 
 from backend.db.repositories import nexus_peer_enrollment_repository
 from backend.db.repositories import nexus_peer_repository
+from backend.services import nexus_peer_settings_service
 
 
 DEFAULT_TTL_SECONDS = 900
@@ -300,6 +301,126 @@ def consume_enrollment(
         "enrollment": _public_enrollment(used),
     }
 
+
+def establish_consumed_enrollment_peer(
+    *,
+    enrollment_id: str,
+) -> dict[str, Any]:
+    """Register a durable peer from a consumed enrollment proof.
+
+    The enrollment must already have completed explicit approval and
+    one-time secret consumption. No credential or enrollment secret is
+    accepted, persisted, or returned by this operation.
+    """
+
+    _require_connections_enabled()
+
+    enrollment_key = _text(enrollment_id)
+
+    if not enrollment_key:
+        raise ValueError(
+            "enrollmentId is required"
+        )
+
+    row = (
+        nexus_peer_enrollment_repository
+        .get_enrollment(enrollment_key)
+    )
+
+    if row is None:
+        raise PermissionError(
+            "Enrollment is invalid"
+        )
+
+    if row["status"] != "used":
+        raise PermissionError(
+            "Enrollment has not been consumed"
+        )
+
+    if row.get("approved_at") is None:
+        raise PermissionError(
+            "Enrollment was not approved"
+        )
+
+    if row.get("used_at") is None:
+        raise PermissionError(
+            "Enrollment has not been consumed"
+        )
+
+    remote_instance_id = _text(
+        row.get("requested_remote_instance_id")
+    )
+    remote_name = _text(
+        row.get("requested_remote_name")
+    )
+    remote_hostname = _text(
+        row.get("requested_remote_hostname")
+    )
+    peer_base_url = _text(
+        row.get("requested_peer_base_url")
+    )
+
+    if not remote_instance_id:
+        raise ValueError(
+            "Enrollment remote instanceId is missing"
+        )
+
+    if not remote_name:
+        raise ValueError(
+            "Enrollment remote name is missing"
+        )
+
+    if not remote_hostname:
+        raise ValueError(
+            "Enrollment remote hostname is missing"
+        )
+
+    if not peer_base_url:
+        raise ValueError(
+            "Enrollment peerBaseUrl is missing"
+        )
+
+    identity_document = {
+        "status": "ok",
+        "protocol": {
+            "name": "seymour-nexus-peer",
+            "version": "1",
+        },
+        "instance": {
+            "instanceId": remote_instance_id,
+            "organizationId": "",
+            "siteId": "",
+            "name": remote_name,
+            "hostname": remote_hostname,
+            "identitySource": "approved-enrollment",
+        },
+        "capabilities": {
+            "peerAwareness": True,
+            "federation": False,
+            "cmdbExchange": False,
+            "discoveryExchange": False,
+            "management": False,
+            "authorityDelegation": False,
+        },
+    }
+
+    peer_id = f"peer-{remote_instance_id}"
+
+    registered = (
+        nexus_peer_settings_service
+        .register_verified_peer(
+            peer_id=peer_id,
+            identity_document=identity_document,
+            peer_base_url=peer_base_url,
+        )
+    )
+
+    return {
+        "status": "ok",
+        "established": True,
+        "enrollment": _public_enrollment(row),
+        "peer": registered["peer"],
+    }
 
 def create_remote_pairing_request(
     *,
