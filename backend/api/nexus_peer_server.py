@@ -159,6 +159,9 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                     "remoteName",
                     "remoteHostname",
                     "peerBaseUrl",
+                    "publicKeyAlgorithm",
+                    "publicKey",
+                    "publicKeyFingerprint",
                 }
 
                 unexpected = sorted(
@@ -190,6 +193,18 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                         ),
                         peer_base_url=payload.get(
                             "peerBaseUrl",
+                            ""
+                        ),
+                        public_key_algorithm=payload.get(
+                            "publicKeyAlgorithm",
+                            ""
+                        ),
+                        public_key=payload.get(
+                            "publicKey",
+                            ""
+                        ),
+                        public_key_fingerprint=payload.get(
+                            "publicKeyFingerprint",
                             ""
                         ),
                     )

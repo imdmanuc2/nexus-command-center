@@ -119,6 +119,9 @@ def list_peers() -> list[dict[str, Any]]:
                     peer_base_url,
                     protocol_name,
                     protocol_version,
+                    public_key_algorithm,
+                    public_key,
+                    public_key_fingerprint,
                     status,
                     enabled,
                     peer_awareness,
@@ -154,6 +157,9 @@ def upsert_verified_peer(
     peer_base_url: str,
     protocol_name: str,
     protocol_version: str,
+    public_key_algorithm: str = "",
+    public_key: str = "",
+    public_key_fingerprint: str = "",
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Persist one explicitly verified Nexus peer.
@@ -172,6 +178,15 @@ def upsert_verified_peer(
         "peer_base_url": _text(peer_base_url),
         "protocol_name": _text(protocol_name),
         "protocol_version": _text(protocol_version),
+        "public_key_algorithm": _text(
+            public_key_algorithm
+        ),
+        "public_key": _text(
+            public_key
+        ),
+        "public_key_fingerprint": _text(
+            public_key_fingerprint
+        ),
     }
 
     required = [
@@ -203,6 +218,31 @@ def upsert_verified_peer(
             "Cannot register local Nexus as its own peer"
         )
 
+    key_values = (
+        values["public_key_algorithm"],
+        values["public_key"],
+        values["public_key_fingerprint"],
+    )
+
+    populated_key_values = sum(
+        bool(value)
+        for value in key_values
+    )
+
+    if populated_key_values not in {0, 3}:
+        raise ValueError(
+            "Peer public-key identity must include "
+            "algorithm, public key, and fingerprint together"
+        )
+
+    if (
+        values["public_key_algorithm"]
+        and values["public_key_algorithm"] != "Ed25519"
+    ):
+        raise ValueError(
+            "Unsupported peer public-key algorithm"
+        )
+
     with get_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -218,6 +258,9 @@ def upsert_verified_peer(
                     peer_base_url,
                     protocol_name,
                     protocol_version,
+                    public_key_algorithm,
+                    public_key,
+                    public_key_fingerprint,
                     status,
                     enabled,
                     peer_awareness,
@@ -242,6 +285,18 @@ def upsert_verified_peer(
                     %(peer_base_url)s,
                     %(protocol_name)s,
                     %(protocol_version)s,
+                    NULLIF(
+                        %(public_key_algorithm)s,
+                        ''
+                    ),
+                    NULLIF(
+                        %(public_key)s,
+                        ''
+                    ),
+                    NULLIF(
+                        %(public_key_fingerprint)s,
+                        ''
+                    ),
                     'verified',
                     TRUE,
                     TRUE,
@@ -275,6 +330,21 @@ def upsert_verified_peer(
                         EXCLUDED.protocol_name,
                     protocol_version =
                         EXCLUDED.protocol_version,
+                    public_key_algorithm =
+                        COALESCE(
+                            EXCLUDED.public_key_algorithm,
+                            nexus.nexus_peers.public_key_algorithm
+                        ),
+                    public_key =
+                        COALESCE(
+                            EXCLUDED.public_key,
+                            nexus.nexus_peers.public_key
+                        ),
+                    public_key_fingerprint =
+                        COALESCE(
+                            EXCLUDED.public_key_fingerprint,
+                            nexus.nexus_peers.public_key_fingerprint
+                        ),
                     status = 'verified',
                     enabled = TRUE,
                     peer_awareness = TRUE,

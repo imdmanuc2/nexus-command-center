@@ -135,8 +135,10 @@ def register_verified_peer(
 ) -> dict[str, Any]:
     """Remember an already authenticated Nexus peer.
 
-    This function does not perform authentication itself and does not
-    accept or store peer credentials.
+    This function does not perform transport authentication itself and
+    does not accept or store peer credentials. If an Ed25519 machine
+    identity is supplied, its public key and fingerprint are validated
+    before the durable peer record is written.
     """
 
     settings = (
@@ -244,6 +246,81 @@ def register_verified_peer(
             "peerBaseUrl is required"
         )
 
+    public_key_algorithm = ""
+    public_key = ""
+    public_key_fingerprint = ""
+
+    machine_identity = identity_document.get(
+        "machineIdentity"
+    )
+
+    if machine_identity is not None:
+        if not isinstance(machine_identity, dict):
+            raise ValueError(
+                "Peer machineIdentity must be an object"
+            )
+
+        public_key_algorithm = str(
+            machine_identity.get("algorithm") or ""
+        ).strip()
+
+        public_key = str(
+            machine_identity.get("publicKey") or ""
+        ).strip()
+
+        public_key_fingerprint = str(
+            machine_identity.get("fingerprint") or ""
+        ).strip()
+
+        key_parts = (
+            public_key_algorithm,
+            public_key,
+            public_key_fingerprint,
+        )
+
+        populated_key_parts = sum(
+            bool(value)
+            for value in key_parts
+        )
+
+        if populated_key_parts not in {0, 3}:
+            raise ValueError(
+                "Peer machine identity must include "
+                "algorithm, public key, and fingerprint together"
+            )
+
+        if public_key_algorithm:
+            if public_key_algorithm != "Ed25519":
+                raise ValueError(
+                    "Unsupported peer machine-key algorithm"
+                )
+
+            from backend.services import (
+                nexus_peer_machine_identity_service
+            )
+
+            raw_public_key = (
+                nexus_peer_machine_identity_service
+                .decode_public_key(
+                    public_key
+                )
+            )
+
+            expected_fingerprint = (
+                nexus_peer_machine_identity_service
+                .public_key_fingerprint(
+                    raw_public_key
+                )
+            )
+
+            if (
+                public_key_fingerprint
+                != expected_fingerprint
+            ):
+                raise ValueError(
+                    "Peer public-key fingerprint mismatch"
+                )
+
     row = nexus_peer_repository.upsert_verified_peer(
         peer_id=str(peer_id or "").strip(),
         local_instance_id=local_instance_id,
@@ -263,6 +340,9 @@ def register_verified_peer(
         peer_base_url=peer_url,
         protocol_name="seymour-nexus-peer",
         protocol_version="1",
+        public_key_algorithm=public_key_algorithm,
+        public_key=public_key,
+        public_key_fingerprint=public_key_fingerprint,
         metadata={
             "identitySource": str(
                 instance.get("identitySource")
@@ -287,6 +367,17 @@ def register_verified_peer(
                 "name": row["protocol_name"],
                 "version":
                     row["protocol_version"],
+            },
+            "machineIdentity": {
+                "algorithm":
+                    row.get("public_key_algorithm")
+                    or "",
+                "publicKey":
+                    row.get("public_key")
+                    or "",
+                "fingerprint":
+                    row.get("public_key_fingerprint")
+                    or "",
             },
             "status": row["status"],
             "enabled": bool(row["enabled"]),

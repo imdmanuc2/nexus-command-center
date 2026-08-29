@@ -21,6 +21,9 @@ def create_enrollment(
     requested_remote_name: str = "",
     requested_remote_hostname: str = "",
     requested_peer_base_url: str = "",
+    requested_public_key_algorithm: str = "",
+    requested_public_key: str = "",
+    requested_public_key_fingerprint: str = "",
 ) -> dict[str, Any]:
     values = {
         "enrollment_id": _text(enrollment_id),
@@ -52,6 +55,9 @@ def create_enrollment(
                     requested_remote_name,
                     requested_remote_hostname,
                     requested_peer_base_url,
+                    requested_public_key_algorithm,
+                    requested_public_key,
+                    requested_public_key_fingerprint,
                     expires_at
                 )
                 VALUES (
@@ -63,6 +69,9 @@ def create_enrollment(
                     %s,
                     %s,
                     %s,
+                    NULLIF(%s, ''),
+                    NULLIF(%s, ''),
+                    NULLIF(%s, ''),
                     %s
                 )
                 RETURNING *
@@ -75,6 +84,9 @@ def create_enrollment(
                     _text(requested_remote_name),
                     _text(requested_remote_hostname),
                     _text(requested_peer_base_url),
+                    _text(requested_public_key_algorithm),
+                    _text(requested_public_key),
+                    _text(requested_public_key_fingerprint),
                     expires_at,
                 ),
             )

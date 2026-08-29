@@ -62,6 +62,12 @@ def _public_enrollment(
             row.get("requested_remote_hostname") or "",
         "requestedPeerBaseUrl":
             row.get("requested_peer_base_url") or "",
+        "requestedPublicKeyAlgorithm":
+            row.get("requested_public_key_algorithm") or "",
+        "requestedPublicKey":
+            row.get("requested_public_key") or "",
+        "requestedPublicKeyFingerprint":
+            row.get("requested_public_key_fingerprint") or "",
         "expiresAt": row["expires_at"],
         "approvedAt": row.get("approved_at"),
         "rejectedAt": row.get("rejected_at"),
@@ -359,6 +365,15 @@ def establish_consumed_enrollment_peer(
     peer_base_url = _text(
         row.get("requested_peer_base_url")
     )
+    public_key_algorithm = _text(
+        row.get("requested_public_key_algorithm")
+    )
+    public_key = _text(
+        row.get("requested_public_key")
+    )
+    public_key_fingerprint = _text(
+        row.get("requested_public_key_fingerprint")
+    )
 
     if not remote_instance_id:
         raise ValueError(
@@ -394,6 +409,11 @@ def establish_consumed_enrollment_peer(
             "hostname": remote_hostname,
             "identitySource": "approved-enrollment",
         },
+        "machineIdentity": {
+            "algorithm": public_key_algorithm,
+            "publicKey": public_key,
+            "fingerprint": public_key_fingerprint,
+        },
         "capabilities": {
             "peerAwareness": True,
             "federation": False,
@@ -428,6 +448,9 @@ def create_remote_pairing_request(
     remote_name: str,
     remote_hostname: str,
     peer_base_url: str,
+    public_key_algorithm: str = "",
+    public_key: str = "",
+    public_key_fingerprint: str = "",
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
 ) -> dict[str, Any]:
     """Create a pending enrollment requested by another Nexus.
@@ -466,6 +489,60 @@ def create_remote_pairing_request(
         raise ValueError(
             "peerBaseUrl is required"
         )
+
+    key_algorithm = _text(
+        public_key_algorithm
+    )
+    key = _text(
+        public_key
+    )
+    key_fingerprint = _text(
+        public_key_fingerprint
+    )
+
+    key_parts = (
+        key_algorithm,
+        key,
+        key_fingerprint,
+    )
+
+    populated_key_parts = sum(
+        bool(value)
+        for value in key_parts
+    )
+
+    if populated_key_parts not in {0, 3}:
+        raise ValueError(
+            "Requester public-key identity must include "
+            "algorithm, public key, and fingerprint together"
+        )
+
+    if key_algorithm:
+        if key_algorithm != "Ed25519":
+            raise ValueError(
+                "Unsupported requester public-key algorithm"
+            )
+
+        from backend.services import (
+            nexus_peer_machine_identity_service
+        )
+
+        raw_public_key = (
+            nexus_peer_machine_identity_service
+            .decode_public_key(key)
+        )
+
+        expected_fingerprint = (
+            nexus_peer_machine_identity_service
+            .public_key_fingerprint(
+                raw_public_key
+            )
+        )
+
+        if key_fingerprint != expected_fingerprint:
+            raise ValueError(
+                "Requester public-key fingerprint mismatch"
+            )
 
     if not isinstance(ttl_seconds, int):
         raise ValueError(
@@ -507,6 +584,9 @@ def create_remote_pairing_request(
             requested_remote_name=name,
             requested_remote_hostname=hostname,
             requested_peer_base_url=base_url,
+            requested_public_key_algorithm=key_algorithm,
+            requested_public_key=key,
+            requested_public_key_fingerprint=key_fingerprint,
         )
     )
 

@@ -172,6 +172,10 @@
     {
       "version": "043",
       "file": "043_nexus_peer_pairing_enrollment.sql"
+    },
+    {
+      "version": "044",
+      "file": "044_nexus_peer_machine_auth.sql"
     }
   ]
 }
