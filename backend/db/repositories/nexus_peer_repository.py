@@ -397,3 +397,75 @@ def delete_peer(
         connection.commit()
 
     return deleted
+
+
+def get_peer_by_instances(
+    *,
+    local_instance_id: str,
+    remote_instance_id: str,
+) -> dict[str, Any] | None:
+    """Return one peer by its local/remote instance identity."""
+
+    local = _text(local_instance_id)
+    remote = _text(remote_instance_id)
+
+    if not local:
+        raise ValueError(
+            "local_instance_id is required"
+        )
+
+    if not remote:
+        raise ValueError(
+            "remote_instance_id is required"
+        )
+
+    if local == remote:
+        raise ValueError(
+            "remote_instance_id must differ from local_instance_id"
+        )
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    peer_id,
+                    local_instance_id,
+                    remote_instance_id,
+                    organization_id,
+                    site_id,
+                    name,
+                    hostname,
+                    peer_base_url,
+                    protocol_name,
+                    protocol_version,
+                    public_key_algorithm,
+                    public_key,
+                    public_key_fingerprint,
+                    status,
+                    enabled,
+                    peer_awareness,
+                    federation_enabled,
+                    cmdb_exchange_enabled,
+                    discovery_exchange_enabled,
+                    management_enabled,
+                    authority_delegation_enabled,
+                    last_verified_at,
+                    last_seen_at,
+                    metadata,
+                    created_at,
+                    updated_at
+                FROM nexus.nexus_peers
+                WHERE local_instance_id = %s
+                  AND remote_instance_id = %s
+                LIMIT 1
+                """,
+                (
+                    local,
+                    remote,
+                ),
+            )
+
+            row = cursor.fetchone()
+
+    return dict(row) if row else None

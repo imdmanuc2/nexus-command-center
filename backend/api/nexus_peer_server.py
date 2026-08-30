@@ -16,12 +16,14 @@ from urllib.parse import urlparse
 
 from backend.services import nexus_peer_enrollment_service
 from backend.services import nexus_peer_service
+from backend.services import nexus_peer_verified_auth_service
 
 
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8561
 
 IDENTITY_PATH = "/api/nexus/identity"
+PEER_STATUS_PATH = "/api/nexus/peer/status"
 ENROLLMENT_REQUEST_PATH = "/api/nexus/enrollment/request"
 ENROLLMENT_CONSUME_PATH = "/api/nexus/enrollment/consume"
 MAX_REQUEST_BODY_BYTES = 16 * 1024
@@ -66,6 +68,61 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
+
+        if path == PEER_STATUS_PATH:
+            try:
+                authenticated = (
+                    nexus_peer_verified_auth_service
+                    .authenticate_request(
+                        method="GET",
+                        path=path,
+                        headers=self.headers,
+                        body=b"",
+                    )
+                )
+
+                self._send_json(
+                    {
+                        "status": "ok",
+                        "authenticated": True,
+                        "peer": {
+                            "peerId": authenticated["peerId"],
+                            "remoteInstanceId": (
+                                authenticated[
+                                    "remoteInstanceId"
+                                ]
+                            ),
+                            "publicKeyFingerprint": (
+                                authenticated[
+                                    "publicKeyFingerprint"
+                                ]
+                            ),
+                        },
+                        "capabilities": {
+                            "peerAwareness": True,
+                            "federation": False,
+                            "cmdbExchange": False,
+                            "discoveryExchange": False,
+                            "management": False,
+                            "authorityDelegation": False,
+                        },
+                    },
+                    200,
+                )
+                return
+
+            except (
+                ValueError,
+                PermissionError,
+            ):
+                self._send_json(
+                    {
+                        "status": "error",
+                        "error": "unauthorized",
+                    },
+                    401,
+                )
+                return
 
         if path != IDENTITY_PATH:
             self._send_json(

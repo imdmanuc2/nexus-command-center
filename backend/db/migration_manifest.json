@@ -176,6 +176,10 @@
     {
       "version": "044",
       "file": "044_nexus_peer_machine_auth.sql"
+    },
+    {
+      "version": "045",
+      "file": "045_nexus_peer_request_replay.sql"
     }
   ]
 }
