@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from backend.db.repositories import nexus_peer_repository
+from backend.services import nexus_local_discovery_state_service
 
 
 def _serialize_settings(
@@ -93,6 +94,10 @@ def set_local_discovery_enabled(
     row = (
         nexus_peer_repository
         .set_local_discovery_enabled(enabled)
+    )
+
+    nexus_local_discovery_state_service.write_public_state(
+        enabled
     )
 
     return {

@@ -78,6 +78,15 @@ def test_set_local_discovery_preserves_peer_connection_setting(
         fake_set_local_discovery_enabled,
     )
 
+    monkeypatch.setattr(
+        nexus_peer_settings_service
+        .nexus_local_discovery_state_service,
+        "write_public_state",
+        lambda enabled: {
+            "enabled": enabled,
+        },
+    )
+
     result = (
         nexus_peer_settings_service
         .set_local_discovery_enabled(True)
@@ -103,3 +112,80 @@ def test_set_local_discovery_preserves_peer_connection_setting(
         "management": False,
         "authorityDelegation": False,
     }
+
+
+def test_setting_change_projects_public_discovery_state(
+    monkeypatch,
+):
+    from backend.services import (
+        nexus_local_discovery_state_service,
+    )
+
+    projected = []
+
+    def fake_set_local_discovery_enabled(enabled):
+        return {
+            "instance_id": "nexus-test",
+            "allow_peer_connections": False,
+            "local_discovery_enabled": enabled,
+        }
+
+    monkeypatch.setattr(
+        nexus_peer_settings_service
+        .nexus_peer_repository,
+        "set_local_discovery_enabled",
+        fake_set_local_discovery_enabled,
+    )
+
+    monkeypatch.setattr(
+        nexus_local_discovery_state_service,
+        "write_public_state",
+        lambda enabled: projected.append(enabled),
+    )
+
+    result = (
+        nexus_peer_settings_service
+        .set_local_discovery_enabled(True)
+    )
+
+    assert projected == [True]
+    assert (
+        result["settings"]["localDiscoveryEnabled"]
+        is True
+    )
+
+
+def test_peer_connection_setting_does_not_project_discovery(
+    monkeypatch,
+):
+    from backend.services import (
+        nexus_local_discovery_state_service,
+    )
+
+    projected = []
+
+    def fake_set_allow_peer_connections(enabled):
+        return {
+            "instance_id": "nexus-test",
+            "allow_peer_connections": enabled,
+            "local_discovery_enabled": False,
+        }
+
+    monkeypatch.setattr(
+        nexus_peer_settings_service
+        .nexus_peer_repository,
+        "set_local_peer_connections_enabled",
+        fake_set_allow_peer_connections,
+    )
+
+    monkeypatch.setattr(
+        nexus_local_discovery_state_service,
+        "write_public_state",
+        lambda enabled: projected.append(enabled),
+    )
+
+    nexus_peer_settings_service.set_allow_peer_connections(
+        True
+    )
+
+    assert projected == []
