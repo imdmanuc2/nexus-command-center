@@ -7,6 +7,7 @@ exchange, management, or authority.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any
 
 from backend.core.nexus_identity import runtime_identity
@@ -30,12 +31,16 @@ def discovery_enabled() -> bool:
     )
 
 
-def discovery_document() -> dict[str, Any]:
-    if not discovery_enabled():
-        raise PermissionError(
-            "Nexus local discovery is disabled"
-        )
+@lru_cache(maxsize=1)
+def _discovery_identity_document() -> dict[str, Any]:
+    """Build immutable public identity for this peer process.
 
+    Runtime instance identity and the peer machine key are stable for the
+    lifetime of a Nexus peer process. Caching this document avoids repeated
+    private-key file reads during discovery probes.
+
+    The user-controlled discovery setting is intentionally NOT cached.
+    """
     identity = runtime_identity()
 
     machine = (
@@ -64,3 +69,12 @@ def discovery_document() -> dict[str, Any]:
             "fingerprint": machine["fingerprint"],
         },
     }
+
+
+def discovery_document() -> dict[str, Any]:
+    if not discovery_enabled():
+        raise PermissionError(
+            "Nexus local discovery is disabled"
+        )
+
+    return dict(_discovery_identity_document())

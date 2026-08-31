@@ -154,6 +154,90 @@ class NexusPeerDiscoveryDocumentTests(
         self.assertNotIn("site-private", serialized)
         self.assertNotIn("Private Site", serialized)
 
+    def test_identity_document_cached_but_setting_not_cached(self):
+        identity = {
+            "instanceId": "nexus-test1234",
+            "instanceName": "Test Nexus",
+            "hostname": "test-host",
+        }
+
+        machine = {
+            "algorithm": "Ed25519",
+            "publicKey": "public-key",
+            "fingerprint": "sha256:test",
+        }
+
+        nexus_peer_discovery_service._discovery_identity_document.cache_clear()
+
+        try:
+            with patch.object(
+                nexus_peer_discovery_service,
+                "discovery_enabled",
+                side_effect=[True, True],
+            ) as enabled, patch.object(
+                nexus_peer_discovery_service,
+                "runtime_identity",
+                return_value=identity,
+            ) as runtime, patch.object(
+                nexus_peer_discovery_service
+                .nexus_peer_machine_identity_service,
+                "local_public_identity",
+                return_value=machine,
+            ) as machine_identity:
+                first = (
+                    nexus_peer_discovery_service
+                    .discovery_document()
+                )
+                second = (
+                    nexus_peer_discovery_service
+                    .discovery_document()
+                )
+
+            self.assertEqual(first, second)
+            self.assertEqual(enabled.call_count, 2)
+            self.assertEqual(runtime.call_count, 1)
+            self.assertEqual(machine_identity.call_count, 1)
+
+        finally:
+            (
+                nexus_peer_discovery_service
+                ._discovery_identity_document
+                .cache_clear()
+            )
+
+    def test_disabled_setting_checked_before_cached_identity(self):
+        nexus_peer_discovery_service._discovery_identity_document.cache_clear()
+
+        try:
+            with patch.object(
+                nexus_peer_discovery_service,
+                "discovery_enabled",
+                return_value=False,
+            ), patch.object(
+                nexus_peer_discovery_service,
+                "runtime_identity",
+            ) as runtime, patch.object(
+                nexus_peer_discovery_service
+                .nexus_peer_machine_identity_service,
+                "local_public_identity",
+            ) as machine_identity:
+                with self.assertRaises(PermissionError):
+                    (
+                        nexus_peer_discovery_service
+                        .discovery_document()
+                    )
+
+            runtime.assert_not_called()
+            machine_identity.assert_not_called()
+
+        finally:
+            (
+                nexus_peer_discovery_service
+                ._discovery_identity_document
+                .cache_clear()
+            )
+
+
     def test_settings_gate_uses_existing_contract(self):
         with patch.object(
             nexus_peer_discovery_service
