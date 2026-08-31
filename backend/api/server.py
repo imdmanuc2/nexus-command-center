@@ -254,6 +254,8 @@ class NexusHandler(BaseHTTPRequestHandler):
             return self._send_file("frontend/alerts.html", "text/html")
         if self.path == "/analytics.html":
             return self._send_file("frontend/analytics.html", "text/html")
+        if self.path == "/settings.html":
+            return self._send_file("frontend/settings.html", "text/html")
         if self.path == "/assets.html":
             return self._send_file("frontend/assets.html", "text/html")
         if self.path == "/blockchain.html":

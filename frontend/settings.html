@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+  <title>Nexus Settings</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/settings.css">
+</head>
+
+<body>
+  <main class="wrap">
+    <div class="nexus-page-shell settings-shell">
+
+      <header class="settings-page-header">
+        <div>
+          <p class="settings-eyebrow">Nexus Platform</p>
+          <h1>Nexus Settings</h1>
+          <p>
+            Configure Nexus platform behavior and connections.
+          </p>
+        </div>
+
+        <div
+          id="settingsStatus"
+          class="settings-source-state"
+        >
+          Loading settings…
+        </div>
+      </header>
+
+      <nav id="topNav" class="nav"></nav>
+
+      <section class="settings-section">
+        <div class="settings-section-heading">
+          <div>
+            <p class="settings-eyebrow">Connectivity</p>
+            <h2>Nexus Connections</h2>
+            <p>
+              Control how this Nexus installation discovers and
+              accepts connections from other Nexus systems.
+            </p>
+          </div>
+        </div>
+
+        <div class="settings-card-list">
+
+          <article class="settings-card">
+            <div class="settings-card-copy">
+              <div class="settings-card-title">
+                Discover Nexus systems on this network
+              </div>
+
+              <p>
+                Allow this Nexus installation to participate in
+                discovery of other Nexus installations.
+                Discovery does not grant access or establish a
+                trusted connection.
+              </p>
+            </div>
+
+            <label class="settings-switch">
+              <input
+                id="localDiscoveryEnabled"
+                type="checkbox"
+                disabled
+              >
+              <span
+                class="settings-switch-slider"
+                aria-hidden="true"
+              ></span>
+              <span class="settings-switch-state">
+                Off
+              </span>
+            </label>
+          </article>
+
+          <article class="settings-card">
+            <div class="settings-card-copy">
+              <div class="settings-card-title">
+                Allow Nexus connection requests
+              </div>
+
+              <p>
+                Allow another Nexus installation to request a
+                secure connection to this system. Existing
+                verified peers remain intact when this is off.
+              </p>
+            </div>
+
+            <label class="settings-switch">
+              <input
+                id="allowPeerConnections"
+                type="checkbox"
+                disabled
+              >
+              <span
+                class="settings-switch-slider"
+                aria-hidden="true"
+              ></span>
+              <span class="settings-switch-state">
+                Off
+              </span>
+            </label>
+          </article>
+
+        </div>
+
+        <div
+          id="settingsMessage"
+          class="settings-message"
+          role="status"
+          aria-live="polite"
+        ></div>
+      </section>
+
+      <section class="settings-section">
+        <div class="settings-section-heading">
+          <div>
+            <p class="settings-eyebrow">Trusted Peers</p>
+            <h2>Connected Nexus Systems</h2>
+            <p>
+              Nexus installations that have completed secure
+              enrollment and have a durable verified identity.
+            </p>
+          </div>
+
+          <div
+            id="connectedPeerCount"
+            class="settings-count"
+          >
+            —
+          </div>
+        </div>
+
+        <div
+          id="connectedPeers"
+          class="settings-peer-list"
+        >
+          <div class="settings-empty">
+            Loading connected Nexus systems…
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <div class="settings-section-heading">
+          <div>
+            <p class="settings-eyebrow">Fallback Connectivity</p>
+            <h2>Advanced</h2>
+            <p>
+              Options for networks where automatic local
+              discovery is unavailable.
+            </p>
+          </div>
+        </div>
+
+        <article class="settings-card settings-advanced-card">
+          <div class="settings-card-copy">
+            <div class="settings-card-title">
+              Add Nexus by address
+            </div>
+
+            <p>
+              Manual Nexus connection will provide a fallback
+              for routed networks, VLANs, VPNs, and networks
+              where local discovery is unavailable.
+            </p>
+
+            <span class="settings-planned">
+              Pairing UI not enabled yet
+            </span>
+          </div>
+        </article>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/settings.js"></script>
+  <script>
+    renderNav("Settings");
+  </script>
+  <script src="/js/mission.js"></script>
+</body>
+</html>
