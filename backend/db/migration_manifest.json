@@ -180,6 +180,10 @@
     {
       "version": "045",
       "file": "045_nexus_peer_request_replay.sql"
+    },
+    {
+      "version": "046",
+      "file": "046_nexus_peer_local_discovery.sql"
     }
   ]
 }

@@ -834,6 +834,7 @@ class NexusHandler(BaseHTTPRequestHandler):
 
                 allowed_keys = {
                     "allowPeerConnections",
+                    "localDiscoveryEnabled",
                 }
 
                 unexpected = sorted(
@@ -846,22 +847,45 @@ class NexusHandler(BaseHTTPRequestHandler):
                         + ", ".join(unexpected)
                     )
 
-                if "allowPeerConnections" not in data:
+                if not data:
                     raise ValueError(
-                        "Missing allowPeerConnections"
+                        "At least one peer setting is required"
                     )
 
-                enabled = data["allowPeerConnections"]
-
-                if not isinstance(enabled, bool):
+                if len(data) != 1:
                     raise ValueError(
-                        "allowPeerConnections must be a boolean"
+                        "Change one peer setting per request"
                     )
 
-                result = (
-                    nexus_peer_settings_service
-                    .set_allow_peer_connections(enabled)
-                )
+                if "allowPeerConnections" in data:
+                    enabled = data[
+                        "allowPeerConnections"
+                    ]
+
+                    if not isinstance(enabled, bool):
+                        raise ValueError(
+                            "allowPeerConnections must be a boolean"
+                        )
+
+                    result = (
+                        nexus_peer_settings_service
+                        .set_allow_peer_connections(enabled)
+                    )
+
+                else:
+                    enabled = data[
+                        "localDiscoveryEnabled"
+                    ]
+
+                    if not isinstance(enabled, bool):
+                        raise ValueError(
+                            "localDiscoveryEnabled must be a boolean"
+                        )
+
+                    result = (
+                        nexus_peer_settings_service
+                        .set_local_discovery_enabled(enabled)
+                    )
 
                 status, payload = json_response(result)
 

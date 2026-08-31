@@ -22,6 +22,7 @@ def get_local_peer_settings() -> dict[str, Any] | None:
                 SELECT
                     s.instance_id,
                     s.allow_peer_connections,
+                    s.local_discovery_enabled,
                     s.created_at,
                     s.updated_at
                 FROM nexus.nexus_peer_settings s
@@ -85,6 +86,71 @@ def set_local_peer_connections_enabled(
                 RETURNING
                     instance_id,
                     allow_peer_connections,
+                    created_at,
+                    updated_at
+                """,
+                (
+                    instance_id,
+                    enabled,
+                ),
+            )
+
+            result = dict(cursor.fetchone())
+
+        connection.commit()
+
+    return result
+
+
+def set_local_discovery_enabled(
+    enabled: bool,
+) -> dict[str, Any]:
+    """Set whether this Nexus participates in local peer discovery."""
+
+    if not isinstance(enabled, bool):
+        raise ValueError("enabled must be a boolean")
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT instance_id
+                FROM nexus.nexus_instances
+                WHERE is_local = TRUE
+                LIMIT 1
+                """
+            )
+
+            local = cursor.fetchone()
+
+            if not local:
+                raise RuntimeError(
+                    "Local Nexus instance is not registered"
+                )
+
+            instance_id = _text(local["instance_id"])
+
+            cursor.execute(
+                """
+                INSERT INTO nexus.nexus_peer_settings (
+                    instance_id,
+                    local_discovery_enabled,
+                    updated_at
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    NOW()
+                )
+                ON CONFLICT (instance_id)
+                DO UPDATE SET
+                    local_discovery_enabled =
+                        EXCLUDED.local_discovery_enabled,
+                    updated_at = NOW()
+                RETURNING
+                    instance_id,
+                    allow_peer_connections,
+                    local_discovery_enabled,
                     created_at,
                     updated_at
                 """,

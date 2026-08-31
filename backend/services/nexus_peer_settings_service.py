@@ -14,6 +14,7 @@ def _serialize_settings(
         return {
             "instanceId": "",
             "allowPeerConnections": False,
+            "localDiscoveryEnabled": False,
         }
 
     return {
@@ -22,6 +23,9 @@ def _serialize_settings(
         ).strip(),
         "allowPeerConnections": bool(
             row.get("allow_peer_connections")
+        ),
+        "localDiscoveryEnabled": bool(
+            row.get("local_discovery_enabled")
         ),
         "createdAt": row.get("created_at"),
         "updatedAt": row.get("updated_at"),
@@ -60,6 +64,35 @@ def set_allow_peer_connections(
     row = (
         nexus_peer_repository
         .set_local_peer_connections_enabled(enabled)
+    )
+
+    return {
+        "status": "ok",
+        "settings": _serialize_settings(row),
+        "capabilities": {
+            "peerAwareness": True,
+            "federation": False,
+            "cmdbExchange": False,
+            "discoveryExchange": False,
+            "management": False,
+            "authorityDelegation": False,
+        },
+    }
+
+
+def set_local_discovery_enabled(
+    enabled: bool,
+) -> dict[str, Any]:
+    """Explicitly enable or disable local Nexus discovery."""
+
+    if not isinstance(enabled, bool):
+        raise ValueError(
+            "localDiscoveryEnabled must be a boolean"
+        )
+
+    row = (
+        nexus_peer_repository
+        .set_local_discovery_enabled(enabled)
     )
 
     return {
