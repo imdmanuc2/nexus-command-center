@@ -14,6 +14,7 @@ import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
 
+from backend.services import nexus_peer_discovery_service
 from backend.services import nexus_peer_enrollment_service
 from backend.services import nexus_peer_service
 from backend.services import nexus_peer_verified_auth_service
@@ -23,6 +24,7 @@ DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 8561
 
 IDENTITY_PATH = "/api/nexus/identity"
+DISCOVERY_PATH = "/api/nexus/discovery"
 PEER_STATUS_PATH = "/api/nexus/peer/status"
 ENROLLMENT_REQUEST_PATH = "/api/nexus/enrollment/request"
 ENROLLMENT_CONSUME_PATH = "/api/nexus/enrollment/consume"
@@ -68,6 +70,31 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = urlparse(self.path).path
+
+        if path == DISCOVERY_PATH:
+            try:
+                self._send_json(
+                    nexus_peer_discovery_service
+                    .discovery_document(),
+                    200,
+                )
+            except PermissionError:
+                self._send_json(
+                    {
+                        "status": "error",
+                        "error": "not_found",
+                    },
+                    404,
+                )
+            except Exception:
+                self._send_json(
+                    {
+                        "status": "error",
+                        "error": "discovery_unavailable",
+                    },
+                    503,
+                )
+            return
 
         if path == PEER_STATUS_PATH:
             try:

@@ -5,6 +5,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from backend.core.assets import discover_asset
 
 
+from backend.services import nexus_peer_machine_identity_service
+
+
 COMMON_PORTS = {
     4000: "MiningCore API",
     5007: "BCH Node App Proxy",
@@ -15,6 +18,7 @@ COMMON_PORTS = {
     8334: "BCH P2P",
     8559: "Mining Dashboard",
     8560: "MiningCore Web/API",
+    8561: "Nexus Peer Transport",
     9002: "BCH Node RPC",
     80: "Web Interface",
     443: "Secure Web Interface",
@@ -65,10 +69,103 @@ def probe_http_json(url, timeout=1.5):
         return None
 
 
+def _valid_nexus_discovery_document(data):
+    if not isinstance(data, dict):
+        return False
+
+    if data.get("status") != "ok":
+        return False
+
+    if data.get("service") != "nexus-command-center":
+        return False
+
+    if str(data.get("discoveryVersion")) != "1":
+        return False
+
+    instance = data.get("instance")
+    protocol = data.get("peerProtocol")
+    machine = data.get("machineIdentity")
+
+    if not isinstance(instance, dict):
+        return False
+
+    if not isinstance(protocol, dict):
+        return False
+
+    if not isinstance(machine, dict):
+        return False
+
+    if not str(instance.get("instanceId") or "").startswith(
+        "nexus-"
+    ):
+        return False
+
+    if protocol.get("name") != "seymour-nexus-peer":
+        return False
+
+    if str(protocol.get("version")) != "1":
+        return False
+
+    if machine.get("algorithm") != "Ed25519":
+        return False
+
+    public_key = str(
+        machine.get("publicKey") or ""
+    ).strip()
+
+    fingerprint = str(
+        machine.get("fingerprint") or ""
+    ).strip()
+
+    if not public_key:
+        return False
+
+    if not fingerprint.startswith("sha256:"):
+        return False
+
+    try:
+        raw_public_key = (
+            nexus_peer_machine_identity_service
+            .decode_public_key(public_key)
+        )
+
+        expected_fingerprint = (
+            nexus_peer_machine_identity_service
+            .public_key_fingerprint(
+                raw_public_key
+            )
+        )
+    except (TypeError, ValueError):
+        return False
+
+    if fingerprint != expected_fingerprint:
+        return False
+
+    return True
+
+
 def fingerprint_host(ip, services):
     fingerprints = []
 
     open_ports = [item["port"] for item in services]
+
+    if 8561 in open_ports:
+        endpoint = (
+            f"http://{ip}:8561"
+            "/api/nexus/discovery"
+        )
+
+        data = probe_http_json(endpoint)
+
+        if _valid_nexus_discovery_document(data):
+            fingerprints.append({
+                "type": "nexus",
+                "label": "Nexus Command Center",
+                "status": "confirmed",
+                "endpoint": endpoint,
+                "confidence": 100,
+                "identity": data,
+            })
 
     if 4000 in open_ports:
         data = probe_http_json(f"http://{ip}:4000/api/pools/bch")
