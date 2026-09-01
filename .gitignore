@@ -112,3 +112,6 @@ packages/backend/
 
 backend/data/events/operations-state.json
 backend/data/events/operations-events.json
+
+# Runtime-generated Nexus discovery state
+backend/data/runtime/nexus-local-discovery.json
