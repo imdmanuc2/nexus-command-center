@@ -6,7 +6,17 @@ create peers, write CMDB state, perform enrollment, or open network sockets.
 
 from __future__ import annotations
 
-from typing import Any
+import threading
+import time
+from typing import Any, Callable
+
+from zeroconf import (
+    IPVersion,
+    ServiceBrowser,
+    ServiceInfo,
+    ServiceListener,
+    Zeroconf,
+)
 
 
 SERVICE_TYPE = "_seymour-nexus._tcp.local."
@@ -136,3 +146,149 @@ def merge_service_observations(
             item["port"],
         ),
     )
+
+
+def observation_from_service_info(
+    *,
+    service_type: str,
+    service_name: str,
+    info: ServiceInfo,
+) -> dict[str, Any]:
+    """Convert resolved Zeroconf service metadata into a locator."""
+
+    addresses = info.parsed_addresses(
+        IPVersion.All
+    )
+
+    return normalize_service_observation(
+        service_type=service_type,
+        service_name=service_name,
+        server=info.server or "",
+        port=int(info.port),
+        addresses=addresses,
+    )
+
+
+class _NexusServiceListener(ServiceListener):
+    """Collect resolved Nexus DNS-SD services during one browse window."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._observations: list[dict[str, Any]] = []
+
+    def _resolve(
+        self,
+        zeroconf: Zeroconf,
+        service_type: str,
+        name: str,
+    ) -> None:
+        info = zeroconf.get_service_info(
+            service_type,
+            name,
+        )
+
+        if info is None:
+            return
+
+        observation = observation_from_service_info(
+            service_type=service_type,
+            service_name=name,
+            info=info,
+        )
+
+        with self._lock:
+            self._observations.append(
+                observation
+            )
+
+    def add_service(
+        self,
+        zeroconf: Zeroconf,
+        service_type: str,
+        name: str,
+    ) -> None:
+        self._resolve(
+            zeroconf,
+            service_type,
+            name,
+        )
+
+    def update_service(
+        self,
+        zeroconf: Zeroconf,
+        service_type: str,
+        name: str,
+    ) -> None:
+        self._resolve(
+            zeroconf,
+            service_type,
+            name,
+        )
+
+    def remove_service(
+        self,
+        zeroconf: Zeroconf,
+        service_type: str,
+        name: str,
+    ) -> None:
+        return None
+
+    def observations(self) -> list[dict[str, Any]]:
+        with self._lock:
+            return [
+                {
+                    **item,
+                    "addresses": list(
+                        item.get("addresses") or []
+                    ),
+                }
+                for item in self._observations
+            ]
+
+
+def browse_service_observations(
+    *,
+    wait_seconds: float = 2.0,
+    zeroconf_factory: Callable[..., Zeroconf] = Zeroconf,
+    browser_factory: Callable[..., ServiceBrowser] = ServiceBrowser,
+    sleep: Callable[[float], None] = time.sleep,
+) -> list[dict[str, Any]]:
+    """Browse Nexus mDNS briefly and return normalized transport locators.
+
+    This function performs transport discovery only. Returned observations
+    are not trusted Nexus identities and do not create peers or CMDB state.
+    """
+
+    wait = float(wait_seconds)
+
+    if wait < 0 or wait > 30:
+        raise ValueError(
+            "Nexus mDNS browse wait must be between 0 and 30 seconds"
+        )
+
+    listener = _NexusServiceListener()
+
+    zeroconf = zeroconf_factory(
+        ip_version=IPVersion.All
+    )
+
+    browser = None
+
+    try:
+        browser = browser_factory(
+            zeroconf,
+            SERVICE_TYPE,
+            listener=listener,
+        )
+
+        sleep(wait)
+
+        return merge_service_observations(
+            listener.observations()
+        )
+
+    finally:
+        if browser is not None:
+            browser.cancel()
+
+        zeroconf.close()
