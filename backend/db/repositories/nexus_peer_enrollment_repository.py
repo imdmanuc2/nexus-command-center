@@ -24,6 +24,7 @@ def create_enrollment(
     requested_public_key_algorithm: str = "",
     requested_public_key: str = "",
     requested_public_key_fingerprint: str = "",
+    request_id: str = "",
 ) -> dict[str, Any]:
     values = {
         "enrollment_id": _text(enrollment_id),
@@ -58,6 +59,7 @@ def create_enrollment(
                     requested_public_key_algorithm,
                     requested_public_key,
                     requested_public_key_fingerprint,
+                    request_id,
                     expires_at
                 )
                 VALUES (
@@ -69,6 +71,7 @@ def create_enrollment(
                     %s,
                     %s,
                     %s,
+                    NULLIF(%s, ''),
                     NULLIF(%s, ''),
                     NULLIF(%s, ''),
                     NULLIF(%s, ''),
@@ -87,6 +90,7 @@ def create_enrollment(
                     _text(requested_public_key_algorithm),
                     _text(requested_public_key),
                     _text(requested_public_key_fingerprint),
+                    _text(request_id),
                     expires_at,
                 ),
             )
@@ -290,3 +294,51 @@ def delete_enrollment(
         connection.commit()
 
     return deleted
+
+def get_enrollment_by_request(
+    *,
+    local_instance_id: str,
+    requested_remote_instance_id: str,
+    request_id: str,
+) -> dict[str, Any] | None:
+    """Return an enrollment by its idempotent request identity."""
+
+    local_id = _text(local_instance_id)
+    remote_id = _text(requested_remote_instance_id)
+    request_key = _text(request_id)
+
+    if not local_id:
+        raise ValueError(
+            "local_instance_id is required"
+        )
+
+    if not remote_id:
+        raise ValueError(
+            "requested_remote_instance_id is required"
+        )
+
+    if not request_key:
+        raise ValueError(
+            "request_id is required"
+        )
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT *
+                FROM nexus.nexus_peer_enrollments
+                WHERE local_instance_id = %s
+                  AND requested_remote_instance_id = %s
+                  AND request_id = %s
+                """,
+                (
+                    local_id,
+                    remote_id,
+                    request_key,
+                ),
+            )
+
+            row = cursor.fetchone()
+
+    return dict(row) if row else None
