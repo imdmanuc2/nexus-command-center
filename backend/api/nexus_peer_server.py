@@ -247,6 +247,8 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                     "publicKeyAlgorithm",
                     "publicKey",
                     "publicKeyFingerprint",
+                    "pairingId",
+                    "capabilityHash",
                 }
 
                 unexpected = sorted(
@@ -313,6 +315,14 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                         ),
                         public_key_fingerprint=payload.get(
                             "publicKeyFingerprint",
+                            ""
+                        ),
+                        pairing_id=payload.get(
+                            "pairingId",
+                            ""
+                        ),
+                        capability_hash=payload.get(
+                            "capabilityHash",
                             ""
                         ),
                     )

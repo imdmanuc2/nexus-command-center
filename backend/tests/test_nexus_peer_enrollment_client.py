@@ -111,6 +111,8 @@ def _build(
             remote_instance_id="nexus-remote",
             peer_base_url="http://10.0.0.2:8561",
             local_peer_base_url="http://10.0.0.1:8561",
+            pairing_id="pairing-test",
+            capability_hash=("a" * 64),
             timestamp=datetime(
                 2026,
                 9,
@@ -136,6 +138,8 @@ def test_builds_exact_receiver_payload(
 
     assert result["payload"] == {
         "remoteInstanceId": "nexus-local",
+        "pairingId": "pairing-test",
+        "capabilityHash": ("a" * 64),
         "remoteName": "Local Nexus",
         "remoteHostname": "local-host",
         "peerBaseUrl": "http://10.0.0.1:8561",
@@ -246,8 +250,6 @@ def test_request_uses_exact_signed_body(
                     "expiresAt":
                         "2026-09-01T12:15:00Z",
                 },
-                "enrollmentSecret":
-                    "test-secret-not-persisted",
             }
         )
 
@@ -256,6 +258,8 @@ def test_request_uses_exact_signed_body(
             remote_instance_id="nexus-remote",
             peer_base_url="http://10.0.0.2:8561",
             local_peer_base_url="http://10.0.0.1:8561",
+            pairing_id="pairing-test",
+            capability_hash=("a" * 64),
             opener=opener,
             timestamp=datetime(
                 2026,
@@ -292,8 +296,6 @@ def test_request_uses_exact_signed_body(
         "enrollmentStatus": "pending",
         "expiresAt":
             "2026-09-01T12:15:00Z",
-        "enrollmentSecret":
-            "test-secret-not-persisted",
     }
 
 
@@ -332,13 +334,6 @@ def test_request_uses_exact_signed_body(
                 ),
             "wrong Nexus",
         ),
-        (
-            lambda payload:
-                payload.pop(
-                    "enrollmentSecret"
-                ),
-            "missing credential",
-        ),
     ],
 )
 def test_rejects_invalid_success_response(
@@ -358,8 +353,6 @@ def test_rejects_invalid_success_response(
             "expiresAt":
                 "2026-09-01T12:15:00Z",
         },
-        "enrollmentSecret":
-            "test-secret-not-persisted",
     }
 
     mutator(
@@ -383,6 +376,8 @@ def test_rejects_invalid_success_response(
             remote_instance_id="nexus-remote",
             peer_base_url="http://10.0.0.2:8561",
             local_peer_base_url="http://10.0.0.1:8561",
+            pairing_id="pairing-test",
+            capability_hash=("a" * 64),
             opener=opener,
         )
 
@@ -398,6 +393,8 @@ def test_rejects_self_pairing(
             remote_instance_id="nexus-local",
             peer_base_url="http://10.0.0.1:8561",
             local_peer_base_url="http://10.0.0.1:8561",
+            pairing_id="pairing-test",
+            capability_hash=("a" * 64),
         )
 
 
@@ -423,6 +420,8 @@ def test_rejects_invalid_timeout(
             remote_instance_id="nexus-remote",
             peer_base_url="http://10.0.0.2:8561",
             local_peer_base_url="http://10.0.0.1:8561",
+            pairing_id="pairing-test",
+            capability_hash=("a" * 64),
             timeout=timeout,
             opener=lambda *args, **kwargs: (
                 (_ for _ in ()).throw(
@@ -434,7 +433,7 @@ def test_rejects_invalid_timeout(
         )
 
 
-def test_public_result_contains_only_expected_secret(
+def test_public_result_contains_no_enrollment_secret(
     identities,
 ):
     def opener(
@@ -459,8 +458,6 @@ def test_public_result_contains_only_expected_secret(
                     "expiresAt":
                         "2026-09-01T12:15:00Z",
                 },
-                "enrollmentSecret":
-                    "temporary-secret",
             }
         )
 
@@ -469,6 +466,8 @@ def test_public_result_contains_only_expected_secret(
             remote_instance_id="nexus-remote",
             peer_base_url="http://10.0.0.2:8561",
             local_peer_base_url="http://10.0.0.1:8561",
+            pairing_id="pairing-test",
+            capability_hash=("a" * 64),
             opener=opener,
         )
     )
@@ -478,7 +477,6 @@ def test_public_result_contains_only_expected_secret(
         "enrollmentId",
         "enrollmentStatus",
         "expiresAt",
-        "enrollmentSecret",
     }
 
     assert (

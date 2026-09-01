@@ -59,6 +59,7 @@ def test_enrollment_binds_verified_requester_machine_identity():
         return {
             "enrollment_id": kwargs["enrollment_id"],
             "local_instance_id": kwargs["local_instance_id"],
+            "secret_hash": kwargs["secret_hash"],
             "requested_remote_instance_id":
                 kwargs["requested_remote_instance_id"],
             "requested_remote_name":
@@ -90,7 +91,7 @@ def test_enrollment_binds_verified_requester_machine_identity():
         ),
         patch.object(
             enrollment.nexus_peer_enrollment_repository,
-            "create_enrollment",
+            "create_enrollment_idempotent",
             side_effect=fake_create_enrollment,
         ),
     ):
@@ -99,6 +100,8 @@ def test_enrollment_binds_verified_requester_machine_identity():
             remote_name="Remote Nexus",
             remote_hostname="remote",
             peer_base_url="http://192.0.2.10:8561",
+            pairing_id="pairing-machine-binding",
+            capability_hash=("a" * 64),
             public_key_algorithm=identity["algorithm"],
             public_key=identity["publicKey"],
             public_key_fingerprint=identity["fingerprint"],
@@ -139,6 +142,8 @@ def test_enrollment_rejects_tampered_fingerprint_before_write():
                 remote_name="Remote Nexus",
                 remote_hostname="remote",
                 peer_base_url="http://192.0.2.10:8561",
+                pairing_id="pairing-machine-binding",
+                capability_hash=("a" * 64),
                 public_key_algorithm="Ed25519",
                 public_key=identity["publicKey"],
                 public_key_fingerprint=(

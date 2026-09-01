@@ -1,8 +1,14 @@
 from datetime import datetime, timezone
+import hashlib
 
 import pytest
 
-from backend.services import nexus_peer_pairing_request_service as service
+from backend.services import (
+    nexus_peer_pairing_request_service as service,
+)
+
+
+CAPABILITY = "synthetic-initiator-capability"
 
 
 def _public_pairing(
@@ -14,8 +20,7 @@ def _public_pairing(
         "remoteInstanceId": "nexus-remote",
         "remoteName": "Remote Nexus",
         "remoteHostname": "remote-host",
-        "remotePublicKeyFingerprint":
-            "sha256:remote",
+        "remotePublicKeyFingerprint": "sha256:remote",
         "remoteEnrollmentId": "",
         "status": status,
         "expiresAt": None,
@@ -24,20 +29,18 @@ def _public_pairing(
         "rejectedAt": None,
         "connectedAt": None,
         "lastError": "",
-        "createdAt":
-            datetime(
-                2026,
-                9,
-                1,
-                tzinfo=timezone.utc,
-            ),
-        "updatedAt":
-            datetime(
-                2026,
-                9,
-                1,
-                tzinfo=timezone.utc,
-            ),
+        "createdAt": datetime(
+            2026,
+            9,
+            1,
+            tzinfo=timezone.utc,
+        ),
+        "updatedAt": datetime(
+            2026,
+            9,
+            1,
+            tzinfo=timezone.utc,
+        ),
     }
 
 
@@ -59,16 +62,12 @@ def _row(
         "remote_name": "Remote Nexus",
         "remote_hostname": "remote-host",
         "peer_base_url": "http://remote:8561",
-        "remote_public_key_algorithm":
-            "Ed25519",
+        "remote_public_key_algorithm": "Ed25519",
         "remote_public_key": "remote-key",
-        "remote_public_key_fingerprint":
-            "sha256:remote",
-        "remote_enrollment_id":
-            "enroll-test",
+        "remote_public_key_fingerprint": "sha256:remote",
+        "remote_enrollment_id": "enroll-test",
         "status": status,
-        "expires_at":
-            "2026-09-01T12:15:00Z",
+        "expires_at": "2026-09-01T12:15:00Z",
         "requested_at": now,
         "approved_at": None,
         "rejected_at": None,
@@ -90,52 +89,99 @@ def _call(
         peer_base_url="http://remote:8561",
         remote_public_key_algorithm="Ed25519",
         remote_public_key="remote-key",
-        remote_public_key_fingerprint=
-            "sha256:remote",
+        remote_public_key_fingerprint="sha256:remote",
         local_peer_base_url="http://local:8561",
         enrollment_requester=requester,
     )
 
 
-def test_happy_path_orders_state_network_credential_transition(
+def _mock_new_capability(
     monkeypatch,
+    *,
+    calls=None,
+    store_error=None,
 ):
-    calls = []
+    monkeypatch.setattr(
+        service.nexus_peer_pairing_credential_service,
+        "generate_credential",
+        lambda: CAPABILITY,
+    )
+
+    def store(**kwargs):
+        if calls is not None:
+            calls.append("store")
+
+        assert kwargs["pairing_id"] == "pairing-test"
+        assert kwargs["enrollment_secret"] == CAPABILITY
+
+        if store_error is not None:
+            raise store_error
+
+    monkeypatch.setattr(
+        service.nexus_peer_pairing_credential_service,
+        "store_credential",
+        store,
+    )
+
+
+def _new_pairing_service_mock(
+    monkeypatch,
+    *,
+    status="requesting",
+    calls=None,
+):
+    def create(**kwargs):
+        if calls is not None:
+            calls.append("create")
+
+        return {
+            "status": "ok",
+            "created": True,
+            "pairing": _public_pairing(
+                status=status,
+            ),
+        }
 
     monkeypatch.setattr(
         service.nexus_peer_outbound_pairing_service,
         "create_outbound_pairing",
-        lambda **kwargs: (
-            calls.append("create")
-            or {
-                "status": "ok",
-                "created": True,
-                "pairing": _public_pairing(),
-            }
-        ),
+        create,
+    )
+
+
+def _pending_response():
+    return {
+        "status": "ok",
+        "enrollmentId": "enroll-test",
+        "enrollmentStatus": "pending",
+        "expiresAt": "2026-09-01T12:15:00Z",
+    }
+
+
+def test_happy_path_orders_state_credential_network_transition(
+    monkeypatch,
+):
+    calls = []
+
+    _new_pairing_service_mock(
+        monkeypatch,
+        calls=calls,
+    )
+
+    _mock_new_capability(
+        monkeypatch,
+        calls=calls,
     )
 
     def requester(**kwargs):
         calls.append("request")
 
-        return {
-            "status": "ok",
-            "enrollmentId": "enroll-test",
-            "enrollmentStatus": "pending",
-            "expiresAt":
-                "2026-09-01T12:15:00Z",
-            "enrollmentSecret":
-                "temporary-test-secret",
-        }
+        assert kwargs["pairing_id"] == "pairing-test"
+        assert kwargs["capability_hash"] == hashlib.sha256(
+            CAPABILITY.encode("utf-8")
+        ).hexdigest()
 
-    monkeypatch.setattr(
-        service.nexus_peer_pairing_credential_service,
-        "store_credential",
-        lambda **kwargs: (
-            calls.append("store")
-            or None
-        ),
-    )
+        return _pending_response()
 
     def transition(**kwargs):
         calls.append("transition")
@@ -144,10 +190,8 @@ def test_happy_path_orders_state_network_credential_transition(
             "pairing_id": "pairing-test",
             "expected_status": "requesting",
             "new_status": "pending",
-            "remote_enrollment_id":
-                "enroll-test",
-            "expires_at":
-                "2026-09-01T12:15:00Z",
+            "remote_enrollment_id": "enroll-test",
+            "expires_at": "2026-09-01T12:15:00Z",
         }
 
         return _row()
@@ -164,8 +208,8 @@ def test_happy_path_orders_state_network_credential_transition(
 
     assert calls == [
         "create",
-        "request",
         "store",
+        "request",
         "transition",
     ]
 
@@ -176,11 +220,8 @@ def test_happy_path_orders_state_network_credential_transition(
         == "enroll-test"
     )
 
-    assert "enrollmentSecret" not in result
-    assert "peerBaseUrl" not in result
 
-
-def test_existing_active_pairing_does_not_send_request(
+def test_existing_nonrequesting_pairing_does_not_send_request(
     monkeypatch,
 ):
     monkeypatch.setattr(
@@ -190,14 +231,34 @@ def test_existing_active_pairing_does_not_send_request(
             "status": "ok",
             "created": False,
             "pairing": _public_pairing(
-                status="pending"
+                status="pending",
             ),
         },
     )
 
+    monkeypatch.setattr(
+        service.nexus_peer_pairing_credential_service,
+        "generate_credential",
+        lambda: (_ for _ in ()).throw(
+            AssertionError(
+                "existing pending pairing must not generate capability"
+            )
+        ),
+    )
+
+    monkeypatch.setattr(
+        service.nexus_peer_pairing_credential_service,
+        "load_credential",
+        lambda **kwargs: (_ for _ in ()).throw(
+            AssertionError(
+                "existing pending pairing must not load capability"
+            )
+        ),
+    )
+
     def requester(**kwargs):
         raise AssertionError(
-            "existing pairing must not send network request"
+            "existing pending pairing must not send network request"
         )
 
     result = _call(
@@ -208,19 +269,17 @@ def test_existing_active_pairing_does_not_send_request(
     assert result["pairing"]["status"] == "pending"
 
 
-def test_transport_failure_marks_request_failed(
+def test_transport_failure_preserves_requesting_recovery(
     monkeypatch,
 ):
     transitions = []
 
-    monkeypatch.setattr(
-        service.nexus_peer_outbound_pairing_service,
-        "create_outbound_pairing",
-        lambda **kwargs: {
-            "status": "ok",
-            "created": True,
-            "pairing": _public_pairing(),
-        },
+    _new_pairing_service_mock(
+        monkeypatch,
+    )
+
+    _mock_new_capability(
+        monkeypatch,
     )
 
     monkeypatch.setattr(
@@ -247,30 +306,20 @@ def test_transport_failure_marks_request_failed(
             requester=requester,
         )
 
-    assert transitions == [
-        {
-            "pairing_id": "pairing-test",
-            "expected_status": "requesting",
-            "new_status": "failed",
-            "last_error":
-                "pairing_request_failed",
-        }
-    ]
+    assert transitions == []
 
 
-def test_invalid_response_marks_request_failed(
+def test_invalid_response_preserves_requesting_recovery(
     monkeypatch,
 ):
     transitions = []
 
-    monkeypatch.setattr(
-        service.nexus_peer_outbound_pairing_service,
-        "create_outbound_pairing",
-        lambda **kwargs: {
-            "status": "ok",
-            "created": True,
-            "pairing": _public_pairing(),
-        },
+    _new_pairing_service_mock(
+        monkeypatch,
+    )
+
+    _mock_new_capability(
+        monkeypatch,
     )
 
     monkeypatch.setattr(
@@ -296,35 +345,23 @@ def test_invalid_response_marks_request_failed(
             },
         )
 
-    assert transitions[-1][
-        "new_status"
-    ] == "failed"
+    assert transitions == []
 
 
-def test_credential_store_failure_marks_failed(
+def test_credential_store_failure_marks_failed_before_network(
     monkeypatch,
 ):
     transitions = []
+    network = []
 
-    monkeypatch.setattr(
-        service.nexus_peer_outbound_pairing_service,
-        "create_outbound_pairing",
-        lambda **kwargs: {
-            "status": "ok",
-            "created": True,
-            "pairing": _public_pairing(),
-        },
+    _new_pairing_service_mock(
+        monkeypatch,
     )
 
-    monkeypatch.setattr(
-        service.nexus_peer_pairing_credential_service,
-        "store_credential",
-        lambda **kwargs: (
-            (_ for _ in ()).throw(
-                RuntimeError(
-                    "synthetic credential failure"
-                )
-            )
+    _mock_new_capability(
+        monkeypatch,
+        store_error=RuntimeError(
+            "synthetic credential failure"
         ),
     )
 
@@ -344,71 +381,49 @@ def test_credential_store_failure_marks_failed(
         match="synthetic credential failure",
     ):
         _call(
-            requester=lambda **kwargs: {
-                "status": "ok",
-                "enrollmentId": "enroll-test",
-                "enrollmentStatus": "pending",
-                "expiresAt":
-                    "2026-09-01T12:15:00Z",
-                "enrollmentSecret":
-                    "temporary-test-secret",
-            },
+            requester=lambda **kwargs: (
+                network.append(kwargs)
+                or _pending_response()
+            ),
         )
 
-    assert transitions[-1][
-        "new_status"
-    ] == "failed"
+    assert network == []
+
+    assert transitions == [
+        {
+            "pairing_id": "pairing-test",
+            "expected_status": "requesting",
+            "new_status": "failed",
+            "last_error": "pairing_request_failed",
+        }
+    ]
 
 
-def test_pending_transition_failure_deletes_credential(
+def test_pending_transition_failure_preserves_credential(
     monkeypatch,
 ):
     calls = []
 
-    monkeypatch.setattr(
-        service.nexus_peer_outbound_pairing_service,
-        "create_outbound_pairing",
-        lambda **kwargs: {
-            "status": "ok",
-            "created": True,
-            "pairing": _public_pairing(),
-        },
+    _new_pairing_service_mock(
+        monkeypatch,
     )
 
-    monkeypatch.setattr(
-        service.nexus_peer_pairing_credential_service,
-        "store_credential",
-        lambda **kwargs: (
-            calls.append("store")
-            or None
-        ),
+    _mock_new_capability(
+        monkeypatch,
+        calls=calls,
     )
 
     monkeypatch.setattr(
         service.nexus_peer_pairing_credential_service,
         "delete_credential",
-        lambda **kwargs: (
-            calls.append("delete")
-            or True
-        ),
+        lambda **kwargs: calls.append("delete"),
     )
 
-    transition_count = {
-        "value": 0,
-    }
-
     def transition(**kwargs):
-        transition_count["value"] += 1
+        calls.append("pending-fail")
 
-        if transition_count["value"] == 1:
-            calls.append("pending-fail")
-            raise RuntimeError(
-                "synthetic transition failure"
-            )
-
-        calls.append("mark-failed")
-        return _row(
-            status="failed"
+        raise RuntimeError(
+            "synthetic transition failure"
         )
 
     monkeypatch.setattr(
@@ -422,42 +437,24 @@ def test_pending_transition_failure_deletes_credential(
         match="synthetic transition failure",
     ):
         _call(
-            requester=lambda **kwargs: {
-                "status": "ok",
-                "enrollmentId": "enroll-test",
-                "enrollmentStatus": "pending",
-                "expiresAt":
-                    "2026-09-01T12:15:00Z",
-                "enrollmentSecret":
-                    "temporary-test-secret",
-            },
+            requester=lambda **kwargs: _pending_response(),
         )
 
     assert calls == [
         "store",
         "pending-fail",
-        "delete",
-        "mark-failed",
     ]
 
 
-def test_result_never_exposes_enrollment_secret(
+def test_result_never_exposes_capability(
     monkeypatch,
 ):
-    monkeypatch.setattr(
-        service.nexus_peer_outbound_pairing_service,
-        "create_outbound_pairing",
-        lambda **kwargs: {
-            "status": "ok",
-            "created": True,
-            "pairing": _public_pairing(),
-        },
+    _new_pairing_service_mock(
+        monkeypatch,
     )
 
-    monkeypatch.setattr(
-        service.nexus_peer_pairing_credential_service,
-        "store_credential",
-        lambda **kwargs: None,
+    _mock_new_capability(
+        monkeypatch,
     )
 
     monkeypatch.setattr(
@@ -467,27 +464,11 @@ def test_result_never_exposes_enrollment_secret(
     )
 
     result = _call(
-        requester=lambda **kwargs: {
-            "status": "ok",
-            "enrollmentId": "enroll-test",
-            "enrollmentStatus": "pending",
-            "expiresAt":
-                "2026-09-01T12:15:00Z",
-            "enrollmentSecret":
-                "temporary-test-secret",
-        },
+        requester=lambda **kwargs: _pending_response(),
     )
 
-    rendered = repr(
-        result
-    )
+    rendered = repr(result)
 
-    assert (
-        "temporary-test-secret"
-        not in rendered
-    )
-
-    assert (
-        "enrollmentSecret"
-        not in rendered
-    )
+    assert CAPABILITY not in rendered
+    assert "capabilityHash" not in rendered
+    assert "capability_hash" not in rendered

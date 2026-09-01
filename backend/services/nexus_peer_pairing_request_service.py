@@ -11,6 +11,7 @@ It does not approve or consume enrollment and does not create a peer.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any, Callable
 
 from backend.db.repositories import (
@@ -108,17 +109,71 @@ def request_pairing(
             "Outbound pairing state is missing pairingId"
         )
 
-    if not bool(created.get("created")):
-        return {
-            "status": "ok",
-            "created": False,
-            "pairing": pairing,
-        }
+    is_new = bool(
+        created.get("created")
+    )
 
-    if status != "requesting":
-        raise RuntimeError(
-            "New outbound pairing is not requesting"
-        )
+    if not is_new:
+        if status != "requesting":
+            return {
+                "status": "ok",
+                "created": False,
+                "pairing": pairing,
+            }
+
+        try:
+            enrollment_secret = (
+                nexus_peer_pairing_credential_service
+                .load_credential(
+                    pairing_id=pairing_id,
+                )
+            )
+        except Exception as exc:
+            raise RuntimeError(
+                "Existing requesting pairing cannot be "
+                "retried because its enrollment capability "
+                "is unavailable"
+            ) from exc
+
+        if not _text(enrollment_secret):
+            raise RuntimeError(
+                "Existing requesting pairing cannot be "
+                "retried because its enrollment capability "
+                "is unavailable"
+            )
+    else:
+        if status != "requesting":
+            raise RuntimeError(
+                "New outbound pairing is not requesting"
+            )
+
+        try:
+            enrollment_secret = (
+                nexus_peer_pairing_credential_service
+                .generate_credential()
+            )
+
+            if not _text(enrollment_secret):
+                raise RuntimeError(
+                    "Enrollment capability generation failed"
+                )
+
+            (
+                nexus_peer_pairing_credential_service
+                .store_credential(
+                    pairing_id=pairing_id,
+                    enrollment_secret=enrollment_secret,
+                )
+            )
+        except Exception:
+            _fail_requesting_pairing(
+                pairing_id=pairing_id,
+            )
+            raise
+
+    capability_hash = hashlib.sha256(
+        enrollment_secret.encode("utf-8")
+    ).hexdigest()
 
     try:
         response = requester(
@@ -131,18 +186,18 @@ def request_pairing(
             local_peer_base_url=_text(
                 local_peer_base_url
             ),
+            pairing_id=pairing_id,
+            capability_hash=capability_hash,
             timeout=timeout,
         )
     except Exception:
-        _fail_requesting_pairing(
-            pairing_id=pairing_id,
-        )
+        # Preserve both the requesting row and encrypted capability.
+        # The receiver may already have committed this request before
+        # the transport failed. A recovery path can safely retry with
+        # the same pairingId and capability hash.
         raise
 
     if not isinstance(response, dict):
-        _fail_requesting_pairing(
-            pairing_id=pairing_id,
-        )
         raise RuntimeError(
             "Enrollment requester returned invalid response"
         )
@@ -155,10 +210,6 @@ def request_pairing(
         response.get("enrollmentStatus")
     )
 
-    enrollment_secret = _text(
-        response.get("enrollmentSecret")
-    )
-
     expires_at = response.get(
         "expiresAt"
     )
@@ -166,29 +217,11 @@ def request_pairing(
     if (
         not enrollment_id
         or enrollment_status != "pending"
-        or not enrollment_secret
         or not expires_at
     ):
-        _fail_requesting_pairing(
-            pairing_id=pairing_id,
-        )
         raise RuntimeError(
             "Enrollment requester returned incomplete response"
         )
-
-    try:
-        (
-            nexus_peer_pairing_credential_service
-            .store_credential(
-                pairing_id=pairing_id,
-                enrollment_secret=enrollment_secret,
-            )
-        )
-    except Exception:
-        _fail_requesting_pairing(
-            pairing_id=pairing_id,
-        )
-        raise
 
     try:
         row = (
@@ -202,22 +235,15 @@ def request_pairing(
             )
         )
     except Exception:
-        try:
-            (
-                nexus_peer_pairing_credential_service
-                .delete_credential(
-                    pairing_id=pairing_id,
-                )
-            )
-        finally:
-            _fail_requesting_pairing(
-                pairing_id=pairing_id,
-            )
+        # The receiver may already have committed this enrollment.
+        # Preserve requesting state and the encrypted initiator-owned
+        # capability so an exact retry can resend the same pairingId
+        # and capabilityHash.
         raise
 
     return {
         "status": "ok",
-        "created": True,
+        "created": is_new,
         "pairing": {
             "pairingId": row["pairing_id"],
             "remoteInstanceId": row["remote_instance_id"],

@@ -40,6 +40,8 @@ def _request(monkeypatch):
 
     payload = {
         "remoteInstanceId": "nexus-remote",
+        "pairingId": "pairing-test",
+        "capabilityHash": ("a" * 64),
         "remoteName": "Remote Nexus",
         "remoteHostname": "remote",
         "peerBaseUrl": "http://remote:8561",

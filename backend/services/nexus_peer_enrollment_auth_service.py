@@ -193,6 +193,29 @@ def authenticate_enrollment_request(
     payload_algorithm = _text(
         payload.get("publicKeyAlgorithm")
     )
+    pairing_id = _text(
+        payload.get("pairingId")
+    )
+    capability_hash = _text(
+        payload.get("capabilityHash")
+    ).lower()
+
+    if not pairing_id:
+        raise PermissionError(
+            "Enrollment pairingId is required"
+        )
+
+    if (
+        len(capability_hash) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in capability_hash
+        )
+    ):
+        raise PermissionError(
+            "Enrollment capabilityHash is invalid"
+        )
+
     public_key = _text(
         payload.get("publicKey")
     )

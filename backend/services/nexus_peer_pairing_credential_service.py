@@ -12,6 +12,8 @@ identifier using AES-GCM associated data.
 
 from __future__ import annotations
 
+import secrets
+
 import base64
 import json
 import os
@@ -259,6 +261,12 @@ def _secure_directory(
         directory,
         0o700,
     )
+
+
+def generate_credential() -> str:
+    """Generate one cryptographically random enrollment capability."""
+
+    return secrets.token_urlsafe(32)
 
 
 def store_credential(

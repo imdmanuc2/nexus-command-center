@@ -102,6 +102,144 @@ def create_enrollment(
     return result
 
 
+
+def create_enrollment_idempotent(
+    *,
+    enrollment_id: str,
+    local_instance_id: str,
+    secret_hash: str,
+    expires_at,
+    requested_remote_instance_id: str,
+    requested_remote_name: str = "",
+    requested_remote_hostname: str = "",
+    requested_peer_base_url: str = "",
+    requested_public_key_algorithm: str = "",
+    requested_public_key: str = "",
+    requested_public_key_fingerprint: str = "",
+    request_id: str,
+) -> dict[str, Any]:
+    """Create or return the winner for one request identity."""
+
+    values = {
+        "enrollment_id": _text(enrollment_id),
+        "local_instance_id": _text(local_instance_id),
+        "secret_hash": _text(secret_hash),
+        "requested_remote_instance_id": _text(
+            requested_remote_instance_id
+        ),
+        "request_id": _text(request_id),
+    }
+
+    for key, value in values.items():
+        if not value:
+            raise ValueError(
+                f"{key} is required"
+            )
+
+    if len(values["secret_hash"]) != 64:
+        raise ValueError(
+            "secret_hash must be a SHA-256 hex digest"
+        )
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO nexus.nexus_peer_enrollments (
+                    enrollment_id,
+                    local_instance_id,
+                    secret_hash,
+                    status,
+                    requested_remote_instance_id,
+                    requested_remote_name,
+                    requested_remote_hostname,
+                    requested_peer_base_url,
+                    requested_public_key_algorithm,
+                    requested_public_key,
+                    requested_public_key_fingerprint,
+                    request_id,
+                    expires_at
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    %s,
+                    'pending',
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    NULLIF(%s, ''),
+                    NULLIF(%s, ''),
+                    NULLIF(%s, ''),
+                    %s,
+                    %s
+                )
+                ON CONFLICT (
+                    local_instance_id,
+                    requested_remote_instance_id,
+                    request_id
+                )
+                WHERE
+                    requested_remote_instance_id IS NOT NULL
+                    AND request_id IS NOT NULL
+                DO NOTHING
+                RETURNING *
+                """,
+                (
+                    values["enrollment_id"],
+                    values["local_instance_id"],
+                    values["secret_hash"],
+                    values[
+                        "requested_remote_instance_id"
+                    ],
+                    _text(requested_remote_name),
+                    _text(requested_remote_hostname),
+                    _text(requested_peer_base_url),
+                    _text(requested_public_key_algorithm),
+                    _text(requested_public_key),
+                    _text(
+                        requested_public_key_fingerprint
+                    ),
+                    values["request_id"],
+                    expires_at,
+                ),
+            )
+
+            row = cursor.fetchone()
+
+            if row is None:
+                cursor.execute(
+                    """
+                    SELECT *
+                    FROM nexus.nexus_peer_enrollments
+                    WHERE local_instance_id = %s
+                      AND requested_remote_instance_id = %s
+                      AND request_id = %s
+                    """,
+                    (
+                        values["local_instance_id"],
+                        values[
+                            "requested_remote_instance_id"
+                        ],
+                        values["request_id"],
+                    ),
+                )
+
+                row = cursor.fetchone()
+
+                if row is None:
+                    raise RuntimeError(
+                        "Idempotent enrollment winner "
+                        "could not be loaded"
+                    )
+
+            result = dict(row)
+
+        connection.commit()
+
+    return result
+
 def get_enrollment(
     enrollment_id: str,
 ) -> dict[str, Any] | None:

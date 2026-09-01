@@ -492,14 +492,17 @@ def create_remote_pairing_request(
     remote_name: str,
     remote_hostname: str,
     peer_base_url: str,
+    pairing_id: str,
+    capability_hash: str,
     public_key_algorithm: str = "",
     public_key: str = "",
     public_key_fingerprint: str = "",
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
 ) -> dict[str, Any]:
-    """Create a pending enrollment requested by another Nexus.
+    """Create or recover one pending remote pairing enrollment.
 
-    This does not approve the request and does not create a peer.
+    The requester owns the one-time capability. Only its SHA-256 hash
+    crosses the enrollment-request boundary and is stored here.
     """
 
     settings = _require_connections_enabled()
@@ -508,6 +511,8 @@ def create_remote_pairing_request(
     name = _text(remote_name)
     hostname = _text(remote_hostname)
     base_url = _text(peer_base_url)
+    request_id = _text(pairing_id)
+    supplied_hash = _text(capability_hash).lower()
 
     if not remote_id:
         raise ValueError(
@@ -532,6 +537,22 @@ def create_remote_pairing_request(
     if not base_url:
         raise ValueError(
             "peerBaseUrl is required"
+        )
+
+    if not request_id:
+        raise ValueError(
+            "pairingId is required"
+        )
+
+    if (
+        len(supplied_hash) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in supplied_hash
+        )
+    ):
+        raise ValueError(
+            "capabilityHash must be a SHA-256 hex digest"
         )
 
     key_algorithm = _text(
@@ -603,12 +624,14 @@ def create_remote_pairing_request(
             f"{MAX_TTL_SECONDS}"
         )
 
+    local_instance_id = _text(
+        settings.get("instance_id")
+    )
+
     enrollment_id = (
         "enroll-"
         + uuid.uuid4().hex
     )
-
-    secret = secrets.token_urlsafe(32)
 
     expires_at = (
         datetime.now(timezone.utc)
@@ -617,12 +640,10 @@ def create_remote_pairing_request(
 
     row = (
         nexus_peer_enrollment_repository
-        .create_enrollment(
+        .create_enrollment_idempotent(
             enrollment_id=enrollment_id,
-            local_instance_id=str(
-                settings["instance_id"]
-            ),
-            secret_hash=_hash_secret(secret),
+            local_instance_id=local_instance_id,
+            secret_hash=supplied_hash,
             expires_at=expires_at,
             requested_remote_instance_id=remote_id,
             requested_remote_name=name,
@@ -631,11 +652,59 @@ def create_remote_pairing_request(
             requested_public_key_algorithm=key_algorithm,
             requested_public_key=key,
             requested_public_key_fingerprint=key_fingerprint,
+            request_id=request_id,
         )
+    )
+
+    exact = (
+        hmac.compare_digest(
+            _text(row.get("secret_hash")),
+            supplied_hash,
+        )
+        and _text(
+            row.get(
+                "requested_remote_name"
+            )
+        ) == name
+        and _text(
+            row.get(
+                "requested_remote_hostname"
+            )
+        ) == hostname
+        and _text(
+            row.get(
+                "requested_peer_base_url"
+            )
+        ) == base_url
+        and _text(
+            row.get(
+                "requested_public_key_algorithm"
+            )
+        ) == key_algorithm
+        and _text(
+            row.get(
+                "requested_public_key"
+            )
+        ) == key
+        and _text(
+            row.get(
+                "requested_public_key_fingerprint"
+            )
+        ) == key_fingerprint
+    )
+
+    if not exact:
+        raise PermissionError(
+            "Pairing request conflicts with existing enrollment"
+        )
+
+    created = (
+        _text(row.get("enrollment_id"))
+        == enrollment_id
     )
 
     return {
         "status": "ok",
+        "created": created,
         "enrollment": _public_enrollment(row),
-        "enrollmentSecret": secret,
     }

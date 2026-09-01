@@ -176,6 +176,8 @@ def build_signed_enrollment_request(
     remote_instance_id: str,
     peer_base_url: str,
     local_peer_base_url: str,
+    pairing_id: str,
+    capability_hash: str,
     timestamp: datetime | str | None = None,
     nonce: str | None = None,
 ) -> dict[str, Any]:
@@ -191,6 +193,27 @@ def build_signed_enrollment_request(
     if not remote_id:
         raise ValueError(
             "remoteInstanceId is required"
+        )
+
+    pairing_key = _text(pairing_id)
+    supplied_hash = _text(
+        capability_hash
+    ).lower()
+
+    if not pairing_key:
+        raise ValueError(
+            "pairingId is required"
+        )
+
+    if (
+        len(supplied_hash) != 64
+        or any(
+            character not in "0123456789abcdef"
+            for character in supplied_hash
+        )
+    ):
+        raise ValueError(
+            "capabilityHash must be a SHA-256 hex digest"
         )
 
     local = _local_instance()
@@ -263,6 +286,8 @@ def build_signed_enrollment_request(
         "publicKeyAlgorithm": algorithm,
         "publicKey": public_key,
         "publicKeyFingerprint": fingerprint,
+        "pairingId": pairing_key,
+        "capabilityHash": supplied_hash,
     }
 
     body = _encode_request_body(
@@ -341,6 +366,8 @@ def request_remote_enrollment(
     remote_instance_id: str,
     peer_base_url: str,
     local_peer_base_url: str,
+    pairing_id: str,
+    capability_hash: str,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
     timestamp: datetime | str | None = None,
     nonce: str | None = None,
@@ -348,9 +375,9 @@ def request_remote_enrollment(
 ) -> dict[str, Any]:
     """Send one signed remote enrollment request.
 
-    The returned enrollment secret is intentionally ephemeral. Callers
-    are responsible for immediately placing it into protected credential
-    storage before advancing durable outbound pairing state.
+    The initiator owns the one-time enrollment capability. This
+    transport sends only its SHA-256 hash and never receives or returns
+    the plaintext capability.
     """
 
     timeout_value = _timeout_value(
@@ -361,6 +388,8 @@ def request_remote_enrollment(
         remote_instance_id=remote_instance_id,
         peer_base_url=peer_base_url,
         local_peer_base_url=local_peer_base_url,
+        pairing_id=pairing_id,
+        capability_hash=capability_hash,
         timestamp=timestamp,
         nonce=nonce,
     )
@@ -463,12 +492,6 @@ def request_remote_enrollment(
         )
     )
 
-    enrollment_secret = _text(
-        payload.get(
-            "enrollmentSecret"
-        )
-    )
-
     if not enrollment_id:
         raise RuntimeError(
             "Nexus enrollment response is missing enrollmentId"
@@ -495,11 +518,6 @@ def request_remote_enrollment(
             "Nexus enrollment response came from the wrong Nexus"
         )
 
-    if not enrollment_secret:
-        raise RuntimeError(
-            "Nexus enrollment response is missing credential"
-        )
-
     return {
         "status": "ok",
         "enrollmentId": enrollment_id,
@@ -507,5 +525,4 @@ def request_remote_enrollment(
         "expiresAt": enrollment.get(
             "expiresAt"
         ),
-        "enrollmentSecret": enrollment_secret,
     }
