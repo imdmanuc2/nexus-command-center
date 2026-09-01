@@ -183,6 +183,169 @@ def get_active_pairing_for_remote(
     return dict(row) if row else None
 
 
+ALLOWED_TRANSITIONS = {
+    "requesting": {
+        "pending",
+        "failed",
+        "expired",
+    },
+    "pending": {
+        "approved",
+        "rejected",
+        "failed",
+        "expired",
+    },
+    "approved": {
+        "completing",
+        "failed",
+        "expired",
+    },
+    "completing": {
+        "connected",
+        "failed",
+        "expired",
+    },
+}
+
+
+def transition_pairing(
+    *,
+    pairing_id: str,
+    expected_status: str,
+    new_status: str,
+    remote_enrollment_id: str | None = None,
+    expires_at: Any = None,
+    last_error: str = "",
+) -> dict[str, Any]:
+    """Atomically advance one outbound pairing.
+
+    The expected current state is part of the UPDATE predicate so
+    concurrent or repeated callers cannot silently skip lifecycle states.
+    """
+
+    target = _text(pairing_id)
+    expected = _text(expected_status)
+    destination = _text(new_status)
+
+    if not target:
+        raise ValueError(
+            "pairingId is required"
+        )
+
+    allowed = ALLOWED_TRANSITIONS.get(
+        expected,
+        set(),
+    )
+
+    if destination not in allowed:
+        raise ValueError(
+            "Invalid outbound pairing state transition: "
+            f"{expected} -> {destination}"
+        )
+
+    enrollment_id = (
+        None
+        if remote_enrollment_id is None
+        else _text(remote_enrollment_id)
+    )
+
+    error = _text(last_error)
+
+    timestamp_column = {
+        "pending": "requested_at",
+        "approved": "approved_at",
+        "rejected": "rejected_at",
+        "connected": "connected_at",
+    }.get(destination)
+
+    assignments = [
+        "status = %s",
+        "updated_at = NOW()",
+    ]
+
+    parameters: list[Any] = [
+        destination,
+    ]
+
+    if enrollment_id is not None:
+        assignments.append(
+            "remote_enrollment_id = NULLIF(%s, '')"
+        )
+        parameters.append(
+            enrollment_id
+        )
+
+    if expires_at is not None:
+        assignments.append(
+            "expires_at = %s"
+        )
+        parameters.append(
+            expires_at
+        )
+
+    if destination == "failed":
+        assignments.append(
+            "last_error = %s"
+        )
+        parameters.append(
+            error or "pairing_failed"
+        )
+    else:
+        assignments.append(
+            "last_error = ''"
+        )
+
+    if timestamp_column:
+        assignments.append(
+            f"{timestamp_column} = NOW()"
+        )
+
+    parameters.extend(
+        [
+            target,
+            expected,
+        ]
+    )
+
+    query = (
+        "UPDATE nexus.nexus_peer_outbound_pairings "
+        "SET "
+        + ", ".join(assignments)
+        + " WHERE pairing_id = %s "
+        "AND status = %s "
+        "RETURNING *"
+    )
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                query,
+                tuple(parameters),
+            )
+
+            row = cursor.fetchone()
+
+        connection.commit()
+
+    if row:
+        return dict(row)
+
+    current = get_pairing(
+        target
+    )
+
+    if current is None:
+        raise KeyError(
+            "Outbound pairing not found"
+        )
+
+    raise RuntimeError(
+        "Outbound pairing state changed concurrently "
+        f"or is not {expected}"
+    )
+
+
+
 def list_pairings(
     local_instance_id: str,
 ) -> list[dict[str, Any]]:
