@@ -6,6 +6,9 @@ const SETTINGS_API =
 const PEERS_API =
   "/api/platform/nexus-peers";
 
+const DISCOVERY_CANDIDATES_API =
+  "/api/platform/nexus-discovery-candidates";
+
 function settingsById(id) {
   return document.getElementById(id);
 }
@@ -61,6 +64,138 @@ function capabilityPill(label, enabled) {
       ${settingsEscape(label)} · ${enabled ? "On" : "Off"}
     </span>
   `;
+}
+
+function renderAvailableSystems(payload) {
+  const root = settingsById("availableSystems");
+
+  const count =
+    settingsById("availableSystemCount");
+
+  const refresh =
+    settingsById("refreshAvailableSystems");
+
+  if (!root || !count) return;
+
+  const enabled =
+    payload?.enabled === true;
+
+  const candidates =
+    Array.isArray(payload?.candidates)
+      ? payload.candidates
+      : [];
+
+  count.textContent =
+    String(candidates.length);
+
+  if (refresh) {
+    refresh.disabled = !enabled;
+  }
+
+  if (!enabled) {
+    root.innerHTML = `
+      <div class="settings-empty">
+        Turn on “Discover Nexus systems on this network”
+        to look for available Nexus installations.
+      </div>
+    `;
+    return;
+  }
+
+  if (!candidates.length) {
+    root.innerHTML = `
+      <div class="settings-empty">
+        No unconnected Nexus systems discovered.
+      </div>
+    `;
+    return;
+  }
+
+  root.innerHTML = candidates.map(candidate => {
+    const machine =
+      candidate.machineIdentity || {};
+
+    const transport =
+      candidate.transport || {};
+
+    const addresses =
+      Array.isArray(transport.addresses)
+        ? transport.addresses
+        : [];
+
+    const identityText =
+      machine.fingerprint ||
+      "Verified machine identity";
+
+    const addressText =
+      addresses.length
+        ? `${addresses.length} discovered address${
+            addresses.length === 1 ? "" : "es"
+          }`
+        : "Network discovered";
+
+    return `
+      <article
+        class="settings-peer-card settings-available-card"
+      >
+        <div class="settings-peer-header">
+          <div>
+            <div class="settings-peer-name">
+              ${settingsEscape(
+                candidate.name ||
+                candidate.hostname ||
+                candidate.instanceId ||
+                "Nexus System"
+              )}
+            </div>
+
+            <div class="settings-peer-host">
+              ${settingsEscape(
+                candidate.hostname ||
+                "Discovered Nexus"
+              )}
+            </div>
+          </div>
+
+          <div
+            class="settings-peer-status discovered"
+          >
+            Verified · Available
+          </div>
+        </div>
+
+        <div class="settings-available-details">
+          <div>
+            <span>Identity</span>
+            <strong>
+              ${settingsEscape(identityText)}
+            </strong>
+          </div>
+
+          <div>
+            <span>Transport</span>
+            <strong>
+              ${settingsEscape(addressText)}
+            </strong>
+          </div>
+        </div>
+
+        <div class="settings-available-note">
+          Discovery verifies Nexus identity but does not grant
+          trust, management access, CMDB exchange, or authority.
+        </div>
+
+        <button
+          class="settings-connect-planned"
+          type="button"
+          disabled
+          title="Secure pairing will be wired in the next milestone."
+        >
+          Connect · Coming Next
+        </button>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderPeers(payload) {
@@ -237,6 +372,17 @@ async function loadSettings() {
 
     renderPeers(peersPayload);
 
+    if (settings.localDiscoveryEnabled) {
+      await loadAvailableSystems();
+    } else {
+      renderAvailableSystems({
+        status: "ok",
+        enabled: false,
+        count: 0,
+        candidates: []
+      });
+    }
+
     discovery.disabled = false;
     connections.disabled = false;
 
@@ -289,6 +435,12 @@ async function updateSetting(input, settingName) {
       "Setting saved.",
       "success"
     );
+
+    if (
+      settingName === "localDiscoveryEnabled"
+    ) {
+      await loadAvailableSystems();
+    }
   } catch (error) {
     setSwitchState(input, previous);
 
@@ -298,6 +450,73 @@ async function updateSetting(input, settingName) {
     );
   } finally {
     input.disabled = false;
+  }
+}
+
+async function loadAvailableSystems() {
+  const discovery =
+    settingsById("localDiscoveryEnabled");
+
+  const refresh =
+    settingsById("refreshAvailableSystems");
+
+  const root =
+    settingsById("availableSystems");
+
+  const count =
+    settingsById("availableSystemCount");
+
+  if (!discovery?.checked) {
+    renderAvailableSystems({
+      status: "ok",
+      enabled: false,
+      count: 0,
+      candidates: []
+    });
+    return;
+  }
+
+  if (refresh) {
+    refresh.disabled = true;
+  }
+
+  if (count) {
+    count.textContent = "—";
+  }
+
+  if (root) {
+    root.innerHTML = `
+      <div class="settings-empty">
+        Looking for Nexus systems…
+      </div>
+    `;
+  }
+
+  try {
+    const payload = await requestJson(
+      DISCOVERY_CANDIDATES_API
+    );
+
+    renderAvailableSystems(payload);
+  } catch (error) {
+    if (count) {
+      count.textContent = "—";
+    }
+
+    if (root) {
+      root.innerHTML = `
+        <div
+          class="settings-empty settings-empty-error"
+        >
+          ${settingsEscape(error.message)}
+        </div>
+      `;
+    }
+  } finally {
+    if (refresh) {
+      refresh.disabled =
+        !discovery.checked;
+    }
   }
 }
 
@@ -324,6 +543,13 @@ document.addEventListener(
         connections,
         "allowPeerConnections"
       )
+    );
+
+    settingsById(
+      "refreshAvailableSystems"
+    )?.addEventListener(
+      "click",
+      loadAvailableSystems
     );
 
     loadSettings();

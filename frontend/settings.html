@@ -121,6 +121,47 @@
       <section class="settings-section">
         <div class="settings-section-heading">
           <div>
+            <p class="settings-eyebrow">Local Discovery</p>
+            <h2>Available Nexus Systems</h2>
+            <p>
+              Verified Nexus installations discovered on this
+              network that are not already connected.
+            </p>
+          </div>
+
+          <div class="settings-heading-actions">
+            <div
+              id="availableSystemCount"
+              class="settings-count"
+            >
+              —
+            </div>
+
+            <button
+              id="refreshAvailableSystems"
+              class="settings-refresh"
+              type="button"
+              disabled
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="availableSystems"
+          class="settings-peer-list"
+          aria-live="polite"
+        >
+          <div class="settings-empty">
+            Loading discovery state…
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <div class="settings-section-heading">
+          <div>
             <p class="settings-eyebrow">Trusted Peers</p>
             <h2>Connected Nexus Systems</h2>
             <p>
