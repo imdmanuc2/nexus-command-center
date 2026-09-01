@@ -116,6 +116,7 @@ def json_response(payload, status=200):
 
 from backend.api import nexus_peer_routes
 from backend.services import nexus_peer_settings_service
+from backend.services import nexus_available_systems_service
 from backend.api import seymour_registration_routes
 from backend.api import seymour_telemetry_routes
 
@@ -203,6 +204,27 @@ class NexusHandler(BaseHTTPRequestHandler):
                         "error": str(exc),
                     },
                     400,
+                )
+
+            return self._send_json(payload, status)
+
+        if (
+            peer_settings_path
+            == "/api/platform/nexus-discovery-candidates"
+        ):
+            try:
+                result = (
+                    nexus_available_systems_service
+                    .available_systems()
+                )
+                status, payload = json_response(result)
+            except Exception as exc:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error": str(exc),
+                    },
+                    503,
                 )
 
             return self._send_json(payload, status)
