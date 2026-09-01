@@ -124,6 +124,30 @@ def get_enrollment(
     return dict(row) if row else None
 
 
+
+def list_pending_enrollments() -> list[dict[str, Any]]:
+    """Return current unexpired pending enrollment requests."""
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT *
+                FROM nexus.nexus_peer_enrollments
+                WHERE status = 'pending'
+                  AND expires_at > NOW()
+                ORDER BY created_at ASC, enrollment_id ASC
+                """
+            )
+
+            rows = cursor.fetchall()
+
+    return [
+        dict(row)
+        for row in rows
+    ]
+
+
 def approve_enrollment(
     enrollment_id: str,
 ) -> dict[str, Any] | None:

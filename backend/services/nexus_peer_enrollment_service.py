@@ -164,6 +164,50 @@ def get_enrollment(
     }
 
 
+
+def list_pending_connection_requests() -> dict[str, Any]:
+    """List operator-visible pending Nexus connection requests."""
+
+    settings = (
+        nexus_peer_repository
+        .get_local_peer_settings()
+    )
+
+    if not settings:
+        raise RuntimeError(
+            "Local peer settings are not initialized"
+        )
+
+    enabled = bool(
+        settings.get("allow_peer_connections")
+    )
+
+    if not enabled:
+        return {
+            "status": "ok",
+            "enabled": False,
+            "count": 0,
+            "requests": [],
+        }
+
+    rows = (
+        nexus_peer_enrollment_repository
+        .list_pending_enrollments()
+    )
+
+    requests = [
+        _public_enrollment(row)
+        for row in rows
+    ]
+
+    return {
+        "status": "ok",
+        "enabled": True,
+        "count": len(requests),
+        "requests": requests,
+    }
+
+
 def approve_enrollment(
     enrollment_id: str,
 ) -> dict[str, Any]:
