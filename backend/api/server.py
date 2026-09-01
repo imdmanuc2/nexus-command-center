@@ -839,6 +839,95 @@ class NexusHandler(BaseHTTPRequestHandler):
         if seymour_telemetry_routes.handle_post(self):
             return
 
+        # SBP-076.9.8G.16.EA — operator-controlled Nexus
+        # connection request approval / rejection
+        connection_request_path = urlparse(self.path).path
+
+        connection_prefix = (
+            "/api/platform/nexus-connection-requests/"
+        )
+
+        if connection_request_path.startswith(
+            connection_prefix
+        ):
+            remainder = (
+                connection_request_path[
+                    len(connection_prefix):
+                ]
+                .strip("/")
+            )
+
+            parts = remainder.split("/")
+
+            if (
+                len(parts) == 2
+                and parts[0]
+                and parts[1] in {"approve", "reject"}
+            ):
+                enrollment_id = parts[0]
+                action = parts[1]
+
+                try:
+                    if action == "approve":
+                        result = (
+                            nexus_peer_enrollment_service
+                            .approve_enrollment(
+                                enrollment_id
+                            )
+                        )
+                    else:
+                        result = (
+                            nexus_peer_enrollment_service
+                            .reject_enrollment(
+                                enrollment_id
+                            )
+                        )
+
+                    status, payload = json_response(
+                        result
+                    )
+
+                except KeyError:
+                    status, payload = json_response(
+                        {
+                            "status": "error",
+                            "error": "not_found",
+                        },
+                        404,
+                    )
+
+                except PermissionError as exc:
+                    status, payload = json_response(
+                        {
+                            "status": "error",
+                            "error": str(exc),
+                        },
+                        403,
+                    )
+
+                except ValueError as exc:
+                    status, payload = json_response(
+                        {
+                            "status": "error",
+                            "error": str(exc),
+                        },
+                        400,
+                    )
+
+                except Exception as exc:
+                    status, payload = json_response(
+                        {
+                            "status": "error",
+                            "error": str(exc),
+                        },
+                        500,
+                    )
+
+                return self._send_json(
+                    payload,
+                    status,
+                )
+
         # PACKAGE-048-VERIFICATION-POST-BEGIN
         verification_path = urlparse(self.path).path
 
