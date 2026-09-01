@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 
 from backend.services import nexus_peer_discovery_service
 from backend.services import nexus_peer_enrollment_service
+from backend.services import nexus_peer_enrollment_auth_service
 from backend.services import nexus_peer_service
 from backend.services import nexus_peer_verified_auth_service
 
@@ -211,7 +212,7 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                 "Request body must be an object"
             )
 
-        return payload
+        return payload, raw
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
@@ -233,7 +234,7 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
 
         try:
             stage = "read_json_body"
-            payload = self._read_json_body()
+            payload, body = self._read_json_body()
 
             if path == ENROLLMENT_REQUEST_PATH:
                 stage = "validate_enrollment_request"
@@ -259,6 +260,29 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                     )
 
                 stage = "create_remote_pairing_request"
+
+                try:
+                    (
+                        nexus_peer_enrollment_auth_service
+                        .authenticate_enrollment_request(
+                            method="POST",
+                            path=path,
+                            headers=self.headers,
+                            body=body,
+                            payload=payload,
+                        )
+                    )
+                except PermissionError:
+                    self._send_json(
+                        {
+                            "status": "error",
+                            "error": (
+                                "enrollment_authentication_failed"
+                            ),
+                        },
+                        403,
+                    )
+                    return
 
                 result = (
                     nexus_peer_enrollment_service
