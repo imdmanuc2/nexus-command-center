@@ -6,7 +6,11 @@ create Nexus peers, CMDB assets, federation, management, or authority.
 
 from __future__ import annotations
 
-from typing import Any
+import ipaddress
+import json
+from typing import Any, Callable
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 from backend.core import discovery
 
@@ -31,6 +35,201 @@ def _addresses(value: Any) -> list[str]:
         for item in values
         if _text(item)
     })
+
+
+DISCOVERY_PATH = "/api/nexus/discovery"
+MAX_DISCOVERY_BYTES = 750000
+DEFAULT_FETCH_TIMEOUT = 3.0
+
+
+def discovery_url(
+    address: str,
+    *,
+    port: int = 8561,
+) -> str:
+    """Build a safe Nexus discovery URL for IPv4 or IPv6."""
+
+    normalized = _text(address)
+
+    if not normalized:
+        raise ValueError(
+            "Nexus discovery address is required"
+        )
+
+    normalized_port = int(port)
+
+    if normalized_port < 1 or normalized_port > 65535:
+        raise ValueError(
+            "Nexus discovery port is invalid"
+        )
+
+    host = normalized
+
+    try:
+        parsed = ipaddress.ip_address(
+            normalized.split("%", 1)[0]
+        )
+    except ValueError:
+        raise ValueError(
+            "Nexus discovery address must be an IP address"
+        ) from None
+
+    if parsed.version == 6:
+        if "%" in normalized:
+            base, scope = normalized.split("%", 1)
+
+            if not scope:
+                raise ValueError(
+                    "Nexus IPv6 scope is invalid"
+                )
+
+            host = (
+                base
+                + "%25"
+                + quote(scope, safe="")
+            )
+
+        host = "[" + host + "]"
+
+    return (
+        "http://"
+        + host
+        + ":"
+        + str(normalized_port)
+        + DISCOVERY_PATH
+    )
+
+
+def fetch_discovery_document(
+    url: str,
+    *,
+    timeout: float = DEFAULT_FETCH_TIMEOUT,
+    opener: Callable[..., Any] = urlopen,
+) -> dict[str, Any] | None:
+    """Fetch one public Nexus discovery document.
+
+    Failure to reach one transport locator is nonfatal.
+    """
+
+    request = Request(
+        url,
+        headers={
+            "User-Agent": "Nexus-Discovery/0.1",
+        },
+    )
+
+    try:
+        with opener(
+            request,
+            timeout=float(timeout),
+        ) as response:
+            body = response.read(
+                MAX_DISCOVERY_BYTES + 1
+            )
+
+            if len(body) > MAX_DISCOVERY_BYTES:
+                return None
+
+            document = json.loads(
+                body.decode(
+                    "utf-8",
+                    errors="strict",
+                )
+            )
+
+    except Exception:
+        return None
+
+    if not discovery._valid_nexus_discovery_document(
+        document
+    ):
+        return None
+
+    return document
+
+
+def candidate_from_locator(
+    observation: dict[str, Any],
+    *,
+    timeout: float = DEFAULT_FETCH_TIMEOUT,
+    opener: Callable[..., Any] = urlopen,
+) -> dict[str, Any] | None:
+    """Resolve one mDNS locator into a verified Nexus candidate."""
+
+    if not isinstance(observation, dict):
+        raise ValueError(
+            "Nexus discovery observation must be an object"
+        )
+
+    addresses = _addresses(
+        observation.get("addresses")
+    )
+
+    try:
+        port = int(
+            observation.get("port") or 8561
+        )
+    except (TypeError, ValueError):
+        return None
+
+    if port < 1 or port > 65535:
+        return None
+
+    for address in addresses:
+        try:
+            url = discovery_url(
+                address,
+                port=port,
+            )
+        except (TypeError, ValueError):
+            continue
+
+        document = fetch_discovery_document(
+            url,
+            timeout=timeout,
+            opener=opener,
+        )
+
+        if document is None:
+            continue
+
+        return candidate_from_discovery(
+            document,
+            addresses=addresses,
+            port=port,
+            service_name=_text(
+                observation.get("serviceName")
+            ),
+            source=_text(
+                observation.get("source")
+            ) or "nexus-mdns",
+        )
+
+    return None
+
+
+def candidates_from_locators(
+    observations: list[dict[str, Any]],
+    *,
+    timeout: float = DEFAULT_FETCH_TIMEOUT,
+    opener: Callable[..., Any] = urlopen,
+) -> list[dict[str, Any]]:
+    """Resolve transport observations and dedupe by Nexus identity."""
+
+    candidates = []
+
+    for observation in observations:
+        candidate = candidate_from_locator(
+            observation,
+            timeout=timeout,
+            opener=opener,
+        )
+
+        if candidate is not None:
+            candidates.append(candidate)
+
+    return merge_candidates(candidates)
+
 
 
 def candidate_from_discovery(

@@ -354,3 +354,33 @@ def test_browse_wait_is_bounded():
             raise AssertionError(
                 "Expected bounded browse wait rejection"
             )
+
+
+
+def test_service_info_prefers_scoped_ipv6_addresses():
+    class ScopedInfo(_FakeServiceInfo):
+        def parsed_scoped_addresses(self, version):
+            assert version is not None
+            return [
+                "192.0.2.50",
+                "fe80::50%eth0",
+            ]
+
+    result = service.observation_from_service_info(
+        service_type=service.SERVICE_TYPE,
+        service_name=(
+            "Peer Nexus."
+            "_seymour-nexus._tcp.local."
+        ),
+        info=ScopedInfo(
+            addresses=[
+                "192.0.2.50",
+                "fe80::50",
+            ]
+        ),
+    )
+
+    assert result["addresses"] == [
+        "192.0.2.50",
+        "fe80::50%eth0",
+    ]

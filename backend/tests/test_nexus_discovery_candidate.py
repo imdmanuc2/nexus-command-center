@@ -1,3 +1,5 @@
+import json
+
 from backend.services import nexus_discovery_candidate_service as service
 
 
@@ -188,3 +190,240 @@ def test_observation_does_not_create_peer_permissions():
     assert "'cmdbExchange': True" not in serialized
     assert "'management': True" not in serialized
     assert "'authorityDelegation': True" not in serialized
+
+
+
+class _FakeResponse:
+    def __init__(self, document):
+        self.body = json.dumps(document).encode("utf-8")
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read(self, size=-1):
+        return self.body[:size]
+
+
+def test_discovery_url_supports_ipv4():
+    assert service.discovery_url(
+        "192.0.2.10",
+        port=8561,
+    ) == (
+        "http://192.0.2.10:8561"
+        "/api/nexus/discovery"
+    )
+
+
+def test_discovery_url_brackets_ipv6():
+    assert service.discovery_url(
+        "2001:db8::10",
+        port=8561,
+    ) == (
+        "http://[2001:db8::10]:8561"
+        "/api/nexus/discovery"
+    )
+
+
+def test_discovery_url_encodes_ipv6_scope():
+    assert service.discovery_url(
+        "fe80::10%eth0",
+        port=8561,
+    ) == (
+        "http://[fe80::10%25eth0]:8561"
+        "/api/nexus/discovery"
+    )
+
+
+def test_locator_falls_back_to_reachable_address():
+    requested = []
+
+    def opener(request, timeout):
+        requested.append(
+            request.full_url
+        )
+
+        if "192.0.2.10" in request.full_url:
+            raise OSError(
+                "unreachable interface"
+            )
+
+        return _FakeResponse(
+            VALID_DOCUMENT
+        )
+
+    candidate = service.candidate_from_locator(
+        {
+            "source": "nexus-mdns",
+            "serviceName": "Test Nexus",
+            "port": 8561,
+            "addresses": [
+                "192.0.2.10",
+                "198.51.100.20",
+            ],
+        },
+        opener=opener,
+    )
+
+    assert candidate is not None
+
+    assert requested == [
+        (
+            "http://192.0.2.10:8561"
+            "/api/nexus/discovery"
+        ),
+        (
+            "http://198.51.100.20:8561"
+            "/api/nexus/discovery"
+        ),
+    ]
+
+    assert candidate["instanceId"] == (
+        "nexus-test1234"
+    )
+
+    assert candidate["transport"]["addresses"] == [
+        "192.0.2.10",
+        "198.51.100.20",
+    ]
+
+
+def test_invalid_identity_document_is_not_candidate():
+    def opener(request, timeout):
+        invalid = {
+            **VALID_DOCUMENT,
+            "machineIdentity": {
+                **VALID_DOCUMENT[
+                    "machineIdentity"
+                ],
+                "fingerprint": (
+                    "sha256:"
+                    + ("1" * 64)
+                ),
+            },
+        }
+
+        return _FakeResponse(invalid)
+
+    candidate = service.candidate_from_locator(
+        {
+            "source": "nexus-mdns",
+            "serviceName": "Test Nexus",
+            "port": 8561,
+            "addresses": [
+                "192.0.2.10",
+            ],
+        },
+        opener=opener,
+    )
+
+    assert candidate is None
+
+
+def test_locator_resolution_dedupes_by_stable_identity():
+    documents = {
+        "192.0.2.10": VALID_DOCUMENT,
+        "198.51.100.20": VALID_DOCUMENT,
+    }
+
+    def opener(request, timeout):
+        for address, document in documents.items():
+            if address in request.full_url:
+                return _FakeResponse(document)
+
+        raise OSError("unknown address")
+
+    candidates = service.candidates_from_locators(
+        [
+            {
+                "source": "nexus-mdns",
+                "serviceName": "Test Nexus A",
+                "port": 8561,
+                "addresses": [
+                    "192.0.2.10",
+                ],
+            },
+            {
+                "source": "nexus-mdns",
+                "serviceName": "Test Nexus B",
+                "port": 8561,
+                "addresses": [
+                    "198.51.100.20",
+                ],
+            },
+        ],
+        opener=opener,
+    )
+
+    assert len(candidates) == 1
+
+    assert candidates[0]["transport"]["addresses"] == [
+        "192.0.2.10",
+        "198.51.100.20",
+    ]
+
+
+def test_unreachable_locator_does_not_create_candidate():
+    def opener(request, timeout):
+        raise OSError("unreachable")
+
+    candidates = service.candidates_from_locators(
+        [
+            {
+                "source": "nexus-mdns",
+                "serviceName": "Offline Nexus",
+                "port": 8561,
+                "addresses": [
+                    "192.0.2.99",
+                ],
+            },
+        ],
+        opener=opener,
+    )
+
+    assert candidates == []
+
+
+
+def test_malformed_locator_port_is_ignored():
+    def opener(request, timeout):
+        raise AssertionError(
+            "network must not be attempted"
+        )
+
+    candidate = service.candidate_from_locator(
+        {
+            "source": "nexus-mdns",
+            "serviceName": "Malformed Nexus",
+            "port": "not-a-port",
+            "addresses": [
+                "192.0.2.10",
+            ],
+        },
+        opener=opener,
+    )
+
+    assert candidate is None
+
+
+def test_out_of_range_locator_port_is_ignored():
+    def opener(request, timeout):
+        raise AssertionError(
+            "network must not be attempted"
+        )
+
+    candidate = service.candidate_from_locator(
+        {
+            "source": "nexus-mdns",
+            "serviceName": "Malformed Nexus",
+            "port": 70000,
+            "addresses": [
+                "192.0.2.10",
+            ],
+        },
+        opener=opener,
+    )
+
+    assert candidate is None

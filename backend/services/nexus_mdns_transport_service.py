@@ -156,9 +156,20 @@ def observation_from_service_info(
 ) -> dict[str, Any]:
     """Convert resolved Zeroconf service metadata into a locator."""
 
-    addresses = info.parsed_addresses(
-        IPVersion.All
+    scoped_addresses = getattr(
+        info,
+        "parsed_scoped_addresses",
+        None,
     )
+
+    if callable(scoped_addresses):
+        addresses = scoped_addresses(
+            IPVersion.All
+        )
+    else:
+        addresses = info.parsed_addresses(
+            IPVersion.All
+        )
 
     return normalize_service_observation(
         service_type=service_type,
