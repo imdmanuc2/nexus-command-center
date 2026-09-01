@@ -102,6 +102,7 @@ def merge_candidates(
     """Collapse repeated transport observations of the same Nexus identity."""
 
     merged: dict[tuple[str, str], dict[str, Any]] = {}
+    fingerprints_by_instance: dict[str, str] = {}
 
     for candidate in candidates:
         key = candidate_key(candidate)
@@ -110,6 +111,21 @@ def merge_candidates(
             raise ValueError(
                 "Nexus candidate requires instanceId and fingerprint"
             )
+
+        instance_id, fingerprint = key
+
+        known_fingerprint = fingerprints_by_instance.get(instance_id)
+
+        if (
+            known_fingerprint
+            and known_fingerprint != fingerprint
+        ):
+            raise ValueError(
+                "Conflicting Nexus machine identity for "
+                f"instanceId {instance_id}"
+            )
+
+        fingerprints_by_instance[instance_id] = fingerprint
 
         existing = merged.get(key)
 

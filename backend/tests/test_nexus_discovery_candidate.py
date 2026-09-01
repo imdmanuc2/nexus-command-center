@@ -115,7 +115,7 @@ def test_duplicate_interfaces_collapse_to_one_candidate():
     ]
 
 
-def test_same_instance_with_different_machine_identity_is_not_merged():
+def test_same_instance_with_different_machine_identity_is_conflict():
     first = service.candidate_from_discovery(
         VALID_DOCUMENT,
         addresses=["192.0.2.10"],
@@ -129,12 +129,20 @@ def test_same_instance_with_different_machine_identity_is_not_merged():
         },
     }
 
-    result = service.merge_candidates([
-        first,
-        second,
-    ])
-
-    assert len(result) == 2
+    try:
+        service.merge_candidates([
+            first,
+            second,
+        ])
+    except ValueError as exc:
+        assert str(exc) == (
+            "Conflicting Nexus machine identity for "
+            "instanceId nexus-test1234"
+        )
+    else:
+        raise AssertionError(
+            "Expected Nexus machine identity conflict"
+        )
 
 
 def test_observation_is_pending_and_not_trusted():
