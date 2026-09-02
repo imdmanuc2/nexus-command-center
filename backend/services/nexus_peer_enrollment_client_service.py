@@ -21,6 +21,7 @@ from backend.services import nexus_peer_request_auth_service
 
 
 ENROLLMENT_REQUEST_PATH = "/api/nexus/enrollment/request"
+ENROLLMENT_STATUS_PATH = "/api/nexus/enrollment/status"
 ENROLLMENT_COMPLETE_PATH = "/api/nexus/enrollment/complete"
 DEFAULT_TIMEOUT_SECONDS = 10.0
 MAX_TIMEOUT_SECONDS = 60.0
@@ -172,6 +173,35 @@ def _decode_response(
     return payload
 
 
+
+def enrollment_status_url(
+    peer_base_url: str,
+) -> str:
+    base = (
+        nexus_peer_pairing_service
+        .normalize_peer_base_url(
+            peer_base_url
+        )
+    )
+
+    url = (
+        base.rstrip("/")
+        + ENROLLMENT_STATUS_PATH
+    )
+
+    parsed = urlparse(url)
+
+    if (
+        parsed.path != ENROLLMENT_STATUS_PATH
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ValueError(
+            "Enrollment status URL is not canonical"
+        )
+
+    return url
 
 def enrollment_completion_url(
     peer_base_url: str,
@@ -391,6 +421,128 @@ def build_signed_enrollment_request(
     }
 
 
+
+def build_signed_enrollment_status(
+    *,
+    remote_instance_id: str,
+    peer_base_url: str,
+    enrollment_id: str,
+    pairing_id: str,
+    timestamp: datetime | str | None = None,
+    nonce: str | None = None,
+) -> dict[str, Any]:
+    """Build one signed enrollment status request."""
+
+    remote_id = _text(
+        remote_instance_id
+    )
+    enrollment_key = _text(
+        enrollment_id
+    )
+    pairing_key = _text(
+        pairing_id
+    )
+
+    if not remote_id:
+        raise ValueError(
+            "remoteInstanceId is required"
+        )
+
+    if not enrollment_key:
+        raise ValueError(
+            "enrollmentId is required"
+        )
+
+    if not pairing_key:
+        raise ValueError(
+            "pairingId is required"
+        )
+
+    local = _local_instance()
+
+    if remote_id == local["instanceId"]:
+        raise ValueError(
+            "Cannot query local Nexus enrollment"
+        )
+
+    remote_url = enrollment_status_url(
+        peer_base_url
+    )
+
+    payload = {
+        "enrollmentId": enrollment_key,
+        "pairingId": pairing_key,
+    }
+
+    body = _encode_request_body(
+        payload
+    )
+
+    timestamp_value = (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        if timestamp is None
+        else timestamp
+    )
+
+    signed = (
+        nexus_peer_request_auth_service
+        .sign_request(
+            method="POST",
+            path=ENROLLMENT_STATUS_PATH,
+            sender_instance_id=local["instanceId"],
+            target_instance_id=remote_id,
+            timestamp=timestamp_value,
+            body=body,
+            nonce=nonce,
+        )
+    )
+
+    headers = {
+        nexus_peer_request_auth_service
+        .HEADER_PROTOCOL:
+            signed["protocol"],
+        nexus_peer_request_auth_service
+        .HEADER_ALGORITHM:
+            signed["algorithm"],
+        nexus_peer_request_auth_service
+        .HEADER_SENDER:
+            signed["senderInstanceId"],
+        nexus_peer_request_auth_service
+        .HEADER_TARGET:
+            signed["targetInstanceId"],
+        nexus_peer_request_auth_service
+        .HEADER_TIMESTAMP:
+            signed["timestamp"],
+        nexus_peer_request_auth_service
+        .HEADER_NONCE:
+            signed["nonce"],
+        nexus_peer_request_auth_service
+        .HEADER_BODY_SHA256:
+            signed["bodySha256"],
+        nexus_peer_request_auth_service
+        .HEADER_SIGNATURE:
+            signed["signature"],
+    }
+
+    if set(headers) != set(
+        nexus_peer_request_auth_service
+        .AUTH_HEADERS
+    ):
+        raise RuntimeError(
+            "Outbound enrollment status auth header contract mismatch"
+        )
+
+    return {
+        "method": "POST",
+        "url": remote_url,
+        "path": ENROLLMENT_STATUS_PATH,
+        "headers": headers,
+        "body": body,
+        "payload": payload,
+        "localInstanceId": local["instanceId"],
+        "remoteInstanceId": remote_id,
+    }
 
 def build_signed_enrollment_completion(
     *,
@@ -696,6 +848,178 @@ def request_remote_enrollment(
         "expiresAt": enrollment.get(
             "expiresAt"
         ),
+    }
+
+def request_remote_enrollment_status(
+    *,
+    remote_instance_id: str,
+    peer_base_url: str,
+    enrollment_id: str,
+    pairing_id: str,
+    timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    timestamp: datetime | str | None = None,
+    nonce: str | None = None,
+    opener: Callable[..., Any] = urlopen,
+) -> dict[str, Any]:
+    """Query one signed remote enrollment lifecycle state.
+
+    This transport performs no local pairing-state mutation.
+    """
+
+    timeout_value = _timeout_value(
+        timeout
+    )
+
+    outbound = build_signed_enrollment_status(
+        remote_instance_id=remote_instance_id,
+        peer_base_url=peer_base_url,
+        enrollment_id=enrollment_id,
+        pairing_id=pairing_id,
+        timestamp=timestamp,
+        nonce=nonce,
+    )
+
+    request = Request(
+        outbound["url"],
+        data=outbound["body"],
+        headers={
+            **outbound["headers"],
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with opener(
+            request,
+            timeout=timeout_value,
+        ) as response:
+            status = int(
+                response.getcode()
+            )
+
+            raw = response.read(
+                MAX_RESPONSE_BODY_BYTES + 1
+            )
+
+    except HTTPError as exc:
+        try:
+            raw = exc.read(
+                MAX_RESPONSE_BODY_BYTES + 1
+            )
+        except Exception:
+            raw = b""
+
+        if len(raw) > MAX_RESPONSE_BODY_BYTES:
+            raise RuntimeError(
+                "Nexus enrollment status error response is too large"
+            ) from exc
+
+        raise RuntimeError(
+            f"Nexus enrollment status returned HTTP {exc.code}"
+        ) from exc
+
+    except URLError as exc:
+        raise RuntimeError(
+            "Nexus enrollment status transport failed"
+        ) from exc
+
+    except TimeoutError as exc:
+        raise RuntimeError(
+            "Nexus enrollment status transport timed out"
+        ) from exc
+
+    if len(raw) > MAX_RESPONSE_BODY_BYTES:
+        raise RuntimeError(
+            "Nexus enrollment status response is too large"
+        )
+
+    if status != 200:
+        raise RuntimeError(
+            f"Nexus enrollment status returned HTTP {status}"
+        )
+
+    payload = _decode_response(
+        raw
+    )
+
+    if payload.get("status") != "ok":
+        raise RuntimeError(
+            "Nexus enrollment status was unsuccessful"
+        )
+
+    response_enrollment = _text(
+        payload.get("enrollmentId")
+    )
+    response_pairing = _text(
+        payload.get("pairingId")
+    )
+    response_local = _text(
+        payload.get("localInstanceId")
+    )
+    response_remote = _text(
+        payload.get("remoteInstanceId")
+    )
+    enrollment_status = _text(
+        payload.get("enrollmentStatus")
+    )
+
+    if response_enrollment != _text(
+        enrollment_id
+    ):
+        raise RuntimeError(
+            "Nexus enrollment status enrollmentId mismatch"
+        )
+
+    if response_pairing != _text(
+        pairing_id
+    ):
+        raise RuntimeError(
+            "Nexus enrollment status pairingId mismatch"
+        )
+
+    if response_local != outbound[
+        "remoteInstanceId"
+    ]:
+        raise RuntimeError(
+            "Nexus enrollment status came from the wrong Nexus"
+        )
+
+    if response_remote != outbound[
+        "localInstanceId"
+    ]:
+        raise RuntimeError(
+            "Nexus enrollment status targets the wrong requester"
+        )
+
+    allowed_statuses = {
+        "pending",
+        "approved",
+        "rejected",
+        "expired",
+        "used",
+    }
+
+    if enrollment_status not in allowed_statuses:
+        raise RuntimeError(
+            "Nexus enrollment status returned invalid lifecycle state"
+        )
+
+    return {
+        "status": "ok",
+        "enrollmentId":
+            response_enrollment,
+        "pairingId":
+            response_pairing,
+        "localInstanceId":
+            response_local,
+        "remoteInstanceId":
+            response_remote,
+        "enrollmentStatus":
+            enrollment_status,
+        "expiresAt":
+            payload.get("expiresAt"),
     }
 
 def complete_remote_enrollment_request(
