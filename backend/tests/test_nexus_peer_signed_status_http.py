@@ -245,7 +245,7 @@ def test_bootstrap_enrollment_paths_are_distinct():
     )
 
     assert (
-        nexus_peer_server.ENROLLMENT_CONSUME_PATH
+        "/api/nexus/enrollment/consume"
         != nexus_peer_server.PEER_STATUS_PATH
     )
 

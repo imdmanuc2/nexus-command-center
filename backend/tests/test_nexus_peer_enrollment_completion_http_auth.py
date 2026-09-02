@@ -159,7 +159,7 @@ def _success():
     }
 
 
-def test_completion_route_is_distinct_from_legacy_consume():
+def test_completion_route_is_signed_and_legacy_consume_is_retired():
     assert (
         nexus_peer_server
         .ENROLLMENT_COMPLETE_PATH
@@ -167,17 +167,13 @@ def test_completion_route_is_distinct_from_legacy_consume():
     )
 
     assert (
-        nexus_peer_server
-        .ENROLLMENT_COMPLETE_PATH
-        != nexus_peer_server
-        .ENROLLMENT_CONSUME_PATH
+        PATH
+        == "/api/nexus/enrollment/complete"
     )
 
-    assert (
-        nexus_peer_server
-        .ENROLLMENT_COMPLETE_PATH
-        != nexus_peer_server
-        .ENROLLMENT_REQUEST_PATH
+    assert not hasattr(
+        nexus_peer_server,
+        "ENROLLMENT_CONSUME_PATH",
     )
 
 

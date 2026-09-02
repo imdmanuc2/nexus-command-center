@@ -29,7 +29,6 @@ DISCOVERY_PATH = "/api/nexus/discovery"
 PEER_STATUS_PATH = "/api/nexus/peer/status"
 ENROLLMENT_REQUEST_PATH = "/api/nexus/enrollment/request"
 ENROLLMENT_COMPLETE_PATH = "/api/nexus/enrollment/complete"
-ENROLLMENT_CONSUME_PATH = "/api/nexus/enrollment/consume"
 MAX_REQUEST_BODY_BYTES = 16 * 1024
 
 
@@ -223,7 +222,6 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
         if path not in {
             ENROLLMENT_REQUEST_PATH,
             ENROLLMENT_COMPLETE_PATH,
-            ENROLLMENT_CONSUME_PATH,
         }:
             self._send_json(
                 {
@@ -447,22 +445,6 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                 )
                 return
 
-            stage = "consume_enrollment"
-
-            result = (
-                nexus_peer_enrollment_service
-                .consume_enrollment(
-                    enrollment_id=payload.get(
-                        "enrollmentId",
-                        ""
-                    ),
-                    enrollment_secret=payload.get(
-                        "enrollmentSecret",
-                        ""
-                    ),
-                )
-            )
-
         except ValueError as exc:
             if path == ENROLLMENT_COMPLETE_PATH:
                 error = "invalid_enrollment_completion_request"
@@ -529,12 +511,6 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
             )
             return
 
-        stage = "send_consume_response"
-
-        self._send_json(
-            result,
-            200,
-        )
 
     def do_PUT(self) -> None:
         self.do_POST()

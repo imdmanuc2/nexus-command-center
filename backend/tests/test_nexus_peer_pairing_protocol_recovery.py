@@ -14,7 +14,7 @@ def _read(relative):
     )
 
 
-def test_receiver_completion_is_signed_and_separate_from_legacy_consume():
+def test_receiver_completion_is_signed_and_legacy_consume_http_is_retired():
     server = _read(
         "backend/api/nexus_peer_server.py"
     )
@@ -26,9 +26,13 @@ def test_receiver_completion_is_signed_and_separate_from_legacy_consume():
     )
 
     assert (
-        'ENROLLMENT_CONSUME_PATH = '
-        '"/api/nexus/enrollment/consume"'
-        in server
+        "/api/nexus/enrollment/consume"
+        not in server
+    )
+
+    assert (
+        "ENROLLMENT_CONSUME_PATH"
+        not in server
     )
 
     assert (
