@@ -964,3 +964,129 @@ def create_remote_pairing_request(
         "created": created,
         "enrollment": _public_enrollment(row),
     }
+
+def get_remote_enrollment_status(
+    *,
+    enrollment_id: str,
+    pairing_id: str,
+    authenticated_remote_instance_id: str,
+) -> dict[str, Any]:
+    """Return lifecycle state for one authenticated remote enrollment.
+
+    This projection intentionally exposes no machine public key,
+    capability material, peer URL, or operator-only enrollment data.
+    """
+
+    enrollment_key = _text(
+        enrollment_id
+    )
+    pairing_key = _text(
+        pairing_id
+    )
+    authenticated_remote = _text(
+        authenticated_remote_instance_id
+    )
+
+    if not enrollment_key:
+        raise PermissionError(
+            "Enrollment status is invalid"
+        )
+
+    if not pairing_key:
+        raise PermissionError(
+            "Enrollment status is invalid"
+        )
+
+    if not authenticated_remote:
+        raise PermissionError(
+            "Enrollment status is invalid"
+        )
+
+    row = (
+        nexus_peer_enrollment_repository
+        .get_enrollment(enrollment_key)
+    )
+
+    if row is None:
+        raise PermissionError(
+            "Enrollment status is invalid"
+        )
+
+    stored_pairing = _text(
+        row.get("request_id")
+    )
+    stored_remote = _text(
+        row.get(
+            "requested_remote_instance_id"
+        )
+    )
+
+    if (
+        not stored_pairing
+        or stored_pairing != pairing_key
+    ):
+        raise PermissionError(
+            "Enrollment status is invalid"
+        )
+
+    if (
+        not stored_remote
+        or stored_remote != authenticated_remote
+    ):
+        raise PermissionError(
+            "Enrollment status is invalid"
+        )
+
+    now = datetime.now(timezone.utc)
+
+    if (
+        row["status"] in {
+            "pending",
+            "approved",
+        }
+        and row["expires_at"] <= now
+    ):
+        expired = (
+            nexus_peer_enrollment_repository
+            .expire_enrollment(
+                enrollment_key
+            )
+        )
+
+        if expired:
+            row = expired
+
+    status = _text(
+        row.get("status")
+    )
+
+    if status not in {
+        "pending",
+        "approved",
+        "rejected",
+        "expired",
+        "used",
+    }:
+        raise PermissionError(
+            "Enrollment status is invalid"
+        )
+
+    return {
+        "status": "ok",
+        "enrollmentId":
+            enrollment_key,
+        "pairingId":
+            pairing_key,
+        "localInstanceId":
+            _text(
+                row.get(
+                    "local_instance_id"
+                )
+            ),
+        "remoteInstanceId":
+            stored_remote,
+        "enrollmentStatus":
+            status,
+        "expiresAt":
+            row.get("expires_at"),
+    }

@@ -28,6 +28,7 @@ IDENTITY_PATH = "/api/nexus/identity"
 DISCOVERY_PATH = "/api/nexus/discovery"
 PEER_STATUS_PATH = "/api/nexus/peer/status"
 ENROLLMENT_REQUEST_PATH = "/api/nexus/enrollment/request"
+ENROLLMENT_STATUS_PATH = "/api/nexus/enrollment/status"
 ENROLLMENT_COMPLETE_PATH = "/api/nexus/enrollment/complete"
 MAX_REQUEST_BODY_BYTES = 16 * 1024
 
@@ -221,6 +222,7 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
 
         if path not in {
             ENROLLMENT_REQUEST_PATH,
+            ENROLLMENT_STATUS_PATH,
             ENROLLMENT_COMPLETE_PATH,
         }:
             self._send_json(
@@ -355,6 +357,89 @@ class NexusPeerHandler(BaseHTTPRequestHandler):
                     f" totalSeconds="
                     f"{response_finished - request_started:.6f}",
                     flush=True,
+                )
+                return
+
+
+            if path == ENROLLMENT_STATUS_PATH:
+                stage = "validate_enrollment_status"
+
+                allowed = {
+                    "enrollmentId",
+                    "pairingId",
+                }
+
+                unexpected = sorted(
+                    set(payload) - allowed
+                )
+
+                if unexpected:
+                    raise ValueError(
+                        "Unsupported enrollment status field"
+                    )
+
+                stage = "authenticate_enrollment_status"
+
+                try:
+                    authenticated = (
+                        nexus_peer_enrollment_auth_service
+                        .authenticate_enrollment_status(
+                            method="POST",
+                            path=path,
+                            headers=self.headers,
+                            body=body,
+                            payload=payload,
+                        )
+                    )
+                except PermissionError:
+                    self._send_json(
+                        {
+                            "status": "error",
+                            "error": (
+                                "enrollment_status_authentication_failed"
+                            ),
+                        },
+                        403,
+                    )
+                    return
+
+                stage = "get_remote_enrollment_status"
+
+                try:
+                    result = (
+                        nexus_peer_enrollment_service
+                        .get_remote_enrollment_status(
+                            enrollment_id=authenticated.get(
+                                "enrollmentId",
+                                "",
+                            ),
+                            pairing_id=authenticated.get(
+                                "pairingId",
+                                "",
+                            ),
+                            authenticated_remote_instance_id=(
+                                authenticated.get(
+                                    "remoteInstanceId",
+                                    "",
+                                )
+                            ),
+                        )
+                    )
+                except PermissionError:
+                    self._send_json(
+                        {
+                            "status": "error",
+                            "error": (
+                                "enrollment_status_failed"
+                            ),
+                        },
+                        403,
+                    )
+                    return
+
+                self._send_json(
+                    result,
+                    200,
                 )
                 return
 
