@@ -646,7 +646,7 @@ def test_not_approved_state_does_not_load_capability(
     load.assert_not_called()
 
 
-def test_connected_state_is_idempotent_and_no_network(
+def test_connected_state_is_idempotent_cleans_credential_and_no_network(
     monkeypatch,
 ):
     connected = {
@@ -667,15 +667,109 @@ def test_connected_state_is_idempotent_and_no_network(
     )
 
     requester = Mock()
+    load = Mock()
+    delete = Mock(
+        return_value=True
+    )
+    peer_read = Mock()
+    register = Mock()
+    transition = Mock()
+
+    monkeypatch.setattr(
+        service
+        .nexus_peer_pairing_credential_service,
+        "load_credential",
+        load,
+    )
+
+    monkeypatch.setattr(
+        service
+        .nexus_peer_pairing_credential_service,
+        "delete_credential",
+        delete,
+    )
+
+    monkeypatch.setattr(
+        service
+        .nexus_peer_repository,
+        "get_peer_by_instances",
+        peer_read,
+    )
+
+    monkeypatch.setattr(
+        service
+        .nexus_peer_settings_service,
+        "register_verified_peer",
+        register,
+    )
+
+    monkeypatch.setattr(
+        service
+        .nexus_peer_outbound_pairing_repository,
+        "transition_pairing",
+        transition,
+    )
 
     result = service.complete_pairing(
         pairing_id=PAIRING_ID,
         completion_requester=requester,
     )
 
-    assert (
-        result["alreadyConnected"]
-        is True
+    assert result["status"] == "connected"
+    assert result["alreadyConnected"] is True
+
+    delete.assert_called_once_with(
+        pairing_id=PAIRING_ID,
+    )
+
+    load.assert_not_called()
+    requester.assert_not_called()
+    peer_read.assert_not_called()
+    register.assert_not_called()
+    transition.assert_not_called()
+
+def test_connected_cleanup_is_idempotent_when_credential_is_already_absent(
+    monkeypatch,
+):
+    connected = {
+        **_pairing(
+            status="connected"
+        ),
+        "connected_at":
+            "already-connected",
+    }
+
+    monkeypatch.setattr(
+        service
+        .nexus_peer_outbound_pairing_repository,
+        "get_pairing",
+        Mock(
+            return_value=connected
+        ),
+    )
+
+    delete = Mock(
+        return_value=False
+    )
+    requester = Mock()
+
+    monkeypatch.setattr(
+        service
+        .nexus_peer_pairing_credential_service,
+        "delete_credential",
+        delete,
+    )
+
+    result = service.complete_pairing(
+        pairing_id=PAIRING_ID,
+        completion_requester=requester,
+    )
+
+    assert result["status"] == "connected"
+    assert result["alreadyConnected"] is True
+
+    delete.assert_called_once_with(
+        pairing_id=PAIRING_ID,
     )
 
     requester.assert_not_called()

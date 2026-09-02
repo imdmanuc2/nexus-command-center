@@ -199,6 +199,18 @@ def complete_pairing(
     )
 
     if status == "connected":
+        # Completion may have reached durable connected state before a
+        # final temporary-credential deletion failed. A connected retry
+        # performs cleanup only: no credential load, network completion,
+        # peer mutation, or pairing-state transition.
+        (
+            nexus_peer_pairing_credential_service
+            .delete_credential(
+                pairing_id=
+                    pairing_key,
+            )
+        )
+
         return {
             "status":
                 "connected",
