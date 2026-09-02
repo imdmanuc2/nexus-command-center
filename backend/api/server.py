@@ -120,6 +120,7 @@ from backend.services import nexus_available_systems_service
 from backend.services import nexus_peer_enrollment_service
 from backend.services import nexus_peer_endpoint_service
 from backend.services import nexus_peer_pairing_request_service
+from backend.services import nexus_peer_pairing_status_service
 from backend.services import nexus_discovery_candidate_service
 from backend.api import seymour_registration_routes
 from backend.api import seymour_telemetry_routes
@@ -924,6 +925,110 @@ class NexusHandler(BaseHTTPRequestHandler):
                             "error": str(exc),
                         },
                         500,
+                    )
+
+                return self._send_json(
+                    payload,
+                    status,
+                )
+
+        # L8L.16HV.6 — reconcile one outbound pairing with the
+        # receiver's signed enrollment status. Completion remains separate.
+        pairing_reconcile_prefix = (
+            "/api/platform/nexus-pairings/"
+        )
+
+        if connection_request_path.startswith(
+            pairing_reconcile_prefix
+        ):
+            remainder = (
+                connection_request_path[
+                    len(pairing_reconcile_prefix):
+                ]
+                .strip("/")
+            )
+
+            parts = remainder.split("/")
+
+            if (
+                len(parts) == 2
+                and parts[0]
+                and parts[1] == "reconcile"
+            ):
+                pairing_id = parts[0]
+
+                try:
+                    data = self._read_json_body()
+
+                    if not isinstance(data, dict):
+                        raise ValueError(
+                            "Request body must be an object"
+                        )
+
+                    if data:
+                        raise ValueError(
+                            "Request body must be empty"
+                        )
+
+                    result = (
+                        nexus_peer_pairing_status_service
+                        .reconcile_pairing_status(
+                            pairing_id=pairing_id,
+                        )
+                    )
+
+                    status, payload = json_response(
+                        result,
+                        200,
+                    )
+
+                except KeyError:
+                    status, payload = json_response(
+                        {
+                            "status": "error",
+                            "error":
+                                "pairing_not_found",
+                        },
+                        404,
+                    )
+
+                except PermissionError:
+                    status, payload = json_response(
+                        {
+                            "status": "error",
+                            "error":
+                                "pairing_not_pending",
+                        },
+                        409,
+                    )
+
+                except ValueError as exc:
+                    status, payload = json_response(
+                        {
+                            "status": "error",
+                            "error": str(exc),
+                        },
+                        400,
+                    )
+
+                except RuntimeError:
+                    status, payload = json_response(
+                        {
+                            "status": "error",
+                            "error":
+                                "pairing_status_reconciliation_failed",
+                        },
+                        502,
+                    )
+
+                except Exception:
+                    status, payload = json_response(
+                        {
+                            "status": "error",
+                            "error":
+                                "pairing_status_reconciliation_failed",
+                        },
+                        502,
                     )
 
                 return self._send_json(
