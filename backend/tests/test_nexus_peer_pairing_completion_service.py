@@ -773,3 +773,140 @@ def test_connected_cleanup_is_idempotent_when_credential_is_already_absent(
     )
 
     requester.assert_not_called()
+
+def test_connected_cleanup_failure_propagates_and_retry_retries_delete(
+    monkeypatch,
+):
+    import pytest
+    from unittest.mock import Mock
+
+    from backend.services import (
+        nexus_peer_pairing_completion_service
+        as service,
+    )
+
+    pairing_id = "pairing-cleanup-retry"
+
+    pairing = {
+        "pairing_id":
+            pairing_id,
+        "status":
+            "connected",
+        "remote_instance_id":
+            "nexus-remote",
+        "remote_enrollment_id":
+            "enrollment-remote",
+    }
+
+    get_pairing = Mock(
+        return_value=pairing,
+    )
+
+    delete_credential = Mock(
+        side_effect=[
+            PermissionError(
+                "synthetic cleanup failure"
+            ),
+            True,
+        ]
+    )
+
+    load_credential = Mock(
+        side_effect=AssertionError(
+            "connected cleanup retry must not load credential"
+        )
+    )
+
+    transition_pairing = Mock(
+        side_effect=AssertionError(
+            "connected cleanup retry must not transition state"
+        )
+    )
+
+    get_peer = Mock(
+        side_effect=AssertionError(
+            "connected cleanup retry must not read peer state"
+        )
+    )
+
+    register_peer = Mock(
+        side_effect=AssertionError(
+            "connected cleanup retry must not register peer"
+        )
+    )
+
+    requester = Mock(
+        side_effect=AssertionError(
+            "connected cleanup retry must not call network"
+        )
+    )
+
+    monkeypatch.setattr(
+        service.nexus_peer_outbound_pairing_repository,
+        "get_pairing",
+        get_pairing,
+    )
+
+    monkeypatch.setattr(
+        service.nexus_peer_pairing_credential_service,
+        "delete_credential",
+        delete_credential,
+    )
+
+    monkeypatch.setattr(
+        service.nexus_peer_pairing_credential_service,
+        "load_credential",
+        load_credential,
+    )
+
+    monkeypatch.setattr(
+        service.nexus_peer_outbound_pairing_repository,
+        "transition_pairing",
+        transition_pairing,
+    )
+
+    monkeypatch.setattr(
+        service.nexus_peer_repository,
+        "get_peer_by_instances",
+        get_peer,
+    )
+
+    monkeypatch.setattr(
+        service.nexus_peer_settings_service,
+        "register_verified_peer",
+        register_peer,
+    )
+
+    with pytest.raises(
+        PermissionError,
+        match="synthetic cleanup failure",
+    ):
+        service.complete_pairing(
+            pairing_id=pairing_id,
+            completion_requester=requester,
+        )
+
+    result = service.complete_pairing(
+        pairing_id=pairing_id,
+        completion_requester=requester,
+    )
+
+    assert result["status"] == "connected"
+    assert result["pairingId"] == pairing_id
+    assert result["alreadyConnected"] is True
+    assert result["created"] is False
+
+    assert get_pairing.call_count == 2
+    assert delete_credential.call_count == 2
+
+    for call in delete_credential.call_args_list:
+        assert call.kwargs == {
+            "pairing_id":
+                pairing_id,
+        }
+
+    load_credential.assert_not_called()
+    transition_pairing.assert_not_called()
+    get_peer.assert_not_called()
+    register_peer.assert_not_called()
+    requester.assert_not_called()
