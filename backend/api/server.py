@@ -121,6 +121,7 @@ from backend.services import nexus_peer_enrollment_service
 from backend.services import nexus_peer_endpoint_service
 from backend.services import nexus_peer_pairing_request_service
 from backend.services import nexus_peer_pairing_status_service
+from backend.services import nexus_peer_pairing_completion_service
 from backend.services import nexus_discovery_candidate_service
 from backend.api import seymour_registration_routes
 from backend.api import seymour_telemetry_routes
@@ -953,9 +954,13 @@ class NexusHandler(BaseHTTPRequestHandler):
             if (
                 len(parts) == 2
                 and parts[0]
-                and parts[1] == "reconcile"
+                and parts[1] in {
+                    "reconcile",
+                    "complete",
+                }
             ):
                 pairing_id = parts[0]
+                pairing_action = parts[1]
 
                 try:
                     data = self._read_json_body()
@@ -970,12 +975,20 @@ class NexusHandler(BaseHTTPRequestHandler):
                             "Request body must be empty"
                         )
 
-                    result = (
-                        nexus_peer_pairing_status_service
-                        .reconcile_pairing_status(
-                            pairing_id=pairing_id,
+                    if pairing_action == "reconcile":
+                        result = (
+                            nexus_peer_pairing_status_service
+                            .reconcile_pairing_status(
+                                pairing_id=pairing_id,
+                            )
                         )
-                    )
+                    else:
+                        result = (
+                            nexus_peer_pairing_completion_service
+                            .complete_pairing(
+                                pairing_id=pairing_id,
+                            )
+                        )
 
                     status, payload = json_response(
                         result,
@@ -993,11 +1006,16 @@ class NexusHandler(BaseHTTPRequestHandler):
                     )
 
                 except PermissionError:
+                    error = (
+                        "pairing_not_pending"
+                        if pairing_action == "reconcile"
+                        else "pairing_not_approved"
+                    )
+
                     status, payload = json_response(
                         {
                             "status": "error",
-                            "error":
-                                "pairing_not_pending",
+                            "error": error,
                         },
                         409,
                     )
@@ -1012,21 +1030,31 @@ class NexusHandler(BaseHTTPRequestHandler):
                     )
 
                 except RuntimeError:
+                    error = (
+                        "pairing_status_reconciliation_failed"
+                        if pairing_action == "reconcile"
+                        else "pairing_completion_failed"
+                    )
+
                     status, payload = json_response(
                         {
                             "status": "error",
-                            "error":
-                                "pairing_status_reconciliation_failed",
+                            "error": error,
                         },
                         502,
                     )
 
                 except Exception:
+                    error = (
+                        "pairing_status_reconciliation_failed"
+                        if pairing_action == "reconcile"
+                        else "pairing_completion_failed"
+                    )
+
                     status, payload = json_response(
                         {
                             "status": "error",
-                            "error":
-                                "pairing_status_reconciliation_failed",
+                            "error": error,
                         },
                         502,
                     )
