@@ -118,6 +118,9 @@ from backend.api import nexus_peer_routes
 from backend.services import nexus_peer_settings_service
 from backend.services import nexus_available_systems_service
 from backend.services import nexus_peer_enrollment_service
+from backend.services import nexus_peer_endpoint_service
+from backend.services import nexus_peer_pairing_request_service
+from backend.services import nexus_discovery_candidate_service
 from backend.api import seymour_registration_routes
 from backend.api import seymour_telemetry_routes
 
@@ -927,6 +930,245 @@ class NexusHandler(BaseHTTPRequestHandler):
                     payload,
                     status,
                 )
+
+        # L8L.16HV — initiate a Nexus pairing only from a
+        # freshly resolved server-side discovery candidate.
+        if (
+            connection_request_path
+            == "/api/platform/nexus-connect"
+        ):
+            try:
+                data = self._read_json_body()
+
+                if not isinstance(data, dict):
+                    raise ValueError(
+                        "Request body must be an object"
+                    )
+
+                if set(data) != {"instanceId"}:
+                    raise ValueError(
+                        "Only instanceId is accepted"
+                    )
+
+                instance_id = str(
+                    data.get("instanceId") or ""
+                ).strip()
+
+                if not instance_id:
+                    raise ValueError(
+                        "instanceId is required"
+                    )
+
+                available_payload = (
+                    nexus_available_systems_service
+                    .available_systems()
+                )
+
+                if (
+                    available_payload.get("status")
+                    != "ok"
+                ):
+                    raise RuntimeError(
+                        "Nexus discovery candidates "
+                        "are unavailable"
+                    )
+
+                if not bool(
+                    available_payload.get("enabled")
+                ):
+                    raise PermissionError(
+                        "Nexus local discovery is disabled"
+                    )
+
+                candidates = (
+                    available_payload.get("candidates")
+                    or []
+                )
+
+                matches = [
+                    candidate
+                    for candidate in candidates
+                    if str(
+                        candidate.get("instanceId")
+                        or ""
+                    ).strip() == instance_id
+                ]
+
+                if len(matches) != 1:
+                    raise KeyError(instance_id)
+
+                candidate = matches[0]
+
+                machine = candidate.get(
+                    "machineIdentity"
+                )
+
+                transport = candidate.get(
+                    "transport"
+                )
+
+                if not isinstance(machine, dict):
+                    raise RuntimeError(
+                        "Discovered Nexus machine "
+                        "identity is invalid"
+                    )
+
+                if not isinstance(transport, dict):
+                    raise RuntimeError(
+                        "Discovered Nexus transport "
+                        "is invalid"
+                    )
+
+                addresses = (
+                    transport.get("addresses")
+                    or []
+                )
+
+                if not isinstance(
+                    addresses,
+                    (list, tuple),
+                ):
+                    raise RuntimeError(
+                        "Discovered Nexus transport "
+                        "addresses are invalid"
+                    )
+
+                normalized_addresses = sorted({
+                    str(address).strip()
+                    for address in addresses
+                    if str(address).strip()
+                })
+
+                if not normalized_addresses:
+                    raise RuntimeError(
+                        "Discovered Nexus has no "
+                        "reachable address"
+                    )
+
+                port = int(
+                    transport.get("port")
+                    or 8561
+                )
+
+                discovery_url = (
+                    nexus_discovery_candidate_service
+                    .discovery_url(
+                        normalized_addresses[0],
+                        port=port,
+                    )
+                )
+
+                suffix = (
+                    nexus_discovery_candidate_service
+                    .DISCOVERY_PATH
+                )
+
+                if not discovery_url.endswith(
+                    suffix
+                ):
+                    raise RuntimeError(
+                        "Discovered Nexus URL "
+                        "contract is invalid"
+                    )
+
+                peer_base_url = (
+                    discovery_url[
+                        :-len(suffix)
+                    ]
+                )
+
+                local_peer_base_url = (
+                    nexus_peer_endpoint_service
+                    .peer_advertise_url()
+                )
+
+                result = (
+                    nexus_peer_pairing_request_service
+                    .request_pairing(
+                        remote_instance_id=instance_id,
+                        remote_name=str(
+                            candidate.get("name")
+                            or ""
+                        ).strip(),
+                        remote_hostname=str(
+                            candidate.get("hostname")
+                            or ""
+                        ).strip(),
+                        peer_base_url=peer_base_url,
+                        remote_public_key_algorithm=str(
+                            machine.get("algorithm")
+                            or ""
+                        ).strip(),
+                        remote_public_key=str(
+                            machine.get("publicKey")
+                            or ""
+                        ).strip(),
+                        remote_public_key_fingerprint=str(
+                            machine.get("fingerprint")
+                            or ""
+                        ).strip(),
+                        local_peer_base_url=(
+                            local_peer_base_url
+                        ),
+                    )
+                )
+
+                status, payload = json_response(
+                    result,
+                    202,
+                )
+
+            except KeyError:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error":
+                            "discovery_candidate_not_found",
+                    },
+                    404,
+                )
+
+            except PermissionError as exc:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error": str(exc),
+                    },
+                    403,
+                )
+
+            except ValueError as exc:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error": str(exc),
+                    },
+                    400,
+                )
+
+            except RuntimeError as exc:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error": str(exc),
+                    },
+                    503,
+                )
+
+            except Exception:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error":
+                            "nexus_pairing_request_failed",
+                    },
+                    502,
+                )
+
+            return self._send_json(
+                payload,
+                status,
+            )
 
         # PACKAGE-048-VERIFICATION-POST-BEGIN
         verification_path = urlparse(self.path).path
