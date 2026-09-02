@@ -352,6 +352,229 @@ def consume_enrollment(
     }
 
 
+
+
+def complete_remote_enrollment(
+    *,
+    enrollment_id: str,
+    pairing_id: str,
+    authenticated_remote_instance_id: str,
+    enrollment_secret: str,
+) -> dict[str, Any]:
+    """Complete an authenticated remote pairing enrollment atomically."""
+
+    _require_connections_enabled()
+
+    enrollment_key = str(
+        enrollment_id or ""
+    ).strip()
+
+    pairing_key = str(
+        pairing_id or ""
+    ).strip()
+
+    authenticated_remote = str(
+        authenticated_remote_instance_id
+        or ""
+    ).strip()
+
+    capability = str(
+        enrollment_secret or ""
+    )
+
+    if not enrollment_key:
+        raise ValueError(
+            "enrollment_id is required"
+        )
+
+    if not pairing_key:
+        raise ValueError(
+            "pairing_id is required"
+        )
+
+    if not authenticated_remote:
+        raise PermissionError(
+            "Authenticated remote instance is required"
+        )
+
+    if not capability:
+        raise PermissionError(
+            "Enrollment capability is required"
+        )
+
+    supplied_hash = _hash_secret(
+        capability
+    )
+
+    result = (
+        nexus_peer_enrollment_repository
+        .complete_enrollment_atomic(
+            enrollment_id=enrollment_key,
+            pairing_id=pairing_key,
+            authenticated_remote_instance_id=
+                authenticated_remote,
+            supplied_secret_hash=supplied_hash,
+        )
+    )
+
+    enrollment = dict(
+        result.get("enrollment") or {}
+    )
+
+    peer = dict(
+        result.get("peer") or {}
+    )
+
+    if (
+        str(
+            enrollment.get(
+                "enrollment_id"
+            )
+            or ""
+        ).strip()
+        != enrollment_key
+    ):
+        raise RuntimeError(
+            "Completion enrollment identity mismatch"
+        )
+
+    if (
+        str(
+            enrollment.get(
+                "request_id"
+            )
+            or ""
+        ).strip()
+        != pairing_key
+    ):
+        raise RuntimeError(
+            "Completion pairing identity mismatch"
+        )
+
+    if (
+        str(
+            enrollment.get("status")
+            or ""
+        ).strip()
+        != "used"
+    ):
+        raise RuntimeError(
+            "Completion enrollment is not consumed"
+        )
+
+    local_instance_id = str(
+        enrollment.get(
+            "local_instance_id"
+        )
+        or ""
+    ).strip()
+
+    remote_instance_id = str(
+        enrollment.get(
+            "requested_remote_instance_id"
+        )
+        or ""
+    ).strip()
+
+    if (
+        not remote_instance_id
+        or remote_instance_id
+        != authenticated_remote
+    ):
+        raise RuntimeError(
+            "Completion authenticated remote identity mismatch"
+        )
+
+    peer_local_instance_id = str(
+        peer.get(
+            "local_instance_id"
+        )
+        or ""
+    ).strip()
+
+    peer_remote_instance_id = str(
+        peer.get(
+            "remote_instance_id"
+        )
+        or ""
+    ).strip()
+
+    if (
+        not local_instance_id
+        or peer_local_instance_id
+        != local_instance_id
+        or peer_remote_instance_id
+        != remote_instance_id
+    ):
+        raise RuntimeError(
+            "Completion peer identity mismatch"
+        )
+
+    expected_machine_identity = {
+        "public_key_algorithm":
+            str(
+                enrollment.get(
+                    "requested_public_key_algorithm"
+                )
+                or ""
+            ).strip(),
+        "public_key":
+            str(
+                enrollment.get(
+                    "requested_public_key"
+                )
+                or ""
+            ).strip(),
+        "public_key_fingerprint":
+            str(
+                enrollment.get(
+                    "requested_public_key_fingerprint"
+                )
+                or ""
+            ).strip(),
+    }
+
+    if any(
+        not value
+        for value
+        in expected_machine_identity.values()
+    ):
+        raise RuntimeError(
+            "Completion enrollment machine identity is incomplete"
+        )
+
+    if any(
+        str(peer.get(name) or "").strip()
+        != value
+        for name, value
+        in expected_machine_identity.items()
+    ):
+        raise RuntimeError(
+            "Completion peer machine identity mismatch"
+        )
+
+    return {
+        "status":
+            "connected",
+        "enrollmentId":
+            enrollment_key,
+        "pairingId":
+            pairing_key,
+        "localInstanceId":
+            local_instance_id,
+        "remoteInstanceId":
+            remote_instance_id,
+        "peerId":
+            str(
+                peer.get("peer_id")
+                or ""
+            ).strip(),
+        "created":
+            bool(
+                result.get("created")
+            ),
+    }
+
 def establish_consumed_enrollment_peer(
     *,
     enrollment_id: str,
