@@ -77,6 +77,39 @@ def _public_enrollment(
     }
 
 
+def _operator_connection_request(
+    row: dict[str, Any],
+) -> dict[str, Any]:
+    """Project only fields needed for an operator approval decision."""
+
+    return {
+        "enrollmentId":
+            row["enrollment_id"],
+        "status":
+            row["status"],
+        "requestedRemoteInstanceId":
+            row.get(
+                "requested_remote_instance_id"
+            ),
+        "requestedRemoteName":
+            row.get(
+                "requested_remote_name"
+            ) or "",
+        "requestedRemoteHostname":
+            row.get(
+                "requested_remote_hostname"
+            ) or "",
+        "requestedPublicKeyFingerprint":
+            row.get(
+                "requested_public_key_fingerprint"
+            ) or "",
+        "expiresAt":
+            row["expires_at"],
+        "createdAt":
+            row["created_at"],
+    }
+
+
 def create_enrollment(
     *,
     ttl_seconds: int = DEFAULT_TTL_SECONDS,
@@ -196,7 +229,7 @@ def list_pending_connection_requests() -> dict[str, Any]:
     )
 
     requests = [
-        _public_enrollment(row)
+        _operator_connection_request(row)
         for row in rows
     ]
 
