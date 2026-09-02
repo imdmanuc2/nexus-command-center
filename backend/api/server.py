@@ -122,6 +122,7 @@ from backend.services import nexus_peer_endpoint_service
 from backend.services import nexus_peer_pairing_request_service
 from backend.services import nexus_peer_pairing_status_service
 from backend.services import nexus_peer_pairing_completion_service
+from backend.services import nexus_build_identity_service
 from backend.services import nexus_discovery_candidate_service
 from backend.api import seymour_registration_routes
 from backend.api import seymour_telemetry_routes
@@ -475,9 +476,18 @@ class NexusHandler(BaseHTTPRequestHandler):
                 return self._send_json(payload, status)
 
         if parsed.path == "/api/health":
-            try: status, payload = json_response(platform_service_operations.health())
-            except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},503)
-            return self._send_json(payload,status)
+            try:
+                result = platform_service_operations.health()
+                if isinstance(result, dict):
+                    result = dict(result)
+                    result["build"] = nexus_build_identity_service.build_identity()
+                status, payload = json_response(result)
+            except Exception as exc:
+                status, payload = json_response(
+                    {"status": "error", "error": str(exc)},
+                    503,
+                )
+            return self._send_json(payload, status)
         if parsed.path == "/api/services/membership/rules":
             try: status, payload = json_response(platform_service_membership.rules(query))
             except Exception as exc: status, payload = json_response({"status":"error","error":str(exc)},400)
