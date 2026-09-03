@@ -13,6 +13,7 @@ const NEXUS_PRIMARY_NAV = [
 const NEXUS_SECONDARY_NAV = [
   { label: "Pools", href: "/pools.html" },
   { label: "Discovery", href: "/discovery.html" },
+  { label: "Peers", href: "/peers.html" },
   { label: "Analytics", href: "/analytics.html" },
   { label: "Settings", href: "/settings.html" }
 ];
@@ -85,7 +86,11 @@ function renderNav(activeLabel) {
   `).join("");
 
   const secondary = NEXUS_SECONDARY_NAV.map(item => `
-    <a href="${item.href}" data-nexus-nav="secondary">${item.label}</a>
+    <a
+      class="${routeMatches(item, path) ? "active" : ""}"
+      href="${item.href}"
+      data-nexus-nav="secondary"
+    >${item.label}</a>
   `).join("");
 
   nav.innerHTML = `

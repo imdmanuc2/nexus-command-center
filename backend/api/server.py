@@ -116,6 +116,7 @@ def json_response(payload, status=200):
 
 from backend.api import nexus_peer_routes
 from backend.services import nexus_peer_settings_service
+from backend.services import nexus_peer_outbound_pairing_service
 from backend.services import nexus_available_systems_service
 from backend.services import nexus_peer_enrollment_service
 from backend.services import nexus_peer_endpoint_service
@@ -215,6 +216,24 @@ class NexusHandler(BaseHTTPRequestHandler):
 
             return self._send_json(payload, status)
 
+        if peer_settings_path == "/api/platform/nexus-pairings":
+            try:
+                result = (
+                    nexus_peer_outbound_pairing_service
+                    .list_outbound_pairings()
+                )
+                status, payload = json_response(result)
+            except Exception as exc:
+                status, payload = json_response(
+                    {
+                        "status": "error",
+                        "error": str(exc),
+                    },
+                    503,
+                )
+
+            return self._send_json(payload, status)
+
         if (
             peer_settings_path
             == "/api/platform/nexus-connection-requests"
@@ -306,6 +325,8 @@ class NexusHandler(BaseHTTPRequestHandler):
             return self._send_file("frontend/analytics.html", "text/html")
         if self.path == "/settings.html":
             return self._send_file("frontend/settings.html", "text/html")
+        if self.path == "/peers.html":
+            return self._send_file("frontend/peers.html", "text/html")
         if self.path == "/assets.html":
             return self._send_file("frontend/assets.html", "text/html")
         if self.path == "/blockchain.html":

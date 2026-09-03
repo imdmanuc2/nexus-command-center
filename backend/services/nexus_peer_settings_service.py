@@ -134,6 +134,9 @@ def list_peers() -> dict[str, Any]:
             "name": row.get("name"),
             "hostname": row.get("hostname"),
             "peerBaseUrl": row.get("peer_base_url"),
+            "publicKeyFingerprint": row.get(
+                "public_key_fingerprint"
+            ) or "",
             "protocol": {
                 "name": row.get("protocol_name"),
                 "version": row.get(

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+  <title>Nexus Peer Management</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/peers.css">
+</head>
+
+<body>
+  <main class="wrap">
+    <div class="nexus-page-shell peers-shell">
+
+      <header class="peers-page-header">
+        <div>
+          <p class="peers-eyebrow">Nexus Platform</p>
+          <h1>Peer Management</h1>
+          <p>
+            Discover, approve, connect, and inspect trusted
+            Nexus systems.
+          </p>
+        </div>
+
+        <div id="peersStatus" class="peers-source-state">
+          Loading peer state…
+        </div>
+      </header>
+
+      <nav id="topNav" class="nav"></nav>
+
+      <section class="peers-summary">
+        <article>
+          <span>Connected</span>
+          <strong id="summaryConnected">—</strong>
+        </article>
+
+        <article>
+          <span>Discovered</span>
+          <strong id="summaryDiscovered">—</strong>
+        </article>
+
+        <article>
+          <span>Pending</span>
+          <strong id="summaryPending">—</strong>
+        </article>
+      </section>
+
+      <div
+        id="peersMessage"
+        class="peers-message"
+        role="status"
+        aria-live="polite"
+      ></div>
+
+      <section class="peers-section">
+        <div class="peers-section-heading">
+          <div>
+            <p class="peers-eyebrow">Trusted Peers</p>
+            <h2>Connected</h2>
+            <p>
+              Nexus systems that completed secure enrollment
+              and have a durable verified machine identity.
+            </p>
+          </div>
+
+          <button
+            id="refreshPeers"
+            class="peers-button secondary"
+            type="button"
+          >
+            Refresh
+          </button>
+        </div>
+
+        <div id="connectedPeers" class="peers-list">
+          <div class="peers-empty">Loading connected peers…</div>
+        </div>
+      </section>
+
+      <section class="peers-section">
+        <div class="peers-section-heading">
+          <div>
+            <p class="peers-eyebrow">Local Discovery</p>
+            <h2>Discovered</h2>
+            <p>
+              Verified Nexus identities visible on the local
+              network that are not currently connected.
+            </p>
+          </div>
+        </div>
+
+        <div id="discoveredPeers" class="peers-list">
+          <div class="peers-empty">
+            Loading discovered systems…
+          </div>
+        </div>
+      </section>
+
+      <section class="peers-section">
+        <div class="peers-section-heading">
+          <div>
+            <p class="peers-eyebrow">Secure Enrollment</p>
+            <h2>Pending</h2>
+            <p>
+              Incoming requests awaiting operator approval and
+              outbound pairings awaiting secure completion.
+            </p>
+          </div>
+        </div>
+
+        <div id="pendingPeers" class="peers-list">
+          <div class="peers-empty">
+            Loading pending requests…
+          </div>
+        </div>
+      </section>
+
+      <section class="peers-security-note">
+        <strong>Trust boundary</strong>
+        <p>
+          A connected Nexus peer has peer-awareness trust only.
+          Connection does not grant federation, CMDB exchange,
+          discovery exchange, remote management, or authority
+          delegation.
+        </p>
+
+        <a href="/settings.html">
+          Configure discovery and connection settings
+        </a>
+      </section>
+
+    </div>
+  </main>
+
+  <script src="/js/nav.js"></script>
+  <script src="/js/peers.js"></script>
+  <script>
+    renderNav("Peers");
+  </script>
+  <script src="/js/mission.js"></script>
+</body>
+</html>
