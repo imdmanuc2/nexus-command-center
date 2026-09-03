@@ -184,6 +184,14 @@
     {
       "version": "046",
       "file": "046_nexus_peer_local_discovery.sql"
+    },
+    {
+      "version": "047",
+      "file": "047_nexus_peer_outbound_pairing.sql"
+    },
+    {
+      "version": "048",
+      "file": "048_nexus_peer_enrollment_idempotency.sql"
     }
   ]
 }

@@ -155,6 +155,28 @@ def load_manifest():
             + ", ".join(missing)
         )
 
+    canonical_files = set(files)
+
+    disk_files = {
+        path.name
+        for path in MIGRATIONS.glob("*.sql")
+        if (
+            len(path.name) >= 4
+            and path.name[:3].isdigit()
+            and path.name[3] == "_"
+        )
+    }
+
+    unmanifested = sorted(
+        disk_files - canonical_files
+    )
+
+    if unmanifested:
+        raise RuntimeError(
+            "Unmanifested canonical migration files: "
+            + ", ".join(unmanifested)
+        )
+
     return migrations
 
 
