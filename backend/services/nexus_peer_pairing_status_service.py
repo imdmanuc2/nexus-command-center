@@ -190,7 +190,7 @@ def reconcile_pairing_status(
     )
 
     remote_status = _text(
-        response.get("status")
+        response.get("enrollmentStatus")
     )
 
     if response_enrollment != remote_enrollment_id:

@@ -180,7 +180,7 @@ def get_enrollment(
     now = datetime.now(timezone.utc)
 
     if (
-        row["status"] in {"pending", "approved"}
+        row["status"] == "pending"
         and row["expires_at"] <= now
     ):
         expired = (
@@ -339,7 +339,7 @@ def consume_enrollment(
     now = datetime.now(timezone.utc)
 
     if (
-        row["status"] in {"pending", "approved"}
+        row["status"] == "pending"
         and row["expires_at"] <= now
     ):
         (
@@ -1040,10 +1040,7 @@ def get_remote_enrollment_status(
     now = datetime.now(timezone.utc)
 
     if (
-        row["status"] in {
-            "pending",
-            "approved",
-        }
+        row["status"] == "pending"
         and row["expires_at"] <= now
     ):
         expired = (

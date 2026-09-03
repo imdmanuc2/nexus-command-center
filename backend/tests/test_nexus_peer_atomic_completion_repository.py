@@ -266,7 +266,7 @@ def test_approved_completion_creates_safe_peer():
     )
     assert (
         "expires_at > NOW()"
-        in sql
+        not in sql
     )
     assert (
         "DO NOTHING"
@@ -393,45 +393,48 @@ def test_approved_requires_approval_proof():
         )
 
 
-def test_expired_approved_fails_before_peer_insert():
+def test_approved_completion_survives_request_expiry():
     approved = _enrollment()
 
-    cursor = FakeCursor(
+    approved["expires_at"] = (
+        datetime.now(timezone.utc)
+        - timedelta(minutes=5)
+    )
+
+    used = {
+        **approved,
+        "status": "used",
+        "used_at":
+            datetime.now(
+                timezone.utc
+            ),
+    }
+
+    created_peer = _peer()
+
+    result, cursor = _run(
         [
             approved,
             None,
-            None,
+            used,
+            created_peer,
         ]
     )
-    connection = FakeConnection(
-        cursor
-    )
 
-    with patch.object(
-        repository,
-        "transaction",
-        return_value=FakeTransaction(
-            connection
-        ),
-    ):
-        with pytest.raises(
-            PermissionError,
-            match="expired or could not be consumed",
-        ):
-            repository.complete_enrollment_atomic(
-                enrollment_id=
-                    "enroll-test",
-                pairing_id=
-                    PAIRING_ID,
-                authenticated_remote_instance_id=
-                    REMOTE_ID,
-                supplied_secret_hash=
-                    HASH,
-            )
+    assert result["created"] is True
+    assert result["peer"] == created_peer
+    assert result["enrollment"]["status"] == "used"
+
+    sql = _sql(cursor)
 
     assert (
         "INSERT INTO nexus.nexus_peers"
-        not in _sql(cursor)
+        in sql
+    )
+
+    assert (
+        "AND expires_at > NOW()"
+        not in sql
     )
 
 

@@ -366,10 +366,7 @@ def expire_enrollment(
                     status = 'expired',
                     updated_at = NOW()
                 WHERE enrollment_id = %s
-                  AND status IN (
-                      'pending',
-                      'approved'
-                  )
+                  AND status = 'pending'
                   AND expires_at <= NOW()
                 RETURNING *
                 """,
@@ -399,7 +396,6 @@ def consume_approved_enrollment(
                     updated_at = NOW()
                 WHERE enrollment_id = %s
                   AND status = 'approved'
-                  AND expires_at > NOW()
                 RETURNING *
                 """,
                 (target,),
@@ -712,7 +708,6 @@ def complete_enrollment_atomic(
                     WHERE enrollment_id = %s
                       AND status = 'approved'
                       AND approved_at IS NOT NULL
-                      AND expires_at > NOW()
                     RETURNING *
                     """,
                     (enrollment_key,),

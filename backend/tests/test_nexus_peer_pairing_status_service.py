@@ -33,7 +33,8 @@ def _response(
     status: str,
 ) -> dict:
     return {
-        "status": status,
+        "status": "ok",
+        "enrollmentStatus": status,
         "enrollmentId": ENROLLMENT,
         "pairingId": PAIRING,
         "localInstanceId": REMOTE,
