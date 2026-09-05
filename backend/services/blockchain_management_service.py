@@ -86,6 +86,16 @@ def create_deployment_plan(
 
     provider = _provider(provider_id)
 
+    if provider.get("availability") != "live":
+        raise ValueError(
+            f"Blockchain provider is not available for deployment: {provider_id}"
+        )
+
+    if not provider.get("selectable", False):
+        raise ValueError(
+            f"Blockchain provider is not selectable for deployment: {provider_id}"
+        )
+
     storage_request = request.get("storage") or {}
 
     if not isinstance(storage_request, dict):

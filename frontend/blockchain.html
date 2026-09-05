@@ -12,11 +12,10 @@
   <link rel="stylesheet" href="/css/blockchain.css">
 </head>
 
-<body>
-  <nav id="topNav" class="top-nav"></nav>
-
-  <main class="container nexus-page-shell blockchain-page">
-    <header class="blockchain-page-header">
+<body class="blockchain-body">
+  <main class="wrap command-wrap blockchain-wrap">
+    <section class="nexus-panel blockchain-panel">
+      <header class="nexus-header blockchain-page-header">
       <div>
         <p class="blockchain-eyebrow">
           Infrastructure / Blockchain
@@ -36,10 +35,12 @@
       >
         Loading platform state…
       </div>
-    </header>
+      </header>
 
-    <section
-      class="blockchain-summary-grid"
+      <nav id="topNav" class="nav"></nav>
+
+      <section
+        class="blockchain-summary-grid"
       aria-label="Blockchain summary"
     >
       <article class="blockchain-summary-card">
@@ -150,6 +151,7 @@
           Loading provider catalog…
         </article>
       </div>
+      </section>
     </section>
   </main>
 

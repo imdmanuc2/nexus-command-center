@@ -5,9 +5,16 @@
       "providerId": "bitcoin-mainnet",
       "coin": "BTC",
       "name": "Bitcoin",
+      "family": "bitcoin",
       "network": "mainnet",
       "implementation": "Bitcoin Core",
+      "availability": "live",
+      "selectable": true,
       "enabled": true,
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
       "defaultPorts": {
         "p2p": 8333,
         "rpc": 8332
@@ -15,51 +22,208 @@
       "storage": {
         "directoryName": "bitcoin-mainnet",
         "minimumFreeBytes": 800000000000
-      },
-      "architectures": [
-        "amd64",
-        "arm64"
-      ]
+      }
     },
     {
       "providerId": "bitcoin-cash-mainnet",
       "coin": "BCH",
       "name": "Bitcoin Cash",
+      "family": "bitcoin",
       "network": "mainnet",
       "implementation": "Bitcoin Cash Node",
+      "availability": "live",
+      "selectable": true,
       "enabled": true,
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
       "defaultPorts": {
         "p2p": 8333,
         "rpc": 8332
       },
       "storage": {
         "directoryName": "bitcoin-cash-mainnet",
-        "minimumFreeBytes": 300000000000
-      },
-      "architectures": [
-        "amd64",
-        "arm64"
-      ]
+        "minimumFreeBytes": 600000000000
+      }
     },
     {
       "providerId": "monero-mainnet",
       "coin": "XMR",
       "name": "Monero",
+      "family": "cryptonote",
       "network": "mainnet",
-      "implementation": "Monero",
+      "implementation": "monerod",
+      "availability": "live",
+      "selectable": true,
       "enabled": true,
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
       "defaultPorts": {
         "p2p": 18080,
         "rpc": 18081
       },
       "storage": {
         "directoryName": "monero-mainnet",
-        "minimumFreeBytes": 300000000000
-      },
+        "minimumFreeBytes": 250000000000
+      }
+    },
+    {
+      "providerId": "litecoin-mainnet",
+      "coin": "LTC",
+      "name": "Litecoin",
+      "family": "bitcoin",
+      "network": "mainnet",
+      "implementation": "Litecoin Core",
+      "availability": "coming-soon",
+      "selectable": false,
+      "enabled": true,
       "architectures": [
         "amd64",
         "arm64"
-      ]
+      ],
+      "defaultPorts": {
+        "p2p": 9333,
+        "rpc": 9332
+      },
+      "storage": {
+        "directoryName": "litecoin-mainnet",
+        "minimumFreeBytes": 300000000000
+      }
+    },
+    {
+      "providerId": "dogecoin-mainnet",
+      "coin": "DOGE",
+      "name": "Dogecoin",
+      "family": "bitcoin",
+      "network": "mainnet",
+      "implementation": "Dogecoin Core",
+      "availability": "coming-soon",
+      "selectable": false,
+      "enabled": true,
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
+      "defaultPorts": {
+        "p2p": 22556,
+        "rpc": 22555
+      },
+      "storage": {
+        "directoryName": "dogecoin-mainnet",
+        "minimumFreeBytes": 250000000000
+      }
+    },
+    {
+      "providerId": "zcash-mainnet",
+      "coin": "ZEC",
+      "name": "Zcash",
+      "family": "bitcoin",
+      "network": "mainnet",
+      "implementation": "Zebra",
+      "availability": "coming-soon",
+      "selectable": false,
+      "enabled": true,
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
+      "defaultPorts": {
+        "p2p": 8233,
+        "rpc": 8232
+      },
+      "storage": {
+        "directoryName": "zcash-mainnet",
+        "minimumFreeBytes": 350000000000
+      }
+    },
+    {
+      "providerId": "kaspa-mainnet",
+      "coin": "KAS",
+      "name": "Kaspa",
+      "family": "blockdag",
+      "network": "mainnet",
+      "implementation": "Rusty Kaspa",
+      "availability": "coming-soon",
+      "selectable": false,
+      "enabled": true,
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
+      "defaultPorts": {
+        "p2p": 16111,
+        "rpc": 16110
+      },
+      "storage": {
+        "directoryName": "kaspa-mainnet",
+        "minimumFreeBytes": 250000000000
+      }
+    },
+    {
+      "providerId": "ergo-mainnet",
+      "coin": "ERG",
+      "name": "Ergo",
+      "family": "extended-utxo",
+      "network": "mainnet",
+      "implementation": "Ergo Node",
+      "availability": "coming-soon",
+      "selectable": false,
+      "enabled": true,
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
+      "defaultPorts": {
+        "p2p": 9030,
+        "rpc": 9053
+      },
+      "storage": {
+        "directoryName": "ergo-mainnet",
+        "minimumFreeBytes": 100000000000
+      }
+    },
+    {
+      "providerId": "ethereum-classic-mainnet",
+      "coin": "ETC",
+      "name": "Ethereum Classic",
+      "family": "ethereum",
+      "network": "mainnet",
+      "implementation": "Core-Geth",
+      "availability": "coming-soon",
+      "selectable": false,
+      "enabled": true,
+      "architectures": [],
+      "defaultPorts": {},
+      "storage": {
+        "directoryName": "ethereum-classic-mainnet",
+        "minimumFreeBytes": null
+      }
+    },
+    {
+      "providerId": "dash-mainnet",
+      "coin": "DASH",
+      "name": "Dash",
+      "family": "bitcoin",
+      "network": "mainnet",
+      "implementation": "Dash Core",
+      "availability": "planned",
+      "selectable": false,
+      "enabled": true,
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
+      "defaultPorts": {
+        "p2p": 9999,
+        "rpc": 9998
+      },
+      "storage": {
+        "directoryName": "dash-mainnet",
+        "minimumFreeBytes": 150000000000
+      }
     }
   ]
 }

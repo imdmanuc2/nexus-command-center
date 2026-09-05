@@ -322,7 +322,33 @@
       ? provider.architectures.join(" + ")
       : "—";
 
-    const isMonero = provider.coin === "XMR";
+    const availability = String(
+      provider.availability || "planned"
+    ).toLowerCase();
+
+    const selectable = Boolean(provider.selectable);
+
+    const stateLabel = availability === "live"
+      ? "Available"
+      : availability === "coming-soon"
+        ? "Coming Soon"
+        : "Planned";
+
+    const stateClass = availability === "live"
+      ? "healthy"
+      : availability === "coming-soon"
+        ? "warning"
+        : "offline";
+
+    const actionLabel = availability === "live" && selectable
+      ? "Deployment planning"
+      : stateLabel;
+
+    const minimumStorage =
+      Number.isFinite(Number(storage.minimumFreeBytes))
+      && Number(storage.minimumFreeBytes) > 0
+        ? formatBytes(storage.minimumFreeBytes)
+        : "To be defined";
 
     return `
       <article class="blockchain-provider-card">
@@ -334,8 +360,8 @@
             <h3>${escapeHtml(provider.name)}</h3>
           </div>
 
-          <span class="blockchain-state-pill healthy">
-            Available
+          <span class="blockchain-state-pill ${stateClass}">
+            ${escapeHtml(stateLabel)}
           </span>
         </div>
 
@@ -352,7 +378,7 @@
 
           <div>
             <dt>Minimum storage</dt>
-            <dd>${escapeHtml(formatBytes(storage.minimumFreeBytes))}</dd>
+            <dd>${escapeHtml(minimumStorage)}</dd>
           </div>
 
           <div>
@@ -372,11 +398,7 @@
             type="button"
             disabled
           >
-            ${
-              isMonero
-                ? "Ready for validation"
-                : "Deployment planning"
-            }
+            ${escapeHtml(actionLabel)}
           </button>
         </div>
       </article>

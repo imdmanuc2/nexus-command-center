@@ -490,3 +490,49 @@
       repeat(2, minmax(0, 1fr));
   }
 }
+
+/* L8L.16HW.2.26B.6 — Nexus page shell alignment */
+
+.blockchain-body {
+  min-height: 100vh;
+}
+
+.blockchain-wrap {
+  width: min(1400px, calc(100% - 40px));
+  margin: 40px auto;
+}
+
+.blockchain-panel {
+  width: 100%;
+}
+
+.blockchain-panel .blockchain-page-header {
+  margin-bottom: 18px;
+}
+
+.blockchain-panel > .nav {
+  margin-bottom: 18px;
+}
+
+.blockchain-panel .nexus-workflow-ribbon {
+  margin-bottom: 28px;
+}
+
+.blockchain-panel .blockchain-summary-grid {
+  margin-top: 0;
+}
+
+.blockchain-panel .blockchain-section {
+  width: 100%;
+}
+
+.blockchain-panel .blockchain-provider-grid {
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .blockchain-wrap {
+    width: min(100% - 20px, 1400px);
+    margin: 20px auto;
+  }
+}
