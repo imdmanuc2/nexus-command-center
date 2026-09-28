@@ -67,6 +67,86 @@ def derive_pool_operational_state(
         "activeWorkers": worker_count,
     }
 
+def derive_blockchain_operational_state(
+    asset: dict[str, Any],
+    node: dict[str, Any],
+) -> dict[str, str]:
+    """Derive operator-facing blockchain state from the strongest live evidence.
+
+    Persisted blockchain-node observations remain valid collector facts, but
+    Seymour-managed runtimes can carry newer runtime connectivity evidence on
+    the canonical asset. Runtime RPC evidence may therefore establish that a
+    running node is reachable even while detailed blockchain telemetry is
+    stale.
+    """
+    observed_state = asset.get("observedState") or {}
+    telemetry = observed_state.get("telemetry") or {}
+    operational = telemetry.get("operationalState") or {}
+    container = telemetry.get("container") or {}
+
+    node_rpc = node.get("rpcConnected") is True
+
+    runtime_rpc_reachable = (
+        telemetry.get("runtimeRpcReachable") is True
+        or operational.get("rpcReachable") is True
+    )
+    runtime_rpc_healthy = (
+        telemetry.get("runtimeRpcHealthy") is True
+        or operational.get("rpcHealthy") is True
+    )
+    runtime_running = (
+        operational.get("running") is True
+        or container.get("running") is True
+    )
+
+    rpc = node_rpc or (
+        runtime_running
+        and runtime_rpc_reachable
+        and runtime_rpc_healthy
+    )
+
+    sync_percent = float(node.get("syncPercent") or 0)
+
+    runtime_state = str(
+        telemetry.get("runtimeState")
+        or operational.get("state")
+        or ""
+    ).strip().lower()
+
+    runtime_syncing = runtime_state in {
+        "syncing",
+        "synchronizing",
+        "initial-block-download",
+        "initial_block_download",
+        "ibd",
+    }
+
+    if rpc and sync_percent >= 99.99:
+        observed = "synchronized"
+        health = "healthy"
+        connectivity = "connected"
+    elif rpc:
+        observed = "synchronizing"
+        health = "warning"
+        connectivity = "connected"
+    elif runtime_running and runtime_syncing:
+        # A running runtime without positive RPC reachability is not promoted
+        # to connected. Preserve fail-closed connectivity semantics.
+        observed = "offline"
+        health = "critical"
+        connectivity = "disconnected"
+    else:
+        observed = "offline"
+        health = "critical"
+        connectivity = "disconnected"
+
+    return {
+        "observedOperationalState": observed,
+        "health": health,
+        "connectivity": connectivity,
+    }
+
+
 def reconcile_operational_state() -> dict[str, Any]:
     """Project current observations into canonical CMDB object state.
 
@@ -110,11 +190,15 @@ def reconcile_operational_state() -> dict[str, Any]:
                     health = "healthy" if str(worker.get("status") or "").lower() == "online" else "warning"
                     connectivity = "connected" if worker.get("connectionConfirmed") or worker.get("telemetryAvailable") else "intermittent"
                 elif node:
-                    sync = float(node.get("syncPercent") or 0)
-                    rpc = bool(node.get("rpcConnected"))
-                    observed = "synchronized" if sync >= 99.99 and rpc else "synchronizing" if rpc else "offline"
-                    health = "healthy" if observed == "synchronized" else "warning" if rpc else "critical"
-                    connectivity = "connected" if rpc else "disconnected"
+                    blockchain_state = derive_blockchain_operational_state(
+                        asset,
+                        node,
+                    )
+                    observed = blockchain_state[
+                        "observedOperationalState"
+                    ]
+                    health = blockchain_state["health"]
+                    connectivity = blockchain_state["connectivity"]
                 elif asset_type in {"asic", "miner", "mining-worker"}:
                     observed, health, connectivity = "idle", "unknown", "unknown"
                 else:

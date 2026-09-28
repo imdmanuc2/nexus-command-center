@@ -155,6 +155,8 @@ def _operational_status(asset: dict[str, Any]) -> str:
     ):
         if value is not None and str(value).strip():
             status = str(value).strip().lower()
+            if status in {"unknown", "unavailable", "none"}:
+                continue
             if status in {"running", "online", "active", "healthy", "ready"}:
                 return "running"
             if status in {"stopped", "offline", "inactive"}:
@@ -174,25 +176,61 @@ def _operational_status(asset: dict[str, Any]) -> str:
 
 def _upsert_node(cur, asset: dict[str, Any]) -> None:
     if str(asset.get("assetType"))!="blockchain-node": return
-    sync=asset.get("sync") if isinstance(asset.get("sync"),dict) else {}
+    legacy_sync=asset.get("sync") if isinstance(asset.get("sync"),dict) else {}
     tel=asset.get("telemetry") if isinstance(asset.get("telemetry"),dict) else {}
+    telemetry_sync=tel.get("sync") if isinstance(tel.get("sync"),dict) else {}
+
+    # Current Blockchain Manager registrations carry runtime synchronization
+    # evidence under telemetry.sync. Preserve the older top-level sync shape
+    # only as a compatibility fallback.
+    sync=telemetry_sync if telemetry_sync else legacy_sync
     height=_sync_value(sync,"height")
+    if height is None:
+        height=_sync_value(legacy_sync,"height")
     headers=_sync_value(sync,"headers")
+    if headers is None:
+        headers=_sync_value(legacy_sync,"headers")
     peers_raw=tel.get("peers") if tel.get("peers") is not None else _sync_value(sync,"peers")
+    if peers_raw is None:
+        peers_raw=_sync_value(legacy_sync,"peers")
     peers=_peer_count(peers_raw)
     progress=_sync_value(sync,"progressPercent","progress_percent")
+    if progress is None:
+        progress=_sync_value(legacy_sync,"progressPercent","progress_percent")
+
+    # Seymour-managed runtimes carry explicit RPC observations through
+    # Manager telemetry.  Project that evidence into blockchain_nodes so
+    # consumers of the persisted node projection do not see the schema
+    # default (false) as if it were an actual negative RPC observation.
+    rpc = tel.get("rpc") if isinstance(tel.get("rpc"),dict) else {}
+    rpc_connected = rpc.get("reachable")
+    if not isinstance(rpc_connected,bool):
+        rpc_connected = tel.get("runtimeRpcReachable")
+    if not isinstance(rpc_connected,bool):
+        operational = (
+            tel.get("operationalState")
+            if isinstance(tel.get("operationalState"),dict)
+            else {}
+        )
+        rpc_connected = operational.get("rpcReachable")
+    if not isinstance(rpc_connected,bool):
+        rpc_connected = None
+
     status=_operational_status(asset)
     sync_status="synced" if progress is not None and float(progress)>=99.999 else "syncing" if progress is not None else "unknown"
     node_id="node-"+str(asset["assetId"]).removeprefix("asset-")
     cur.execute("""
       INSERT INTO nexus.blockchain_nodes(
         node_id,asset_id,coin,network,implementation,version,status,sync_status,
+        rpc_connected,sync_percent,
         block_height,header_height,peer_count,observed_state,metadata,updated_at,last_seen_at
       )
-      VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW(),NOW())
+      VALUES(%s,%s,%s,%s,%s,%s,%s,%s,COALESCE(%s,FALSE),%s,%s,%s,%s,%s,%s,NOW(),NOW())
       ON CONFLICT(asset_id,coin,network) DO UPDATE SET
         implementation=EXCLUDED.implementation,version=EXCLUDED.version,
         status=EXCLUDED.status,sync_status=EXCLUDED.sync_status,
+        rpc_connected=COALESCE(%s,nexus.blockchain_nodes.rpc_connected),
+        sync_percent=COALESCE(EXCLUDED.sync_percent,nexus.blockchain_nodes.sync_percent),
         block_height=EXCLUDED.block_height,header_height=EXCLUDED.header_height,
         peer_count=EXCLUDED.peer_count,observed_state=EXCLUDED.observed_state,
         metadata=nexus.blockchain_nodes.metadata||EXCLUDED.metadata,
@@ -200,9 +238,11 @@ def _upsert_node(cur, asset: dict[str, Any]) -> None:
     """,(node_id,str(asset["assetId"]),str(asset.get("coin") or "BCH"),
          str(asset.get("network") or "mainnet"),
          _provider_implementation(asset),
-         str(tel.get("version") or ""),status,sync_status,height,headers,peers,
+         str(tel.get("version") or ""),status,sync_status,
+         rpc_connected,progress,height,headers,peers,
          Jsonb({"telemetry":tel,"sync":sync}),
-         Jsonb({"source":"seymour-blockchain-manager","appId":asset.get("appId"),"providerId":asset.get("providerId")})))
+         Jsonb({"source":"seymour-blockchain-manager","appId":asset.get("appId"),"providerId":asset.get("providerId")}),
+         rpc_connected))
     for metric,value,unit in (
         ("block_height",height,"blocks"),("header_height",headers,"blocks"),
         ("peer_count",peers,"peers"),("sync_progress",progress,"percent")

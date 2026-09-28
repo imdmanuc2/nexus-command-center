@@ -173,6 +173,13 @@ def mark_stale_blockchain_nodes(
                 WHERE last_seen_at
                       < NOW() - (%s * INTERVAL '1 second')
                   AND status <> 'offline'
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM nexus.assets AS asset
+                        WHERE asset.asset_id = nexus.blockchain_nodes.asset_id
+                          AND asset.metadata->>'source'
+                              = 'seymour-blockchain-manager'
+                    )
                 """,
                 (stale_seconds,),
             )
