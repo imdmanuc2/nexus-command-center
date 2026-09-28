@@ -174,7 +174,19 @@ def normalize_asset(
 
     ip = _string(item.get("ip") or default_ip)
 
-    if not ip:
+    declared_type = _string(
+        item.get("assetType")
+        or item.get("canonicalType")
+        or item.get("canonical_type")
+        or item.get("type")
+    ).lower()
+
+    ip_optional_types = {
+        "storage",
+        "network-storage",
+    }
+
+    if not ip and declared_type not in ip_optional_types:
         raise ValueError("Infrastructure asset requires an IP address.")
 
     services = _normalize_services(item.get("services"))
@@ -286,6 +298,13 @@ def normalize_asset(
         "architecture": item.get("architecture") or "",
         "hypervisor": item.get("hypervisor") or "",
         "containerRuntime": item.get("containerRuntime") or "",
+
+        # Explicit deployment platform classification.
+        # Never infer this value from OS, hostname, IP, username,
+        # capabilities, or filesystem layout.
+        "deploymentPlatformId": (
+            str(item.get("deploymentPlatformId") or "").strip()
+        ),
 
         # Financial and operational intent
         "criticality": item.get("criticality") or "normal",

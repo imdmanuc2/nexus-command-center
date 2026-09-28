@@ -174,6 +174,24 @@ def _asset_payload(
     if existing_asset and existing_asset.get("id"):
         payload["id"] = existing_asset["id"]
 
+        # Canonical/operator-facing identity belongs to the
+        # existing CMDB asset. Discovery may enrich technical
+        # identity such as hostname, IP, MAC, and machine UUID,
+        # but must not replace an operator-assigned display name
+        # with a discovered hostname.
+        for field in (
+            "name",
+            "friendlyName",
+            "displayName",
+        ):
+            existing_value = existing_asset.get(field)
+
+            if (
+                isinstance(existing_value, str)
+                and existing_value.strip()
+            ):
+                payload[field] = existing_value
+
     return payload
 
 
@@ -184,6 +202,7 @@ def reconcile_observation(
     observer_id: str = "nexus",
     approve_new: bool = False,
     actor_id: str = "nexus",
+    target_asset_id: str = "",
 ) -> dict[str, Any]:
     observation = append_observation(
         payload,
@@ -192,10 +211,55 @@ def reconcile_observation(
     )
 
     assets = get_assets_list()
-    identity_result = find_best_match(
-        observation,
-        assets,
-    )
+
+    target_asset_id = str(
+        target_asset_id or ""
+    ).strip()
+
+    if target_asset_id:
+        existing_asset = next(
+            (
+                asset
+                for asset in assets
+                if asset.get("id") == target_asset_id
+            ),
+            None,
+        )
+
+        if existing_asset is None:
+            observation["status"] = "conflict"
+            observation["decision"] = (
+                "explicit-target-not-found"
+            )
+
+            return {
+                "status": "review-required",
+                "decision": "explicit-target-not-found",
+                "confidence": 0,
+                "observation": observation,
+                "identity": {
+                    "decision": "conflict",
+                    "confidence": 0,
+                    "match": None,
+                    "candidates": [],
+                },
+                "asset": None,
+            }
+
+        identity_result = {
+            "decision": "match",
+            "confidence": 100,
+            "match": {
+                "assetId": target_asset_id,
+                "explicitTarget": True,
+            },
+            "candidates": [],
+        }
+    else:
+        identity_result = find_best_match(
+            observation,
+            assets,
+        )
 
     observation["decision"] = identity_result[
         "decision"

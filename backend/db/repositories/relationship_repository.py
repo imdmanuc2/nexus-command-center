@@ -248,3 +248,206 @@ def list_relationships() -> list[dict[str, Any]]:
         }
         for row in rows
     ]
+
+def revoke_relationship(
+    *,
+    source_type: str,
+    source_id: str,
+    relationship_type: str,
+    target_type: str,
+    target_id: str,
+    actor_id: str,
+    reason: str,
+    source: str = "deployment-authority-management",
+    correlation_id: str = "",
+    execute: bool = False,
+) -> dict[str, Any]:
+    """Plan or atomically revoke one exact relationship.
+
+    Revocation preserves the relationship as historical CMDB state while
+    removing it from active/approved authority projections.
+    """
+
+    source_type = str(source_type or "").strip()
+    source_id = str(source_id or "").strip()
+    relationship_type = str(
+        relationship_type or ""
+    ).strip()
+    target_type = str(target_type or "").strip()
+    target_id = str(target_id or "").strip()
+    actor_id = str(actor_id or "").strip()
+    reason = str(reason or "").strip()
+    source = str(source or "").strip()
+    correlation_id = str(
+        correlation_id or ""
+    ).strip()
+
+    if not all(
+        (
+            source_type,
+            source_id,
+            relationship_type,
+            target_type,
+            target_id,
+        )
+    ):
+        raise ValueError(
+            "Relationship revocation requires exact "
+            "source/relationship/target identity."
+        )
+
+    if not actor_id:
+        raise ValueError(
+            "Relationship revocation requires actorId."
+        )
+
+    if not reason:
+        raise ValueError(
+            "Relationship revocation requires reason."
+        )
+
+    if not source:
+        raise ValueError(
+            "Relationship revocation requires source."
+        )
+
+    identity = {
+        "sourceType": source_type,
+        "sourceId": source_id,
+        "relationshipType": relationship_type,
+        "targetType": target_type,
+        "targetId": target_id,
+    }
+
+    if not execute:
+        return {
+            "status": "planned",
+            "executable": True,
+            "executionPerformed": False,
+            **identity,
+        }
+
+    with transaction() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT *
+                FROM nexus.relationships
+                WHERE source_type = %s
+                  AND source_id = %s
+                  AND relationship_type = %s
+                  AND target_type = %s
+                  AND target_id = %s
+                FOR UPDATE
+                """,
+                (
+                    source_type,
+                    source_id,
+                    relationship_type,
+                    target_type,
+                    target_id,
+                ),
+            )
+
+            before = cursor.fetchone()
+
+            if not before:
+                raise ValueError(
+                    "Relationship revocation requires an "
+                    "existing canonical relationship."
+                )
+
+            before = dict(before)
+
+            if (
+                str(before.get("status") or "")
+                != "active"
+                or not bool(before.get("approved"))
+            ):
+                raise ValueError(
+                    "Relationship revocation requires an "
+                    "active approved relationship."
+                )
+
+            cursor.execute(
+                """
+                UPDATE nexus.relationships
+                SET
+                    status = 'inactive',
+                    approved = FALSE,
+                    updated_by = %s,
+                    updated_at = NOW(),
+                    last_seen_at = NOW()
+                WHERE relationship_id = %s
+                  AND status = 'active'
+                  AND approved = TRUE
+                RETURNING *
+                """,
+                (
+                    actor_id,
+                    before["relationship_id"],
+                ),
+            )
+
+            after = cursor.fetchone()
+
+            if not after:
+                raise RuntimeError(
+                    "Relationship authority changed "
+                    "during revocation."
+                )
+
+            after = dict(after)
+
+            history_id = (
+                f"history-{uuid4().hex}"
+            )
+
+            history_correlation_id = (
+                correlation_id
+                or f"corr-{uuid4().hex}"
+            )
+
+            cursor.execute(
+                """
+                INSERT INTO nexus.relationship_history (
+                    history_id,
+                    relationship_id,
+                    action,
+                    before_state,
+                    after_state,
+                    reason,
+                    changed_by,
+                    source,
+                    correlation_id
+                )
+                VALUES (
+                    %s, %s, 'authority.revoked',
+                    %s, %s, %s, %s, %s, %s
+                )
+                """,
+                (
+                    history_id,
+                    after["relationship_id"],
+                    Jsonb(_json_safe(before)),
+                    Jsonb(_json_safe(after)),
+                    reason,
+                    actor_id,
+                    source,
+                    history_correlation_id,
+                ),
+            )
+
+    return {
+        "status": "revoked",
+        "executable": True,
+        "executionPerformed": True,
+        "relationshipId": str(
+            after["relationship_id"]
+        ),
+        **identity,
+        "approved": False,
+        "relationshipStatus": "inactive",
+        "historyId": history_id,
+        "correlationId": history_correlation_id,
+    }

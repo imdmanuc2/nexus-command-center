@@ -440,6 +440,7 @@ def reconcile_managed_host_discovery(
         observer_id="nexus-managed-host",
         approve_new=approve_new,
         actor_id=actor_id,
+        target_asset_id=asset_id,
     )
 
     return {

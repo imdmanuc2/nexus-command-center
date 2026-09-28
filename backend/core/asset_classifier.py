@@ -20,6 +20,8 @@ CANONICAL_TYPES = {
     "container",
     "workload",
     "blockchain-node",
+    "storage",
+    "network-storage",
     "server",
     "unknown",
 }
@@ -139,6 +141,10 @@ def normalize_asset_type(value: Any) -> str | None:
         "bitcoin-core": "blockchain-node",
         "btc-node": "blockchain-node",
         "bch-node": "blockchain-node",
+
+        # Storage
+        "storage": "storage",
+        "network-storage": "network-storage",
 
         # Infrastructure
         "server": "server",

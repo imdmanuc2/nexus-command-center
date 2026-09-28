@@ -23,6 +23,7 @@ class ManagedHostExecutor(BaseExecutor):
         "service.status",
         "service.restart",
         "service.journal",
+        "blockchain.install",
     }
 
     def supports(self, action_id: str, run: dict[str, Any]) -> bool:

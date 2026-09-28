@@ -8,6 +8,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from backend.services.blockchain_target_platform import UMBREL_TARGET_PROFILE
 from backend.transports.models import TransportTarget
 from backend.transports.ssh_transport import SshTransport
 
@@ -15,7 +16,7 @@ from backend.transports.ssh_transport import SshTransport
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 _ARTIFACT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
-REMOTE_STAGE_ROOT = "/home/umbrel/.seymour-artifacts"
+REMOTE_STAGE_ROOT = UMBREL_TARGET_PROFILE.staging_root
 
 
 @dataclass(frozen=True, slots=True)

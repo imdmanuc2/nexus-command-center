@@ -83,6 +83,7 @@ def _upsert_row(asset: dict[str, Any], connection) -> None:
         "mission": _text(asset.get("mission")),
         "operational_role": _text(asset.get("role") or asset.get("operationalRole") or asset.get("primaryRole")),
         "management_model": _text(asset.get("managementModel") or ("nexus-managed" if asset.get("managed", True) else "customer-managed")),
+        "deployment_platform_id": _text(asset.get("deploymentPlatformId")) or None,
         "lifecycle_stage": _text(asset.get("lifecycleStage") or "production"),
         "desired_operational_mode": _text(asset.get("desiredOperationalState") or "automatic"),
         "observed_operational_mode": _text(asset.get("observedOperationalState") or "unknown"),
@@ -124,7 +125,7 @@ def _upsert_row(asset: dict[str, Any], connection) -> None:
             INSERT INTO nexus.assets (
                 asset_id, asset_type, canonical_type, name, friendly_name,
                 display_name, purpose, primary_role, mission, operational_role,
-                management_model, lifecycle_stage, desired_operational_mode,
+                management_model, deployment_platform_id, lifecycle_stage, desired_operational_mode,
                 observed_operational_mode, health_state, connectivity_state, coin, lifecycle_status,
                 managed, favorite, criticality, owner, business_service,
                 location, rack, position, manufacturer, model, serial_number,
@@ -136,7 +137,7 @@ def _upsert_row(asset: dict[str, Any], connection) -> None:
                 %(asset_id)s, %(asset_type)s, %(canonical_type)s, %(name)s,
                 %(friendly_name)s, %(display_name)s, %(purpose)s,
                 %(primary_role)s, %(mission)s, %(operational_role)s, %(management_model)s,
-                %(lifecycle_stage)s, %(desired_operational_mode)s, %(observed_operational_mode)s,
+                %(deployment_platform_id)s, %(lifecycle_stage)s, %(desired_operational_mode)s, %(observed_operational_mode)s,
                 %(health_state)s, %(connectivity_state)s, %(coin)s, %(lifecycle_status)s, %(managed)s,
                 %(favorite)s, %(criticality)s, %(owner)s, %(business_service)s,
                 %(location)s, %(rack)s, %(position)s, %(manufacturer)s, %(model)s,
@@ -162,6 +163,7 @@ def _upsert_row(asset: dict[str, Any], connection) -> None:
                 mission = EXCLUDED.mission,
                 operational_role = EXCLUDED.operational_role,
                 management_model = EXCLUDED.management_model,
+                deployment_platform_id = EXCLUDED.deployment_platform_id,
                 lifecycle_stage = EXCLUDED.lifecycle_stage,
                 desired_operational_mode = EXCLUDED.desired_operational_mode,
                 observed_operational_mode = EXCLUDED.observed_operational_mode,
@@ -325,6 +327,7 @@ def _row_to_asset(row: dict[str, Any]) -> dict[str, Any]:
         "mission": row.get("mission") or "",
         "role": row.get("operational_role") or row.get("primary_role") or "",
         "managementModel": row.get("management_model") or ("nexus-managed" if row.get("managed") else "customer-managed"),
+        "deploymentPlatformId": row.get("deployment_platform_id") or "",
         "lifecycleStage": row.get("lifecycle_stage") or "production",
         "desiredOperationalState": row.get("desired_operational_mode") or "automatic",
         "observedOperationalState": row.get("observed_operational_mode") or "unknown",
@@ -340,6 +343,7 @@ def _row_to_asset(row: dict[str, Any]) -> dict[str, Any]:
         "retiredAt": _iso(row.get("retired_at")),
         "favorite": bool(row.get("favorite")),
         "notes": row.get("notes") or "",
+        "metadata": dict(row.get("metadata") or {}),
         "tags": row.get("tags") or [],
         "location": row.get("location") or "",
         "rack": row.get("rack") or "",
@@ -373,6 +377,83 @@ def _row_to_asset(row: dict[str, Any]) -> dict[str, Any]:
         "businessService": row.get("business_service") or "",
         "siteId": row.get("site_id") or "",
     }
+
+
+def find_registered_blockchain_runtimes(
+    provider_id: str,
+) -> list[dict[str, Any]]:
+    provider_id = _text(provider_id)
+    if not provider_id:
+        raise ValueError("provider_id is required.")
+
+    with get_connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    asset_id,
+                    asset_type,
+                    metadata
+                FROM nexus.assets
+                WHERE asset_type = 'blockchain-node'
+                  AND metadata->>'providerId' = %s
+                  AND COALESCE(metadata->>'appId', '') <> ''
+                ORDER BY asset_id
+                """,
+                (provider_id,),
+            )
+            rows = cursor.fetchall()
+
+    return [
+        {
+            "assetId": str(row["asset_id"]),
+            "assetType": str(row["asset_type"]),
+            "metadata": dict(row.get("metadata") or {}),
+        }
+        for row in rows
+    ]
+
+
+def merge_asset_metadata(
+    asset_id: str,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    asset_id = _text(asset_id)
+    if not asset_id:
+        raise ValueError("asset_id is required.")
+
+    if not isinstance(metadata, dict) or not metadata:
+        raise ValueError("metadata patch must be a non-empty dictionary.")
+
+    with transaction() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE nexus.assets
+                SET
+                    metadata =
+                        COALESCE(metadata, '{}'::jsonb)
+                        || %s,
+                    updated_at = NOW()
+                WHERE asset_id = %s
+                RETURNING asset_id, metadata, updated_at
+                """,
+                (
+                    Jsonb(metadata),
+                    asset_id,
+                ),
+            )
+            row = cursor.fetchone()
+
+    if not row:
+        raise KeyError(f"Asset not found: {asset_id}")
+
+    return {
+        "assetId": str(row["asset_id"]),
+        "metadata": dict(row.get("metadata") or {}),
+        "updatedAt": _iso(row.get("updated_at")),
+    }
+
 
 def get_asset(asset_id: str) -> dict[str, Any] | None:
     with get_connection() as connection:

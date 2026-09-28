@@ -4,10 +4,14 @@ from decimal import Decimal
 from pathlib import Path as FilePath
 from uuid import UUID
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from backend.services.deployment_authority_management_service import (
+    DeploymentAuthorityManagementService,
+)
 import json
 import os
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from backend.modules import system
 from backend.modules import blockchain
@@ -129,6 +133,133 @@ from backend.api import seymour_registration_routes
 from backend.api import seymour_telemetry_routes
 
 class NexusHandler(BaseHTTPRequestHandler):
+
+    def _deployment_authority_json_body(self):
+        try:
+            length = int(
+                self.headers.get(
+                    "Content-Length",
+                    "0",
+                )
+                or "0"
+            )
+        except (TypeError, ValueError):
+            raise ValueError(
+                "Invalid Content-Length."
+            )
+
+        if length <= 0:
+            raise ValueError(
+                "JSON request body is required."
+            )
+
+        try:
+            payload = json.loads(
+                self.rfile.read(length).decode("utf-8")
+            )
+        except (
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ) as exc:
+            raise ValueError(
+                "Invalid JSON request body."
+            ) from exc
+
+        if not isinstance(payload, dict):
+            raise ValueError(
+                "JSON request body must be an object."
+            )
+
+        return payload
+
+    def _deployment_authority_require_keys(
+        self,
+        payload,
+        *,
+        required,
+        allowed,
+    ):
+        keys = set(payload)
+
+        unknown = sorted(
+            keys - set(allowed)
+        )
+
+        if unknown:
+            raise ValueError(
+                "Unexpected request field(s): "
+                + ", ".join(unknown)
+            )
+
+        missing = sorted(
+            key
+            for key in required
+            if not str(
+                payload.get(key) or ""
+            ).strip()
+        )
+
+        if missing:
+            raise ValueError(
+                "Missing required request field(s): "
+                + ", ".join(missing)
+            )
+
+    def _deployment_authority_optional_bool(
+        self,
+        payload,
+        key,
+        *,
+        default=False,
+    ):
+        if key not in payload:
+            return bool(default)
+
+        value = payload.get(key)
+
+        if not isinstance(value, bool):
+            raise ValueError(
+                f"{key} must be a boolean."
+            )
+
+        return value
+
+    def _deployment_authority_send_json(
+        self,
+        status,
+        payload,
+    ):
+        encoded = json.dumps(
+            payload,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+
+        self.send_response(status)
+        self.send_header(
+            "Content-Type",
+            "application/json",
+        )
+        self.send_header(
+            "Content-Length",
+            str(len(encoded)),
+        )
+        self.end_headers()
+        self.wfile.write(encoded)
+
+    def _deployment_authority_error(
+        self,
+        status,
+        message,
+    ):
+        self._deployment_authority_send_json(
+            status,
+            {
+                "status": "error",
+                "error": str(message),
+            },
+        )
+
     def _send_json(self, payload, status=200):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -173,6 +304,75 @@ class NexusHandler(BaseHTTPRequestHandler):
             self._send_json(payload, status)
 
     def do_GET(self):
+        parsed = urlparse(self.path)
+
+        if (
+            parsed.path
+            == "/api/platform/deployment-authority/storage-candidates"
+        ):
+            query = parse_qs(
+                parsed.query,
+                keep_blank_values=True,
+            )
+
+            allowed = {"targetAssetId"}
+
+            unknown = sorted(
+                set(query) - allowed
+            )
+
+            if unknown:
+                self._deployment_authority_error(
+                    400,
+                    "Unexpected query parameter(s): "
+                    + ", ".join(unknown),
+                )
+                return
+
+            target_asset_id = str(
+                (
+                    query.get(
+                        "targetAssetId",
+                        [""],
+                    )
+                    or [""]
+                )[0]
+                or ""
+            ).strip()
+
+            if not target_asset_id:
+                self._deployment_authority_error(
+                    400,
+                    "targetAssetId is required.",
+                )
+                return
+
+            try:
+                result = (
+                    DeploymentAuthorityManagementService()
+                    .list_storage_candidates(
+                        asset_id=target_asset_id,
+                    )
+                )
+            except ValueError as exc:
+                self._deployment_authority_error(
+                    400,
+                    exc,
+                )
+                return
+            except Exception:
+                self._deployment_authority_error(
+                    500,
+                    "Deployment authority request failed.",
+                )
+                return
+
+            self._deployment_authority_send_json(
+                200,
+                result,
+            )
+            return
+
         if nexus_peer_routes.handle_get(self):
             return
 
@@ -869,6 +1069,147 @@ class NexusHandler(BaseHTTPRequestHandler):
         return self._send_json(payload, status)
 
     def do_POST(self):
+        parsed = urlparse(self.path)
+
+        if (
+            parsed.path
+            == "/api/platform/deployment-authority/platform"
+        ):
+            try:
+                payload = (
+                    self._deployment_authority_json_body()
+                )
+
+                self._deployment_authority_require_keys(
+                    payload,
+                    required={
+                        "targetAssetId",
+                        "platformId",
+                        "actorId",
+                    },
+                    allowed={
+                        "targetAssetId",
+                        "platformId",
+                        "actorId",
+                        "execute",
+                    },
+                )
+
+                result = (
+                    DeploymentAuthorityManagementService()
+                    .classify_deployment_platform(
+                        asset_id=str(
+                            payload["targetAssetId"]
+                        ).strip(),
+                        platform_id=str(
+                            payload["platformId"]
+                        ).strip(),
+                        actor_id=str(
+                            payload["actorId"]
+                        ).strip(),
+                        execute=(
+                            self
+                            ._deployment_authority_optional_bool(
+                                payload,
+                                "execute",
+                                default=False,
+                            )
+                        ),
+                    )
+                )
+            except ValueError as exc:
+                self._deployment_authority_error(
+                    400,
+                    exc,
+                )
+                return
+            except Exception:
+                self._deployment_authority_error(
+                    500,
+                    "Deployment authority request failed.",
+                )
+                return
+
+            self._deployment_authority_send_json(
+                200,
+                result,
+            )
+            return
+
+        if (
+            parsed.path
+            == "/api/platform/deployment-authority/storage"
+        ):
+            try:
+                payload = (
+                    self._deployment_authority_json_body()
+                )
+
+                self._deployment_authority_require_keys(
+                    payload,
+                    required={
+                        "targetAssetId",
+                        "storageAssetId",
+                        "actorId",
+                    },
+                    allowed={
+                        "targetAssetId",
+                        "storageAssetId",
+                        "actorId",
+                        "approved",
+                        "execute",
+                    },
+                )
+
+                result = (
+                    DeploymentAuthorityManagementService()
+                    .enroll_storage(
+                        asset_id=str(
+                            payload["targetAssetId"]
+                        ).strip(),
+                        storage_asset_id=str(
+                            payload["storageAssetId"]
+                        ).strip(),
+                        actor_id=str(
+                            payload["actorId"]
+                        ).strip(),
+                        approved=(
+                            self
+                            ._deployment_authority_optional_bool(
+                                payload,
+                                "approved",
+                                default=False,
+                            )
+                        ),
+                        execute=(
+                            self
+                            ._deployment_authority_optional_bool(
+                                payload,
+                                "execute",
+                                default=False,
+                            )
+                        ),
+                    )
+                )
+            except ValueError as exc:
+                self._deployment_authority_error(
+                    400,
+                    exc,
+                )
+                return
+            except Exception:
+                self._deployment_authority_error(
+                    500,
+                    "Deployment authority request failed.",
+                )
+                return
+
+            self._deployment_authority_send_json(
+                200,
+                result,
+            )
+            return
+
         if seymour_registration_routes.handle_post(self):
             return
 

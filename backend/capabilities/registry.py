@@ -8,6 +8,51 @@ from backend.capabilities.models import CapabilityDefinition
 _SERVICE_RE = re.compile(r"^[A-Za-z0-9_.@-]{1,128}$")
 _JOURNAL_LINES_RE = re.compile(r"^[1-9][0-9]{0,3}$")
 
+_PROVIDER_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+_STORAGE_TARGET_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+
+
+def _required_parameter(
+    params: dict[str, Any],
+    name: str,
+    pattern: re.Pattern[str],
+) -> str:
+    value = str(params.get(name) or "").strip()
+    if not pattern.fullmatch(value):
+        raise ValueError(f"Invalid or missing {name}")
+    return value
+
+
+def validate_blockchain_install_parameters(
+    params: dict[str, Any],
+) -> None:
+    allowed = {"providerId", "storageTargetId"}
+    unknown = set(params) - allowed
+    if unknown:
+        raise ValueError(
+            "Unsupported parameters for blockchain.install: "
+            f"{sorted(unknown)}"
+        )
+
+    _required_parameter(
+        params,
+        "providerId",
+        _PROVIDER_ID_RE,
+    )
+    _required_parameter(
+        params,
+        "storageTargetId",
+        _STORAGE_TARGET_ID_RE,
+    )
+
+
+def _blockchain_install(params: dict[str, Any]) -> list[str]:
+    validate_blockchain_install_parameters(params)
+
+    raise ValueError(
+        "blockchain.install execution adapter is not enabled"
+    )
+
 
 def _none(_: dict[str, Any]) -> list[str]:
     return []
@@ -130,6 +175,7 @@ class CapabilityRegistry:
         self.register(CapabilityDefinition("service.status", "Read a systemd service state.", "low", False, 20, _service_status, allowed_parameters=frozenset({"service"})))
         self.register(CapabilityDefinition("service.restart", "Restart an allow-listed systemd service and verify its state.", "high", True, 90, _service_restart, verify_argv=_service_status, allowed_parameters=frozenset({"service"})))
         self.register(CapabilityDefinition("service.journal", "Collect a bounded systemd journal excerpt.", "low", False, 30, _journal, allowed_parameters=frozenset({"service", "lines"})))
+        self.register(CapabilityDefinition("blockchain.install", "Install a supported blockchain runtime through the target host lifecycle adapter.", "high", True, 900, _blockchain_install, allowed_parameters=frozenset({"providerId", "storageTargetId"})))
 
 
 _registry = CapabilityRegistry()

@@ -5,9 +5,26 @@ import socket
 from typing import Any
 
 from backend.capabilities.registry import get_capability_registry
+from backend.core.operation_execution_control import (
+    OperationCancellationRequested,
+    OperationLeaseLost,
+)
 from backend.db.repositories import change_execution_repository as repo
+from backend.services.blockchain_change_execution_adapter import (
+    BlockchainChangeExecutionAdapter,
+)
+from backend.services.blockchain_change_execution_dispatch_service import (
+    BlockchainChangeExecutionDispatchService,
+)
 from backend.transports.registry import get_transport_registry
 from backend.transports.target_resolver import resolve_target
+from backend.services.blockchain_runtime_authority_projection_service import BlockchainRuntimeAuthorityProjectionService
+
+
+def _blockchain_install_dispatch():
+    return BlockchainChangeExecutionDispatchService(
+        adapter_factory=BlockchainChangeExecutionAdapter,
+    )
 
 
 def _target_input(operation):
@@ -28,6 +45,45 @@ def execute_operation(operation, worker_id: str):
     attempt_id = repo.start_attempt(change, operation, worker_id)
     result = {}
     try:
+        if operation.get("action_name") == "blockchain.install":
+            dispatch = _blockchain_install_dispatch()
+
+            deployment_result = dispatch.execute(
+                operation,
+                change,
+                worker_id,
+            )
+
+            result = dispatch.result_data(
+                deployment_result
+            )
+
+            if not deployment_result.ok:
+                raise RuntimeError(
+                    deployment_result.error
+                    or "Blockchain deployment failed"
+                )
+
+            BlockchainRuntimeAuthorityProjectionService().project(
+                provider_id=deployment_result.provider_id,
+                target_asset_id=deployment_result.target_asset_id,
+                storage_target_id=deployment_result.storage_target_id,
+            )
+
+            repo.finish_success(
+                attempt_id,
+                operation,
+                change,
+                result,
+                worker_id,
+            )
+
+            return {
+                "status": "succeeded",
+                "operationId": operation["operation_id"],
+                "result": result,
+            }
+
         registry = get_capability_registry()
         capability = registry.resolve(operation["action_name"])
         run, parameters = _target_input(operation)
@@ -62,11 +118,67 @@ def execute_operation(operation, worker_id: str):
             if not verify_obj.ok:
                 raise RuntimeError("Post-action verification failed")
 
-        repo.finish_success(attempt_id, operation, change, result)
+        repo.finish_success(
+            attempt_id,
+            operation,
+            change,
+            result,
+            worker_id,
+        )
         return {"status":"succeeded","operationId":operation["operation_id"],"result":result}
+    except OperationCancellationRequested as exc:
+        try:
+            repo.finish_cancelled(
+                attempt_id,
+                operation,
+                change,
+                worker_id,
+                str(exc),
+            )
+        except OperationLeaseLost:
+            return {
+                "status": "lease-lost",
+                "operationId": operation["operation_id"],
+                "result": result,
+            }
+
+        return {
+            "status": "cancelled",
+            "operationId": operation["operation_id"],
+            "message": str(exc),
+            "result": result,
+        }
+
+    except OperationLeaseLost:
+        return {
+            "status": "lease-lost",
+            "operationId": operation["operation_id"],
+            "result": result,
+        }
+
     except Exception as exc:
-        repo.finish_failure(attempt_id, operation, change, str(exc), result)
-        return {"status":"failed","operationId":operation["operation_id"],"error":str(exc),"result":result}
+        try:
+            repo.finish_failure(
+                attempt_id,
+                operation,
+                change,
+                str(exc),
+                result,
+                worker_id,
+            )
+        except OperationLeaseLost:
+            return {
+                "status": "lease-lost",
+                "operationId": operation["operation_id"],
+                "result": result,
+            }
+
+        return {
+            "status": "failed",
+            "operationId": operation["operation_id"],
+            "error": str(exc),
+            "result": result,
+        }
 
 
 def run_once(worker_id: str):

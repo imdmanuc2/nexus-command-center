@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "releaseId": "seymour-blockchain-runtime-1.0.0",
+  "runtimeVersion": "1.0.0",
+  "sourceRevision": "850ceec68411aa219585e82f45f8a144609d70bc",
+  "bootstrap": {
+    "artifactId": "seymour-bootstrap-1.0.0.tar.gz",
+    "file": "seymour-bootstrap-1.0.0.tar.gz",
+    "sha256": "b0cb3473ecc48e2153f97f163af1f7a6f6014c4a1e83a7559309c742b18a4024",
+    "artifactVersion": "1.0.0"
+  },
+  "runtime": {
+    "artifactId": "seymour-runtime-1.0.0.tar.gz",
+    "file": "seymour-runtime-1.0.0.tar.gz",
+    "sha256": "a7e54254d8b89dc70a9a84ce88750e0e18500e3b2ef36287c12c246b3c7ede26",
+    "payloadManifestSha256": "3fa83dd180c1cc5271f07e2190ef28141c869dca477c0aa3017bb4b7362d1a13"
+  }
+}

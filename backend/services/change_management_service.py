@@ -3,7 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from backend.db.repositories import change_management_repository as repo
-from backend.services import service_impact_service, service_maintenance_service
+from backend.services import (
+    blockchain_management_service,
+    service_impact_service,
+    service_maintenance_service,
+)
 
 
 def _one(query, key, default=""):
@@ -82,7 +86,43 @@ def _maintenance_for(data):
     return {"required":bool(data.get("maintenanceRequired",False)),"window":get_window(window_id)}
 
 
+def _validate_creation_contract(data: dict[str, Any]) -> None:
+    capability = str(data.get("capability") or "").strip()
+    if capability != "blockchain.install":
+        return
+
+    parameters = data.get("parameters")
+    if not isinstance(parameters, dict):
+        raise ValueError(
+            "blockchain.install parameters are required"
+        )
+
+    provider_id = str(
+        parameters.get("providerId") or ""
+    ).strip()
+
+    provider = blockchain_management_service._provider(
+        provider_id
+    )
+
+    if str(provider.get("availability") or "") != "live":
+        raise ValueError(
+            f"Blockchain provider is not live: {provider_id}"
+        )
+
+    if provider.get("selectable") is not True:
+        raise ValueError(
+            f"Blockchain provider is not selectable: {provider_id}"
+        )
+
+    if provider.get("enabled", True) is not True:
+        raise ValueError(
+            f"Blockchain provider is not enabled: {provider_id}"
+        )
+
+
 def create(data: dict[str, Any]):
+    _validate_creation_contract(data)
     impact = _impact_for(data)
     maintenance = _maintenance_for(data)
     change = repo.create_change(data, impact, maintenance)

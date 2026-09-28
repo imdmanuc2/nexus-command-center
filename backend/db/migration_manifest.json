@@ -192,6 +192,22 @@
     {
       "version": "048",
       "file": "048_nexus_peer_enrollment_idempotency.sql"
+    },
+    {
+      "version": "049",
+      "file": "049_cmdb_deployment_platform.sql"
+    },
+    {
+      "version": "050",
+      "file": "050_operations_queue_cancellation_compatibility.sql"
+    },
+    {
+      "version": "051",
+      "file": "051_operations_queue_confirmation_compatibility.sql"
+    },
+    {
+      "version": "052",
+      "file": "052_change_steps_failure_message_compatibility.sql"
     }
   ]
 }

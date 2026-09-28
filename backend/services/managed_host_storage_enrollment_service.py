@@ -275,6 +275,28 @@ def _is_bind_subpath_source(
     )
 
 
+def _base_local_source(
+    source: str,
+) -> str:
+    """Return the backing local filesystem source.
+
+    findmnt may expose the same local filesystem through namespace or
+    bind-subpath views such as:
+
+        /dev/sda6[/state/default/persist/data]
+
+    Those views must retain their mount-path evidence while reconciling
+    to the single backing source /dev/sda6.
+    """
+
+    source = _text(source)
+
+    if _is_bind_subpath_source(source):
+        return source.split("[", 1)[0]
+
+    return source
+
+
 def _preferred_mount_path(
     paths: list[str],
 ) -> str:
@@ -356,13 +378,11 @@ def storage_candidates_from_discovery(
         filesystem = _filesystem(mount)
         network = _is_network_mount(mount)
 
-        # Local findmnt bind/subpath views are evidence about an existing
-        # filesystem, not independent storage resources.
-        if (
-            not network
-            and _is_bind_subpath_source(source)
-        ):
-            continue
+        # Local findmnt bind/subpath views describe alternate mount
+        # views of the same backing filesystem. Preserve the mount as
+        # evidence, but normalize identity to the backing block source.
+        if not network:
+            source = _base_local_source(source)
 
         if network:
             identity_key = (
