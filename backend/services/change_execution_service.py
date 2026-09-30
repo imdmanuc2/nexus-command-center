@@ -64,12 +64,6 @@ def execute_operation(operation, worker_id: str):
                     or "Blockchain deployment failed"
                 )
 
-            BlockchainRuntimeAuthorityProjectionService().project(
-                provider_id=deployment_result.provider_id,
-                target_asset_id=deployment_result.target_asset_id,
-                storage_target_id=deployment_result.storage_target_id,
-            )
-
             repo.finish_success(
                 attempt_id,
                 operation,
@@ -77,6 +71,15 @@ def execute_operation(operation, worker_id: str):
                 result,
                 worker_id,
             )
+
+            try:
+                BlockchainRuntimeAuthorityProjectionService().project(
+                    provider_id=deployment_result.provider_id,
+                    target_asset_id=deployment_result.target_asset_id,
+                    storage_target_id=deployment_result.storage_target_id,
+                )
+            except Exception:
+                pass
 
             return {
                 "status": "succeeded",

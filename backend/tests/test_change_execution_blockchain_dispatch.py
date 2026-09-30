@@ -205,6 +205,175 @@ class ChangeExecutionBlockchainDispatchTests(
             "change-approver",
         )
 
+    def test_projection_failure_after_durable_success_remains_succeeded(
+        self,
+    ):
+        operation = self.operation()
+        change = self.change()
+
+        dispatch = _Dispatch(
+            self.deployment_result()
+        )
+
+        events = []
+
+        def finish_success_side_effect(
+            *args,
+            **kwargs,
+        ):
+            events.append("finish_success")
+
+        def projection_side_effect(
+            *args,
+            **kwargs,
+        ):
+            events.append("projection")
+            raise RuntimeError(
+                "forced authority projection failure"
+            )
+
+        with (
+            patch.object(
+                service.repo,
+                "find_change_for_operation",
+                return_value=change,
+            ),
+            patch.object(
+                service.repo,
+                "start_attempt",
+                return_value="attempt-blockchain-1",
+            ),
+            patch.object(
+                service,
+                "_blockchain_install_dispatch",
+                return_value=dispatch,
+            ),
+            patch.object(
+                service,
+                "get_capability_registry",
+            ) as generic_registry,
+            patch.object(
+                service.repo,
+                "finish_success",
+                side_effect=finish_success_side_effect,
+            ) as finish_success,
+            patch.object(
+                service.repo,
+                "finish_failure",
+            ) as finish_failure,
+            patch.object(
+                service.repo,
+                "finish_cancelled",
+            ) as finish_cancelled,
+            patch.object(
+                service,
+                "BlockchainRuntimeAuthorityProjectionService",
+            ) as projection_service,
+        ):
+            projection_service.return_value.project.side_effect = (
+                projection_side_effect
+            )
+
+            result = service.execute_operation(
+                operation,
+                "worker-blockchain-1",
+            )
+
+        self.assertEqual(
+            result["status"],
+            "succeeded",
+        )
+        self.assertNotIn(
+            "error",
+            result,
+        )
+
+        self.assertEqual(
+            events,
+            [
+                "finish_success",
+                "projection",
+            ],
+        )
+
+        generic_registry.assert_not_called()
+        finish_success.assert_called_once()
+        finish_failure.assert_not_called()
+        finish_cancelled.assert_not_called()
+
+        projection_service.return_value.project.assert_called_once_with(
+            provider_id="bitcoin-mainnet",
+            target_asset_id="asset-managed-1",
+            storage_target_id="storage-main",
+        )
+
+    def test_finish_success_lease_loss_blocks_projection(
+        self,
+    ):
+        operation = self.operation()
+        change = self.change()
+
+        dispatch = _Dispatch(
+            self.deployment_result()
+        )
+
+        with (
+            patch.object(
+                service.repo,
+                "find_change_for_operation",
+                return_value=change,
+            ),
+            patch.object(
+                service.repo,
+                "start_attempt",
+                return_value="attempt-blockchain-1",
+            ),
+            patch.object(
+                service,
+                "_blockchain_install_dispatch",
+                return_value=dispatch,
+            ),
+            patch.object(
+                service,
+                "get_capability_registry",
+            ) as generic_registry,
+            patch.object(
+                service.repo,
+                "finish_success",
+                side_effect=OperationLeaseLost(
+                    "Operation lease ownership was lost"
+                ),
+            ) as finish_success,
+            patch.object(
+                service.repo,
+                "finish_failure",
+            ) as finish_failure,
+            patch.object(
+                service.repo,
+                "finish_cancelled",
+            ) as finish_cancelled,
+            patch.object(
+                service,
+                "BlockchainRuntimeAuthorityProjectionService",
+            ) as projection_service,
+        ):
+            result = service.execute_operation(
+                operation,
+                "worker-blockchain-1",
+            )
+
+        self.assertEqual(
+            result["status"],
+            "lease-lost",
+        )
+
+        generic_registry.assert_not_called()
+        finish_success.assert_called_once()
+        finish_failure.assert_not_called()
+        finish_cancelled.assert_not_called()
+
+        projection_service.assert_not_called()
+
     def test_failed_deployment_uses_normal_failure_finalizer(
         self,
     ):

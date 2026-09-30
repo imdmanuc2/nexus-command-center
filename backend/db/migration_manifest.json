@@ -208,6 +208,10 @@
     {
       "version": "052",
       "file": "052_change_steps_failure_message_compatibility.sql"
+    },
+    {
+      "version": "053",
+      "file": "053_blockchain_runtime_authority_reconciliation_state.sql"
     }
   ]
 }

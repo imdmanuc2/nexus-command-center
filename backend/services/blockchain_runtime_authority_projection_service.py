@@ -153,6 +153,17 @@ class BlockchainRuntimeAuthorityProjectionService:
             "storageAssetId": storage_target_id,
         }
 
+        if all(
+            _text(metadata.get(key)) == expected
+            for key, expected in patch.items()
+        ):
+            return RuntimeAuthorityProjection(
+                runtime_asset_id=runtime_id,
+                provider_id=provider_id,
+                host_asset_id=target_asset_id,
+                storage_asset_id=storage_target_id,
+            )
+
         updated = self._metadata_merger(
             runtime_id,
             patch,

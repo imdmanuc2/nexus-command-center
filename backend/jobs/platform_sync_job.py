@@ -21,6 +21,7 @@ from backend.services.automation_engine_service import process_queued_automation
 from backend.services.timeline_service import build_timeline
 from backend.services.operations_center_service import build_operations_center
 from backend.services.worker_activity_reconciliation_service import reconcile_worker_activity
+from backend.services.blockchain_runtime_authority_reconciliation_service import BlockchainRuntimeAuthorityReconciliationService
 from backend.services.topology_reconciliation_service import reconcile_live_topology
 from backend.services.seymour_pool_sync_service import synchronize_seymour_pool_engine
 from backend.services.operational_state_engine import reconcile_operational_state
@@ -217,6 +218,10 @@ def run_once(
         dry_run=dry_run,
     )
 
+    blockchain_authority = (
+        BlockchainRuntimeAuthorityReconciliationService()
+        .reconcile()
+    )
     worker_activity = reconcile_worker_activity()
     operational_state = reconcile_operational_state()
     topology_reconciliation = reconcile_live_topology()
@@ -248,6 +253,7 @@ def run_once(
         ),
         "resourcePersistence": resources,
         "seymourPoolEngine": seymour,
+        "blockchainAuthorityReconciliation": blockchain_authority,
         "workerActivityReconciliation": worker_activity,
         "operationalStateEngine": operational_state,
         "topologyReconciliation": topology_reconciliation,

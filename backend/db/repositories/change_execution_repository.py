@@ -850,3 +850,118 @@ def checkpoint_operation(
                 )
 
             return dict(updated)
+
+
+def list_successful_blockchain_install_results(
+    limit: int = 100,
+    *,
+    after_completed_at=None,
+    after_operation_id: str | None = None,
+    include_null_completed_at: bool = False,
+):
+    """Return bounded durable successful blockchain.install results.
+
+    These rows are execution evidence only. Callers must replay the
+    persisted result through the canonical authority projection service;
+    they must never re-execute the operation or target lifecycle.
+
+    Dated rows are traversed newest-first using the stable composite
+    (completed_at, operation_id) key. Legacy rows without completed_at
+    are traversed separately by operation_id so they cannot be skipped
+    or pin dated pagination.
+    """
+    limit = int(limit)
+
+    if limit < 1:
+        raise ValueError("limit must be positive")
+
+    limit = min(limit, 500)
+
+    if include_null_completed_at:
+        if after_completed_at is not None:
+            raise ValueError(
+                "after_completed_at is invalid for NULL completed_at phase"
+            )
+    else:
+        if (
+            after_completed_at is None
+            and after_operation_id is not None
+        ):
+            raise ValueError(
+                "after_operation_id requires after_completed_at"
+            )
+
+        if (
+            after_completed_at is not None
+            and not after_operation_id
+        ):
+            raise ValueError(
+                "after_completed_at requires after_operation_id"
+            )
+
+    if not queue_available():
+        return []
+
+    where = [
+        "action_name = 'blockchain.install'",
+        "status = 'succeeded'",
+        "jsonb_typeof(result_data) = 'object'",
+        "result_data <> '{}'::jsonb",
+        "BTRIM(operation_id) <> ''",
+    ]
+
+    params = []
+
+    if include_null_completed_at:
+        where.append("completed_at IS NULL")
+
+        if after_operation_id:
+            where.append("operation_id < %s")
+            params.append(after_operation_id)
+
+        order_by = "operation_id DESC"
+    else:
+        where.append("completed_at IS NOT NULL")
+
+        if after_completed_at is not None:
+            where.append(
+                "(completed_at, operation_id) < (%s, %s)"
+            )
+            params.extend(
+                [
+                    after_completed_at,
+                    after_operation_id,
+                ]
+            )
+
+        order_by = "completed_at DESC, operation_id DESC"
+
+    params.append(limit)
+
+    sql = f"""
+        SELECT
+            operation_id,
+            action_name,
+            target_id,
+            asset_id,
+            correlation_id,
+            confirmed_by,
+            result_data,
+            completed_at
+        FROM nexus.operation_queue
+        WHERE {' AND '.join(where)}
+        ORDER BY {order_by}
+        LIMIT %s
+    """
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                sql,
+                tuple(params),
+            )
+
+            return [
+                dict(row)
+                for row in cur.fetchall()
+            ]

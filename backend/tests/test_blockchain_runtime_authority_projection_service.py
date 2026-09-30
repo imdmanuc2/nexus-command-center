@@ -158,6 +158,7 @@ class ProjectionTests(unittest.TestCase):
         )
 
         self.assertEqual(first, second)
+        self.assertEqual(store.writes, [])
 
     def test_conflicting_host_fails_closed(self):
         store = Store([

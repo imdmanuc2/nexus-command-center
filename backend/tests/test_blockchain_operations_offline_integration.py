@@ -848,6 +848,13 @@ class BlockchainOperationsOfflineIntegrationTests(
                     "capabilities": [
                         "blockchain-storage",
                     ],
+                    "observedState": {
+                        "storage": {
+                            "source": "/dev/sda6",
+                            "filesystem": "ext4",
+                            "mountPath": "/private/not-public",
+                        }
+                    },
                 },
             }
         )
